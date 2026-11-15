@@ -503,3 +503,41 @@ html.desktop .toast { bottom: 120px; }
   .toast { bottom: 130px !important; }
   body::before { display: none; }
 }
+
+/* ===== desktop polish: wide window, centred content column ===== */
+@media (min-width: 760px) {
+  body { padding: 24px !important; }
+  #app {
+    width: min(760px, 100% - 48px) !important;
+    height: min(900px, calc(100vh - 48px)) !important;
+    border-radius: 26px !important;
+    border-color: rgba(255,255,255,.10) !important;
+    box-shadow: 0 30px 90px rgba(0,0,0,.55) !important;
+    padding-bottom: 108px !important;
+  }
+  #app > .top,
+  #app > .page { max-width: 560px; margin-left: auto; margin-right: auto; }
+  .top { border-bottom: 0 !important; background: transparent !important; backdrop-filter: none !important; padding-top: 22px !important; }
+  .page { padding: 6px 8px 8px !important; }
+  .dock-wrap {
+    width: min(560px, 100% - 64px) !important;
+    bottom: calc(max(24px, (100vh - min(900px, calc(100vh - 48px))) / 2 + 18px)) !important;
+  }
+  .dock { width: 100% !important; justify-content: space-between !important; padding: 8px 14px !important; }
+  .dbtn { width: auto !important; padding: 0 22px !important; flex-direction: row !important; gap: 8px !important; font-size: 13px !important; }
+  .dbtn svg { width: 20px; height: 20px; }
+  .ob { width: min(760px, 100% - 48px) !important; height: min(900px, calc(100vh - 48px)) !important; border-radius: 26px !important; }
+  h1.display.sm { font-size: 34px !important; }
+  .dial { width: 210px !important; height: 210px !important; }
+  .info { display: grid; grid-template-columns: 1fr 1fr; }
+  .info-row { border-right: .5px solid var(--line); }
+  .info-row:nth-child(2n) { border-right: 0; }
+  .blocks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .block-body { font-size: 13px; }
+  .toast { bottom: 120px !important; }
+}
+@media (min-width: 1200px) {
+  #app { width: min(820px, 100% - 64px) !important; }
+  #app > .top, #app > .page { max-width: 620px; }
+  .dock-wrap { width: min(620px, 100% - 96px) !important; }
+}
