@@ -329,3 +329,61 @@ p.lead { margin: 0 0 16px; font-size: 15px; line-height: 1.4; color: var(--text-
   font-size: 11px; font-weight: 600; color: var(--text-2);
 }
 .chip2.bad { color: var(--red); border-color: color-mix(in srgb, var(--red) 35%, transparent); }
+/* ===== verdict badge (icon only) ===== */
+.vbadge { display: flex; justify-content: center; margin-top: 10px; }
+.vio {
+  width: 40px; height: 40px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 18px; font-weight: 700;
+  border: .5px solid var(--line-2);
+}
+.vio.good { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.vio.mid { color: var(--yellow); background: color-mix(in srgb, var(--yellow) 14%, transparent); }
+.vio.bad { color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent); }
+
+/* ===== section head with help ===== */
+.sec-head { display: flex; align-items: center; margin-top: 20px; }
+.sec-head .eyebrow { margin: 0; }
+.help {
+  margin-left: auto; width: 26px; height: 26px; border-radius: 50%;
+  border: .5px solid var(--line-2); background: transparent; color: var(--text-3);
+  font: inherit; font-size: 13px; font-weight: 700;
+}
+.help:active { background: var(--card-2); }
+
+/* ===== modal ===== */
+.modal {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(0,0,0,.55); backdrop-filter: blur(6px);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: fadeIn .2s ease both;
+}
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+.modal-card {
+  width: 100%; max-width: 560px; max-height: 78vh; overflow: auto;
+  background: var(--card); border-radius: 26px 26px 0 0;
+  border: .5px solid var(--line-2);
+  padding: 18px 18px calc(24px + env(safe-area-inset-bottom));
+  animation: slideUp .28s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes slideUp { from { transform: translateY(30px); opacity: .6 } to { transform: none; opacity: 1 } }
+.modal-head { display: flex; align-items: center; margin-bottom: 12px; }
+.modal-head b { font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
+.modal-x { margin-left: auto; width: 32px; height: 32px; border-radius: 50%; border: 0; background: var(--card-2); color: var(--text); font-size: 14px; }
+.help-row { padding: 12px 0; border-bottom: .5px solid var(--line); }
+.help-row:last-child { border-bottom: 0; }
+.help-row b { display: block; font-size: 15px; font-weight: 600; margin-bottom: 3px; }
+.help-row span { font-size: 13px; color: var(--text-2); line-height: 1.4; }
+
+/* ===== holders collapse ===== */
+.holders { margin-top: 18px; }
+.holders summary {
+  list-style: none; cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 0; font-size: 11px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--text-3);
+}
+.holders summary::-webkit-details-marker { display: none; }
+.holders summary i { font-style: normal; color: var(--text-2); }
+.holders summary::after { content: '+'; margin-left: auto; font-size: 16px; color: var(--text-3); }
+.holders[open] summary::after { content: '–'; }
