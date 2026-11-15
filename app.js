@@ -3,6 +3,9 @@
   'use strict';
 
   const TG = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+  const PLATFORM = (TG && TG.platform) || (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.platform) || 'web';
+  const IS_DESKTOP = /tdesktop|macos|web|win/i.test(PLATFORM);
+
   const K = {
     ob: 'tc.onboard.v1', saved: 'tc.saved.v1', stats: 'tc.stats.v1',
     theme: 'tc.theme.v1', lang: 'tc.lang.v1'
@@ -593,16 +596,18 @@
 
   /* ---------------- boot ---------------- */
   S.lang = detectLang();
+  if (IS_DESKTOP) document.documentElement.classList.add('desktop');
   if (TG) {
     try {
       TG.ready();
-      TG.expand();
-      if (TG.requestFullscreen) TG.requestFullscreen();
-      if (TG.lockOrientation) TG.lockOrientation();
-      if (TG.disableVerticalSwipes) TG.disableVerticalSwipes();
+      if (!IS_DESKTOP) {
+        TG.expand();
+        if (TG.requestFullscreen) TG.requestFullscreen();
+        if (TG.lockOrientation) TG.lockOrientation();
+        if (TG.disableVerticalSwipes) TG.disableVerticalSwipes();
+      }
       if (TG.setHeaderColor) TG.setHeaderColor('#000000');
       if (TG.setBottomBarColor) TG.setBottomBarColor('#000000');
-      if (TG.enableClosingConfirmation) { /* no-op: keep swipe close */ }
     } catch (e) {}
     try {
       const onFs = () => document.documentElement.style.setProperty('--fs', TG.isFullscreen ? '1' : '0');
@@ -612,7 +617,7 @@
     } catch (e) {}
   }
   function ensureFullscreen() {
-    if (!TG) return;
+    if (!TG || IS_DESKTOP) return;
     try { if (!TG.isFullscreen && TG.requestFullscreen) TG.requestFullscreen(); } catch (e) {}
     try { if (TG.expand) TG.expand(); } catch (e) {}
   }
