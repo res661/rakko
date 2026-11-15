@@ -301,6 +301,18 @@
     list: '<svg viewBox="0 0 120 120" fill="none"><rect x="24" y="24" width="72" height="16" rx="8" stroke="currentColor" stroke-width="3"/><rect x="24" y="52" width="72" height="16" rx="8" stroke="currentColor" stroke-width="3"/><rect x="24" y="80" width="44" height="16" rx="8" stroke="currentColor" stroke-width="3"/></svg>'
   };
 
+
+  const BICON = {
+    liq: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3.5 4.2 6 7.2 6 10a6 6 0 1 1-12 0c0-2.8 2.5-5.8 6-10z"/></svg>',
+    holders: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 6.5a3 3 0 0 1 0 5.6"/><path d="M17.5 20a5 5 0 0 0-2-4"/></svg>',
+    dev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8 4 12l4 4M16 8l4 4-4 4"/><path d="M13 5l-2 14"/></svg>',
+    contract: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>',
+    activity: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 4 5-8 4 5"/></svg>',
+    age: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+    price: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l5-5 3 3 7-7"/><path d="M15 7h4v4"/></svg>',
+    links: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a4 4 0 0 0 5.7 0l2.3-2.3a4 4 0 1 0-5.7-5.7L11 6.3"/><path d="M14 11a4 4 0 0 0-5.7 0L6 13.3a4 4 0 1 0 5.7 5.7L13 17.7"/></svg>'
+  };
+
   const ICON_CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
   const ICON_EMPTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5 12 4l8 3.5v9L12 20l-8-3.5z"/><path d="M4 7.5 12 11l8-3.5M12 11v9"/></svg>';
 
@@ -310,22 +322,15 @@
     if (score >= 40) return { cls: 'mid', label: t('mid') };
     return { cls: 'bad', label: t('bad') };
   }
-  function dial(score) {
-    const v = verdict(score);
-    const color = v.cls === 'good' ? 'var(--green)' : v.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
-    const r = 96, c = 2 * Math.PI * r, off = c * (1 - score / 100);
-    return '<div class="score-view"><div class="dial" style="color:' + color + '">' +
-      '<svg width="230" height="230" viewBox="0 0 230 230">' +
-      '<circle class="trk" cx="115" cy="115" r="' + r + '" fill="none" stroke-width="10"/>' +
-      '<circle class="bar" cx="115" cy="115" r="' + r + '" fill="none" stroke-width="10" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + c.toFixed(1) + '" data-to="' + off.toFixed(1) + '"/>' +
-      '</svg><div class="mid"><b>' + score + '</b><span>' + t('of100') + '</span></div></div>' +
-      '<div class="verdict ' + v.cls + '">' + v.label + '</div></div>';
-  }
-
-  function verdictLabel(score) {
-    if (score >= 70) return { txt: t('vCan'), cls: 'good' };
-    if (score >= 40) return { txt: t('vRisk'), cls: 'mid' };
-    return { txt: t('vNo'), cls: 'bad' };
+  function gauge(score) {
+    const vv = verdict(score);
+    const col = vv.cls === 'good' ? 'var(--green)' : vv.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
+    const R = 92, C = Math.PI * R;
+    const off = C * (1 - score / 100);
+    return '<div class="gauge" style="color:' + col + '">' +
+      '<svg viewBox="0 0 220 130"><path d="M18 118a92 92 0 0 1 184 0" fill="none" stroke="var(--card-2)" stroke-width="12" stroke-linecap="round"/>' +
+      '<path class="gbar" d="M18 118a92 92 0 0 1 184 0" fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + C.toFixed(1) + '" data-to="' + off.toFixed(1) + '"/></svg>' +
+      '<div class="gauge-mid"><b>' + score + '</b><span>' + t('of100') + '</span><em class="' + vv.cls + '">' + esc(vv.label) + '</em></div></div>';
   }
 
   /* ---------------- views ---------------- */
@@ -413,11 +418,16 @@
       }
 
       // checks blocks
-      out += '<div class="sec-head"><p class="eyebrow">' + esc(t('checksK')) + '</p><button class="help" id="help">?</button></div><div class="blocks">' + S.result.blocks.map((x, bi) => {
+      out += '<div class="sec-head"><p class="eyebrow">' + esc(t('checksK')) + '</p><button class="help" id="help">?</button></div>';
+      out += '<div class="cats">' + S.result.blocks.map((x, bi) => {
         const c = x.s >= 0.7 ? 'var(--green)' : x.s >= 0.4 ? 'var(--yellow)' : 'var(--red)';
-        return '<div class="block" style="--i:' + bi + '"><button class="block-head"><span class="dot" style="background:' + c + '"></span><span>' + esc(t(x.k)) + '</span><span class="val" style="color:' + c + '">' + Math.round(x.s * 100) + '</span>' + ICON_CHEV + '</button><div class="block-body"><div class="bar" style="color:' + c + '"><i style="width:' + Math.round(x.s * 100) + '%"></i></div>' + esc(x.info) + '</div></div>';
+        return '<button class="cat" data-bi="' + bi + '" style="--c:' + c + '">' +
+          '<span class="cat-ico" style="color:' + c + ';background:color-mix(in srgb,' + c + ' 16%, transparent)">' + (BICON[x.k] || '') + '</span>' +
+          '<span class="cat-t">' + esc(t(x.k)) + '</span>' +
+          '<span class="cat-v">' + Math.round(x.s * 100) + '<i>%</i></span>' +
+          '<span class="cat-s">' + esc(x.info) + '</span></button>';
       }).join('') + '</div>';
-
+      out += '<div id="block-detail"></div>';
       // top holders
       if (tk.top && tk.top.length) {
         out += '<details class="holders"><summary>' + esc(S.lang === 'ru' ? 'Топ держателей' : 'Top holders') + ' <i>' + tk.top.length + '</i></summary><div class="risk-list">' + tk.top.map((h) => '<div class="risk"><span class="dot" style="background:var(--text-3)"></span><span><b>' + esc(h.pct.toFixed(2)) + '%</b><span class="tiny">' + esc(h.addr ? h.addr.slice(0, 6) + '…' + h.addr.slice(-4) : '—') + '</span></span></div>').join('') + '</div></details>';
@@ -584,6 +594,25 @@
     ]
   };
 
+  function showBlock(i) {
+    const b = S.result && S.result.blocks[i];
+    if (!b) return;
+    const help = (HELP[S.lang] || HELP.ru).find(function (h) { return h[0] === t(b.k); });
+    const c = b.s >= 0.7 ? 'var(--green)' : b.s >= 0.4 ? 'var(--yellow)' : 'var(--red)';
+    const wrap = document.createElement('div');
+    wrap.className = 'modal';
+    wrap.innerHTML = '<div class="modal-card"><div class="modal-head"><span class="cat-ico" style="color:' + c + ';background:color-mix(in srgb,' + c + ' 16%, transparent)">' + (BICON[b.k] || '') + '</span><b style="margin-left:10px">' + esc(t(b.k)) + '</b><button class="modal-x" id="mx">✕</button></div>' +
+      '<div class="modal-body"><div class="mb-score" style="color:' + c + '">' + Math.round(b.s * 100) + '<i>%</i></div>' +
+      '<div class="bar" style="color:' + c + '"><i style="width:' + Math.round(b.s * 100) + '%"></i></div>' +
+      '<p class="small muted">' + esc(b.info) + '</p>' +
+      (help ? '<p class="small">' + esc(help[1]) + '</p>' : '') + '</div></div>';
+    document.body.appendChild(wrap);
+    const close = function () { wrap.remove(); };
+    wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
+    wrap.querySelector('#mx').onclick = close;
+    haptic();
+  }
+
   function showHelp() {
     const rows = (HELP[S.lang] || HELP.ru).map(function (r) {
       return '<div class="help-row"><b>' + esc(r[0]) + '</b><span>' + esc(r[1]) + '</span></div>';
@@ -714,6 +743,9 @@
     if ($('#lang')) $('#lang').onclick = () => { S.lang = S.lang === 'ru' ? 'en' : 'ru'; write(K.lang, S.lang); render(); };
     if ($('#clear')) $('#clear').onclick = () => { S.saved = []; write(K.saved, []); render(); toast(t('cleared')); };
     if ($('#help')) $('#help').onclick = showHelp;
+    document.querySelectorAll('.cat').forEach(function (el) {
+      el.onclick = function () { showBlock(+el.dataset.bi); };
+    });
     if (S.result) loadSimilar(S.result.token);
   }
 
