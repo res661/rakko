@@ -683,3 +683,9 @@ p.lead { margin: 0 0 16px; font-size: 15px; line-height: 1.4; color: var(--text-
 .dscan::before { display: none; }
 .dscan:active { transform: scale(.93); }
 .dscan svg { width: 22px; height: 22px; }
+
+/* ===== app-like: no zoom / no bounce ===== */
+html, body { touch-action: pan-y; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { overscroll-behavior: none; -webkit-user-select: none; user-select: none; }
+input, textarea { -webkit-user-select: text; user-select: text; }
+#app, .page, .dock, .modal-card { touch-action: pan-y; }
