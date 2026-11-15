@@ -736,3 +736,22 @@ input, textarea { -webkit-user-select: text; user-select: text; }
 .cat-ico svg { width: 18px; height: 18px; stroke-width: 1.7; }
 .help { width: 28px; height: 28px; font-size: 13px; }
 .modal-x { width: 32px; height: 32px; font-size: 14px; }
+
+/* ===== collapsible info table ===== */
+.info-toggle {
+  width: 100%; height: 48px; border: 0; background: transparent;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 15px; color: var(--text-3);
+  font: inherit; font-size: 13px; font-weight: 600;
+  border-top: .5px solid var(--line);
+  transition: color .15s, background .15s;
+}
+.info-toggle:active { background: rgba(255,255,255,.04); color: var(--text); }
+.info-toggle svg { width: 16px; height: 16px; margin-left: auto; transition: transform .22s cubic-bezier(.22,1,.36,1); }
+.info-toggle.open svg { transform: rotate(180deg); }
+.info-extra {
+  max-height: 0; overflow: hidden; opacity: 0;
+  transition: max-height .26s cubic-bezier(.22,1,.36,1), opacity .2s ease;
+}
+.info-extra.open { max-height: 900px; opacity: 1; }
+.info-extra .info-row:first-child { border-top: .5px solid var(--line); }
