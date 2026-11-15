@@ -322,6 +322,12 @@
     if (score >= 40) return { cls: 'mid', label: t('mid') };
     return { cls: 'bad', label: t('bad') };
   }
+  function verdictLabel(score) {
+    if (score >= 70) return { txt: t('vCan'), cls: 'good' };
+    if (score >= 40) return { txt: t('vRisk'), cls: 'mid' };
+    return { txt: t('vNo'), cls: 'bad' };
+  }
+
   function gauge(score) {
     const vv = verdict(score);
     const col = vv.cls === 'good' ? 'var(--green)' : vv.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
@@ -480,7 +486,7 @@
 
     return top(t('result')) +
       '<div class="page">' +
-      dial(r.score) +
+      gauge(r.score) +
       (function () { var v = verdictLabel(r.score); return '<div class="verdict-bar"><span class="k">' + esc(t('verdictK')) + '</span><b class="' + v.cls + '" style="color:var(--' + (v.cls === 'good' ? 'green' : v.cls === 'mid' ? 'yellow' : 'red') + ')">' + esc(v.txt) + '</b></div>'; })() +
       '<div class="token-line" style="text-align:center"><b>' + esc(tk.symbol) + '</b>' + (tk.name ? ' · ' + esc(tk.name) : '') + '</div>' +
 
