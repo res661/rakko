@@ -735,59 +735,90 @@
   }
 
   function blockArt(k, c) {
-    if (k === 'liq') return '<svg viewBox="0 0 120 60" fill="none"><rect x="6" y="8" width="108" height="10" rx="5" fill="var(--card-2)"/><rect x="6" y="8" width="64" height="10" rx="5" fill="' + c + '" opacity=".8"/><rect x="6" y="26" width="108" height="10" rx="5" fill="var(--card-2)"/><rect x="6" y="26" width="34" height="10" rx="5" fill="' + c + '" opacity=".55"/><rect x="6" y="44" width="108" height="10" rx="5" fill="var(--card-2)"/><rect x="6" y="44" width="86" height="10" rx="5" fill="' + c + '" opacity=".35"/></svg>';
-    if (k === 'holders') return '<svg viewBox="0 0 120 60" fill="none"><circle cx="26" cy="30" r="12" stroke="' + c + '" stroke-width="4"/><circle cx="60" cy="30" r="9" stroke="' + c + '" stroke-width="3" opacity=".7"/><circle cx="92" cy="30" r="6" stroke="' + c + '" stroke-width="3" opacity=".45"/></svg>';
-    if (k === 'dev') return '<svg viewBox="0 0 120 60" fill="none"><rect x="18" y="10" width="84" height="40" rx="8" stroke="' + c + '" stroke-width="3"/><path d="M44 26l-8 6 8 6M76 26l8 6-8 6" stroke="' + c + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    if (k === 'contract') return '<svg viewBox="0 0 120 60" fill="none"><rect x="38" y="8" width="44" height="44" rx="8" stroke="' + c + '" stroke-width="3"/><path d="M48 22h24M48 32h24M48 42h14" stroke="' + c + '" stroke-width="3" stroke-linecap="round"/></svg>';
-    if (k === 'activity') return '<svg viewBox="0 0 120 60" fill="none"><path d="M8 46l18-16 14 10 16-22 18 16 18-24" stroke="' + c + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    if (k === 'age') return '<svg viewBox="0 0 120 60" fill="none"><circle cx="60" cy="30" r="20" stroke="' + c + '" stroke-width="3"/><path d="M60 18v12l9 6" stroke="' + c + '" stroke-width="3" stroke-linecap="round"/></svg>';
-    if (k === 'price') return '<svg viewBox="0 0 120 60" fill="none"><path d="M8 20l20 14 16-10 20 16 22-22" stroke="' + c + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    return '<svg viewBox="0 0 120 60" fill="none"><circle cx="36" cy="30" r="13" stroke="' + c + '" stroke-width="3"/><circle cx="84" cy="30" r="13" stroke="' + c + '" stroke-width="3"/><path d="M49 30h22" stroke="' + c + '" stroke-width="3" stroke-linecap="round"/></svg>';
+    if (k === 'liq') return '<svg viewBox="0 0 240 140" fill="none"><rect x="16" y="22" width="208" height="18" rx="9" fill="rgba(255,255,255,.10)"/><rect x="16" y="22" width="130" height="18" rx="9" fill="' + c + '"/><rect x="16" y="60" width="208" height="18" rx="9" fill="rgba(255,255,255,.10)"/><rect x="16" y="60" width="74" height="18" rx="9" fill="' + c + '" opacity=".7"/><rect x="16" y="98" width="208" height="18" rx="9" fill="rgba(255,255,255,.10)"/><rect x="16" y="98" width="170" height="18" rx="9" fill="' + c + '" opacity=".45"/></svg>';
+    if (k === 'holders') return '<svg viewBox="0 0 240 140" fill="none"><circle cx="58" cy="70" r="30" stroke="' + c + '" stroke-width="9"/><circle cx="126" cy="70" r="22" stroke="' + c + '" stroke-width="8" opacity=".7"/><circle cx="184" cy="70" r="14" stroke="' + c + '" stroke-width="7" opacity=".45"/></svg>';
+    if (k === 'dev') return '<svg viewBox="0 0 240 140" fill="none"><rect x="38" y="12" width="164" height="116" rx="20" stroke="' + c + '" stroke-width="8"/><path d="M92 46l-20 24 20 24M148 46l20 24-20 24" stroke="' + c + '" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    if (k === 'contract') return '<svg viewBox="0 0 240 140" fill="none"><rect x="80" y="10" width="80" height="120" rx="16" stroke="' + c + '" stroke-width="8"/><path d="M100 44h40M100 70h40M100 96h24" stroke="' + c + '" stroke-width="8" stroke-linecap="round"/></svg>';
+    if (k === 'activity') return '<svg viewBox="0 0 240 140" fill="none"><path d="M18 112l38-38 28 20 34-56 34 40 34-62" stroke="' + c + '" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    if (k === 'age') return '<svg viewBox="0 0 240 140" fill="none"><circle cx="120" cy="70" r="48" stroke="' + c + '" stroke-width="9"/><path d="M120 40v30l22 14" stroke="' + c + '" stroke-width="9" stroke-linecap="round"/></svg>';
+    if (k === 'price') return '<svg viewBox="0 0 240 140" fill="none"><path d="M18 44l44 32 34-24 40 40 44-58" stroke="' + c + '" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><path d="M186 34h40v40" stroke="' + c + '" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    return '<svg viewBox="0 0 240 140" fill="none"><circle cx="78" cy="70" r="28" stroke="' + c + '" stroke-width="9"/><circle cx="162" cy="70" r="28" stroke="' + c + '" stroke-width="9"/><path d="M106 70h28" stroke="' + c + '" stroke-width="9" stroke-linecap="round"/></svg>';
+  }
+
+  function toneOf(block, fallback) {
+    if (!block) return fallback || 'var(--blue)';
+    return block.s >= 0.7 ? 'var(--green)' : block.s >= 0.4 ? 'var(--yellow)' : 'var(--red)';
+  }
+
+  function showExplainer(startIndex) {
+    const ru = S.lang === 'ru';
+    const helpList = HELP[S.lang] || HELP.ru;
+    const blocks = (S.result && S.result.blocks) || [];
+    const keys = ['liq', 'holders', 'dev', 'contract', 'activity', 'age', 'price', 'links'];
+    const titles = ru
+      ? { liq: 'Ликвидность', holders: 'Распределение', dev: 'Дев и бандлы', contract: 'Контракт', activity: 'Активность', age: 'Возраст', price: 'Цена за сутки', links: 'Ссылки' }
+      : { liq: 'Liquidity', holders: 'Distribution', dev: 'Dev & bundles', contract: 'Contract', activity: 'Activity', age: 'Age', price: '24h price', links: 'Links' };
+
+    const slides = keys.map(function (k) {
+      const b = blocks.find(function (x) { return x.k === k; });
+      const help = helpList.find(function (h) { return h[0] === t(k); }) || ['', ''];
+      const c = toneOf(b);
+      const p = b ? Math.round(b.s * 100) : null;
+      return { k: k, title: titles[k], text: help[1], color: c, pct: p, info: b ? b.info : '' };
+    });
+
+    let idx = Math.max(0, Math.min(slides.length - 1, startIndex || 0));
+
+    const wrap = document.createElement('div');
+    wrap.className = 'expl';
+    wrap.innerHTML = '<div class="expl-head">' +
+      '<button class="expl-x" id="bx">✕</button>' +
+      '<span class="expl-count" id="ec">' + (idx + 1) + ' / ' + slides.length + '</span>' +
+      '</div>' +
+      '<div class="expl-track" id="track">' + slides.map(function (s) {
+        return '<div class="expl-slide">' +
+          '<div class="expl-art" style="--ac:' + s.color + '"><div class="expl-glow"></div>' + blockArt(s.k, s.color) + '</div>' +
+          '<div class="expl-body"><h2>' + esc(s.title) + '</h2>' +
+          '<p>' + esc(s.text) + '</p>' +
+          (s.pct !== null ? '<div class="expl-score" style="color:' + s.color + '">' + s.pct + '%</div><div class="expl-info">' + esc(s.info) + '</div>' : '') +
+          '</div></div>';
+      }).join('') + '</div>' +
+      '<div class="expl-foot"><div class="expl-dots" id="dots">' + slides.map(function (_, i) { return '<i' + (i === idx ? ' class="on"' : '') + '></i>'; }).join('') + '</div>' +
+      '<div class="expl-btns"><button class="btn secondary" id="bprev">' + (ru ? 'Назад' : 'Back') + '</button>' +
+      '<button class="btn" id="bnext">' + (ru ? 'Дальше' : 'Next') + '</button></div></div>';
+
+    document.body.appendChild(wrap);
+    const track = wrap.querySelector('#track');
+    const dots = wrap.querySelectorAll('#dots i');
+    const counter = wrap.querySelector('#ec');
+    const bprev = wrap.querySelector('#bprev');
+    const bnext = wrap.querySelector('#bnext');
+
+    const go = function (i) {
+      idx = Math.max(0, Math.min(slides.length - 1, i));
+      track.scrollTo({ left: idx * track.clientWidth, behavior: 'smooth' });
+      sync();
+    };
+    const sync = function () {
+      dots.forEach(function (d, k) { d.classList.toggle('on', k === idx); });
+      counter.textContent = (idx + 1) + ' / ' + slides.length;
+      bprev.style.visibility = idx === 0 ? 'hidden' : 'visible';
+      bnext.textContent = idx === slides.length - 1 ? (ru ? 'Понятно' : 'Got it') : (ru ? 'Дальше' : 'Next');
+    };
+    track.addEventListener('scroll', function () {
+      const i = Math.round(track.scrollLeft / track.clientWidth);
+      if (i !== idx) { idx = i; sync(); }
+    });
+    bprev.onclick = function () { go(idx - 1); haptic(); };
+    bnext.onclick = function () { if (idx === slides.length - 1) { wrap.remove(); } else { go(idx + 1); haptic(); } };
+    wrap.querySelector('#bx').onclick = function () { wrap.remove(); };
+    sync();
+    requestAnimationFrame(function () { track.scrollLeft = idx * track.clientWidth; });
+    haptic();
   }
 
   function showBlock(i) {
-    const b = S.result && S.result.blocks[i];
-    if (!b) return;
-    const ru = S.lang === 'ru';
-    const help = (HELP[S.lang] || HELP.ru).find(function (h) { return h[0] === t(b.k); });
-    const c = b.s >= 0.7 ? 'var(--green)' : b.s >= 0.4 ? 'var(--yellow)' : 'var(--red)';
-    const p = Math.round(b.s * 100);
-    const verdictWord = p >= 70 ? (ru ? 'В норме' : 'Healthy') : p >= 40 ? (ru ? 'Средне' : 'Mixed') : (ru ? 'Плохо' : 'Poor');
-    const advice = p >= 70
-      ? (ru ? 'Блок в порядке — можно не заострять внимание.' : 'This block is fine.')
-      : p >= 40
-        ? (ru ? 'Есть риск. Проверь детали перед входом.' : 'Some risk. Check details before entering.')
-        : (ru ? 'Сильный минус. Это одна из главных причин не входить.' : 'Major negative. One of the key reasons to stay out.');
-
-    const wrap = document.createElement('div');
-    wrap.className = 'modal';
-    wrap.innerHTML = '<div class="modal-card sheet">' +
-      '<div class="modal-head"><span class="cat-ico" style="color:' + c + ';background:rgba(255,255,255,.06)">' + (BICON[b.k] || '') + '</span>' +
-      '<b style="margin-left:10px">' + esc(t(b.k)) + '</b><button class="modal-x" id="mx">✕</button></div>' +
-      '<div class="pager" id="pager">' +
-      // page 1: data
-      '<section class="pg"><div class="pg-score" style="color:' + c + '">' + p + '<i>%</i></div>' +
-      '<div class="pg-word" style="color:' + c + '">' + esc(verdictWord) + '</div>' +
-      '<div class="bar" style="color:' + c + '"><i style="width:' + p + '%"></i></div>' +
-      '<p class="small muted">' + esc(b.info) + '</p>' +
-      '<p class="tiny">' + esc(advice) + '</p></section>' +
-      // page 2: meaning + illustration
-      '<section class="pg"><div class="pg-art" style="color:' + c + '">' + blockArt(b.k, c) + '</div>' +
-      '<p class="small">' + esc(help ? help[1] : '') + '</p></section>' +
-      '</div>' +
-      '<div class="pager-dots"><i class="on"></i><i></i></div>' +
-      '</div>';
-    document.body.appendChild(wrap);
-    const pager = wrap.querySelector('#pager');
-    const dots = wrap.querySelectorAll('.pager-dots i');
-    pager.addEventListener('scroll', function () {
-      const idx = Math.round(pager.scrollLeft / pager.clientWidth);
-      dots.forEach(function (d, k) { d.classList.toggle('on', k === idx); });
-    });
-    const close = function () { wrap.remove(); };
-    wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
-    wrap.querySelector('#mx').onclick = close;
-    haptic();
+    showExplainer(i);
   }
 
   function showHelp() {
