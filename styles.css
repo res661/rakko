@@ -421,3 +421,39 @@ p.lead { margin: 0 0 16px; font-size: 15px; line-height: 1.4; color: var(--text-
 .tk-stats span { display: block; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); font-weight: 600; }
 .tk-stats b { display: block; margin-top: 3px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .tk-meta { margin-top: 12px; padding-top: 10px; border-top: .5px solid var(--line); font-size: 11px; color: var(--text-3); letter-spacing: .02em; }
+
+/* ===== spacing & flow ===== */
+.page { padding-top: 26px; padding-bottom: 12px; }
+.top { display: none; }
+#app { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
+
+/* ===== banner ===== */
+.banner {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px; margin-bottom: 20px;
+  border-radius: 20px; background: var(--card); border: .5px solid var(--line);
+}
+.banner-art { width: 52px; height: 52px; flex: none; color: var(--blue); }
+.banner-art svg { width: 100%; height: 100%; }
+.banner-txt b { display: block; font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+.banner-txt span { display: block; margin-top: 3px; font-size: 12px; color: var(--text-3); line-height: 1.35; }
+
+/* ===== legend ===== */
+.legend { display: grid; gap: 8px; margin-top: 18px; }
+.legend > div { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-2); }
+.lg { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.lg.good { background: var(--green); }
+.lg.mid { background: var(--yellow); }
+.lg.bad { background: var(--red); }
+
+/* ===== onboarding art ===== */
+.ob-ico { width: 56px; height: 56px; color: var(--blue); margin-bottom: 10px; }
+.ob-ico svg { width: 100%; height: 100%; }
+
+/* ===== dock spacing ===== */
+.dock { gap: 10px; padding: 8px 16px; }
+.dbtn { width: 78px; }
+.dscan { margin: 0 6px; }
+
+/* ===== info rows with help ===== */
+.info-row span:first-child { flex: 1; }
