@@ -278,9 +278,7 @@
   const ICON_CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
   const ICON_EMPTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5 12 4l8 3.5v9L12 20l-8-3.5z"/><path d="M4 7.5 12 11l8-3.5M12 11v9"/></svg>';
 
-  function top(title) {
-    return '<header class="top"><h1>' + esc(title) + '</h1><div class="spacer"></div></header>';
-  }
+  function top() { return ''; }
   function verdict(score) {
     if (score >= 70) return { cls: 'good', label: t('good') };
     if (score >= 40) return { cls: 'mid', label: t('mid') };
@@ -358,7 +356,7 @@
         '</div></div>';
 
       out += dial(S.result.score);
-      out += '<div class="verdict-bar"><span class="k">' + esc(t('verdictK')) + '</span><b style="color:' + colorOf(v.cls) + '">' + esc(v.txt) + '</b></div>';
+      out += '<div class="vbadge"><span class="vio ' + v.cls + '">' + (v.cls === 'good' ? '✓' : v.cls === 'mid' ? '!' : '✕') + '</span></div>';
       out += '<div class="token-line" style="text-align:center"><b>' + esc(tk.symbol) + '</b>' + (tk.name ? ' · ' + esc(tk.name) : '') + '</div>';
 
       // info grid
@@ -387,14 +385,14 @@
       }
 
       // checks blocks
-      out += '<p class="eyebrow" style="margin-top:18px">' + esc(t('checksK')) + '</p><div class="blocks">' + S.result.blocks.map((x, bi) => {
+      out += '<div class="sec-head"><p class="eyebrow">' + esc(t('checksK')) + '</p><button class="help" id="help">?</button></div><div class="blocks">' + S.result.blocks.map((x, bi) => {
         const c = x.s >= 0.7 ? 'var(--green)' : x.s >= 0.4 ? 'var(--yellow)' : 'var(--red)';
         return '<div class="block" style="--i:' + bi + '"><button class="block-head"><span class="dot" style="background:' + c + '"></span><span>' + esc(t(x.k)) + '</span><span class="val" style="color:' + c + '">' + Math.round(x.s * 100) + '</span>' + ICON_CHEV + '</button><div class="block-body"><div class="bar" style="color:' + c + '"><i style="width:' + Math.round(x.s * 100) + '%"></i></div>' + esc(x.info) + '</div></div>';
       }).join('') + '</div>';
 
       // top holders
       if (tk.top && tk.top.length) {
-        out += '<p class="eyebrow" style="margin-top:18px">TOP HOLDERS</p><div class="risk-list">' + tk.top.map((h) => '<div class="risk"><span class="dot" style="background:var(--text-3)"></span><span><b>' + esc(h.pct.toFixed(2)) + '%</b><span class="tiny">' + esc(h.addr ? h.addr.slice(0, 6) + '…' + h.addr.slice(-4) : '—') + '</span></span></div>').join('') + '</div>';
+        out += '<details class="holders"><summary>' + esc(S.lang === 'ru' ? 'Топ держателей' : 'Top holders') + ' <i>' + tk.top.length + '</i></summary><div class="risk-list">' + tk.top.map((h) => '<div class="risk"><span class="dot" style="background:var(--text-3)"></span><span><b>' + esc(h.pct.toFixed(2)) + '%</b><span class="tiny">' + esc(h.addr ? h.addr.slice(0, 6) + '…' + h.addr.slice(-4) : '—') + '</span></span></div>').join('') + '</div></details>';
       }
 
       // links
@@ -404,6 +402,8 @@
       }
 
       // actions
+      if (S.result.blocks.length < 8) out += '<p class="tiny" style="margin-top:16px">' + esc(S.lang === 'ru' ? 'Часть данных недоступна — оценка по ' + S.result.blocks.length + ' из 8 блоков.' : 'Some data unavailable — scored on ' + S.result.blocks.length + ' of 8 blocks.') + '</p>';
+      out += '<div id="similar"></div>';
       out += '<div style="height:20px"></div><div class="row"><button class="btn" id="save">' + esc(t('save')) + '</button>' + (tk.url ? '<button class="btn secondary" id="open">Dex</button>' : '') + '</div>';
       out += '<p class="tiny" style="margin-top:14px">' + esc(tk.mint) + '</p>';
       out += '<p class="tiny">' + esc(t('about')) + '</p></div>';
@@ -521,6 +521,69 @@
     paint();
   }
 
+  const HELP = {
+    ru: [
+      ['Ликвидность', 'Сколько денег в пуле. Мало ликвидности — нельзя продать без огромного слиппеджа.'],
+      ['Распределение', 'Сколько монет у крупных кошельков. Если топ-10 держат больше 50% — они могут обрушить цену.'],
+      ['Дев и бандлы', 'Риски из Rugcheck: связанные кошельки, бандлы, прошлые запуски создателя.'],
+      ['Контракт', 'Отозваны ли права на минт и заморозку. Если нет — создатель может печатать токены или блокировать продажи.'],
+      ['Активность', 'Объём торгов против ликвидности. Слишком мало — мёртвая монета, слишком много за минуту — манипуляция.'],
+      ['Возраст', 'Сколько живёт пара. Совсем новая — выше риск, старая — больше истории.'],
+      ['Цена за 24ч', 'Сильное падение — возможен дамп; сильный рост — риск войти на пике.'],
+      ['Ссылки', 'Сайт и соцсети. Их отсутствие — красный флаг.']
+    ],
+    en: [
+      ['Liquidity', 'How much money is in the pool. Low liquidity means you cannot exit without huge slippage.'],
+      ['Distribution', 'How much top wallets hold. If top-10 hold over 50%, they can crash the price.'],
+      ['Dev & bundles', 'Rugcheck risks: linked wallets, bundles, creator history.'],
+      ['Contract', 'Whether mint and freeze authorities are revoked. If not, the dev can mint or block sells.'],
+      ['Activity', 'Volume vs liquidity. Too low — dead token; too high in a minute — manipulation.'],
+      ['Age', 'How long the pair has existed. Very new — higher risk, older — more history.'],
+      ['24h price', 'A deep drop may be a dump; a huge pump is a risk of buying the top.'],
+      ['Links', 'Website and socials. Missing links are a red flag.']
+    ]
+  };
+
+  function showHelp() {
+    const rows = (HELP[S.lang] || HELP.ru).map(function (r) {
+      return '<div class="help-row"><b>' + esc(r[0]) + '</b><span>' + esc(r[1]) + '</span></div>';
+    }).join('');
+    const wrap = document.createElement('div');
+    wrap.className = 'modal';
+    wrap.innerHTML = '<div class="modal-card"><div class="modal-head"><b>' + esc(S.lang === 'ru' ? 'Что значит каждый блок' : 'What each block means') + '</b><button class="modal-x" id="mx">✕</button></div><div class="modal-body">' + rows + '</div></div>';
+    document.body.appendChild(wrap);
+    const close = function () { wrap.remove(); };
+    wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
+    wrap.querySelector('#mx').onclick = close;
+    haptic();
+  }
+
+  async function loadSimilar(tk) {
+    const slot = document.getElementById('similar');
+    if (!slot || !tk || !tk.symbol) return;
+    try {
+      const res = await getJson('https://api.dexscreener.com/latest/dex/search?q=' + encodeURIComponent(tk.symbol), 6000);
+      const pairs = (res && res.pairs) || [];
+      const seen = {};
+      const list = pairs
+        .filter((p) => p.baseToken && String(p.baseToken.symbol || '').toUpperCase() === tk.symbol.toUpperCase())
+        .filter((p) => {
+          const id = p.baseToken.address;
+          if (!id || id === tk.mint || seen[id]) return false;
+          seen[id] = 1; return true;
+        })
+        .sort((x, y) => (Number(y.liquidity && y.liquidity.usd) || 0) - (Number(x.liquidity && x.liquidity.usd) || 0))
+        .slice(0, 4);
+      if (!list.length) return;
+      slot.innerHTML = '<p class="eyebrow" style="margin-top:18px">' + esc(S.lang === 'ru' ? 'Похожие тикеры' : 'Similar tickers') + '</p><div class="list">' + list.map(function (p, i) {
+        return '<button class="item" style="--i:' + i + '" data-mint="' + esc(p.baseToken.address) + '"><span class="ava">' + esc(String(p.baseToken.symbol || '').slice(0, 2)) + '</span><span class="meta"><b>' + esc(p.baseToken.symbol) + '</b><span>' + usd(p.liquidity && p.liquidity.usd) + ' · ' + esc(p.dexId || '') + '</span></span></button>';
+      }).join('') + '</div>';
+      slot.querySelectorAll('.item').forEach(function (it) {
+        it.onclick = function () { S.lastMint = it.dataset.mint; S.result = null; render(); setTimeout(runCheck, 80); };
+      });
+    } catch (e) {}
+  }
+
   /* ---------------- render ---------------- */
   function render() {
     applyTheme();
@@ -609,6 +672,8 @@
     };
     if ($('#lang')) $('#lang').onclick = () => { S.lang = S.lang === 'ru' ? 'en' : 'ru'; write(K.lang, S.lang); render(); };
     if ($('#clear')) $('#clear').onclick = () => { S.saved = []; write(K.saved, []); render(); toast(t('cleared')); };
+    if ($('#help')) $('#help').onclick = showHelp;
+    if (S.result) loadSimilar(S.result.token);
   }
 
   async function runCheck() {
