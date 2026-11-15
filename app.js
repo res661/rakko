@@ -457,7 +457,22 @@
   /* ---------------- boot ---------------- */
   S.lang = detectLang();
   if (TG) {
-    try { TG.ready(); TG.expand(); TG.setHeaderColor('#000000'); TG.disableVerticalSwipes && TG.disableVerticalSwipes(); } catch (e) {}
+    try {
+      TG.ready();
+      TG.expand();
+      if (TG.requestFullscreen) TG.requestFullscreen();
+      if (TG.lockOrientation) TG.lockOrientation();
+      if (TG.disableVerticalSwipes) TG.disableVerticalSwipes();
+      if (TG.setHeaderColor) TG.setHeaderColor('#000000');
+      if (TG.setBottomBarColor) TG.setBottomBarColor('#000000');
+      if (TG.enableClosingConfirmation) { /* no-op: keep swipe close */ }
+    } catch (e) {}
+    try {
+      const onFs = () => document.documentElement.style.setProperty('--fs', TG.isFullscreen ? '1' : '0');
+      if (TG.onEvent) TG.onEvent('fullscreenChanged', onFs);
+      if (TG.onEvent) TG.onEvent('viewportChanged', () => { if (TG.expand) TG.expand(); });
+      onFs();
+    } catch (e) {}
   }
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-tab]');
