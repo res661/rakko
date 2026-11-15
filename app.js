@@ -837,12 +837,27 @@
       const input = $('#mint');
       if (S.lastMint) input.value = S.lastMint;
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') runCheck(); });
-      const tryPaste = async () => {
+      const tgClipboard = () => new Promise((resolve) => {
+        if (!TG || typeof TG.readTextFromClipboard !== 'function') return resolve('');
         try {
-          const txt = await navigator.clipboard.readText();
-          if (txt && txt.trim()) { input.value = txt.trim(); haptic(); return true; }
-        } catch (e) {}
-        return false;
+          TG.readTextFromClipboard(function (text) { resolve(String(text || '')); });
+        } catch (e) { resolve(''); }
+      });
+
+      const tryPaste = async () => {
+        // 1) Telegram native clipboard (no permission prompt)
+        let txt = await tgClipboard();
+        // 2) browser clipboard
+        if (!txt) {
+          try { txt = await navigator.clipboard.readText(); } catch (e) {}
+        }
+        txt = String(txt || '').trim();
+        if (!txt) return false;
+        input.value = txt;
+        haptic();
+        // auto-run the check right away when it looks like a Solana address
+        if (isAddr(txt)) setTimeout(runCheck, 120);
+        return true;
       };
       $('#paste').onclick = async () => {
         if (await tryPaste()) return;
@@ -957,6 +972,30 @@
     if (e.touches && e.touches.length > 1) e.preventDefault();
   }, { passive: false });
   document.addEventListener('dblclick', function (e) { e.preventDefault(); }, { passive: false });
+
+  // autoClip
+  setTimeout(async function () {
+    try {
+      if (S.result || S.lastMint) return;
+      let txt = '';
+      if (TG && typeof TG.readTextFromClipboard === 'function') {
+        txt = await new Promise(function (res) { try { TG.readTextFromClipboard(function (t2) { res(String(t2 || '')); }); } catch (e) { res(''); } });
+      }
+      txt = String(txt || '').trim();
+      if (!isAddr(txt)) return;
+      const inp = document.getElementById('mint');
+      if (!inp) return;
+      inp.value = txt;
+      S.lastMint = txt;
+      const ph = document.querySelector('.paste-hint');
+      if (ph) ph.remove();
+      const hint = document.createElement('div');
+      hint.className = 'paste-hint';
+      hint.innerHTML = (S.lang === 'ru' ? 'Адрес из буфера: <b>' + txt.slice(0, 6) + '…' + ' Нажми «Проверить».' : 'Clipboard address detected — tap Check.');
+      inp.parentElement.insertAdjacentElement('afterend', hint);
+      setTimeout(function () { hint.remove(); }, 6000);
+    } catch (e) {}
+  }, 400);
 
   render();
 })();
