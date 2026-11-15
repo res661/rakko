@@ -541,3 +541,68 @@ html.desktop .toast { bottom: 120px; }
   #app > .top, #app > .page { max-width: 620px; }
   .dock-wrap { width: min(620px, 100% - 96px) !important; }
 }
+
+/* ================= FINAL: no fake phone frame ================= */
+html.desktop body,
+html[class] body {
+  display: block !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  padding: 0 !important;
+  background: var(--bg) !important;
+  overflow: auto !important;
+}
+html.desktop body::before, body::before { display: none !important; }
+html.desktop #app,
+html[class] #app {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  min-height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 0 calc(112px + env(safe-area-inset-bottom)) 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  background: var(--bg) !important;
+}
+html.desktop .top, html.desktop > #app > .page { max-width: none !important; }
+html.desktop .dock-wrap,
+html[class] .dock-wrap {
+  position: fixed !important;
+  left: 0 !important; right: 0 !important;
+  transform: none !important;
+  width: auto !important; max-width: none !important;
+  margin: 0 !important;
+  bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+}
+html.desktop .ob,
+html[class] .ob {
+  position: fixed !important;
+  inset: 0 !important;
+  width: auto !important; height: auto !important;
+  min-height: 100vh !important;
+  left: 0 !important; top: 0 !important;
+  transform: none !important;
+  border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+}
+html.desktop .toast, html[class] .toast { bottom: calc(112px + env(safe-area-inset-bottom)) !important; }
+
+/* wide screens: comfortable reading column, still no frame */
+@media (min-width: 760px) {
+  #app { max-width: 900px !important; margin: 0 auto !important; }
+  #app > .top, #app > .page { max-width: 660px !important; margin-left: auto !important; margin-right: auto !important; }
+  .top { border-bottom: 0 !important; background: transparent !important; backdrop-filter: none !important; padding-top: 22px !important; }
+  .page { padding: 6px 8px 8px !important; }
+  .dock-wrap { width: min(560px, calc(100% - 48px)) !important; margin: 0 auto !important; left: 50% !important; right: auto !important; transform: translateX(-50%) !important; }
+  .dock { width: 100% !important; justify-content: space-between !important; padding: 8px 14px !important; }
+  .dbtn { width: auto !important; padding: 0 22px !important; flex-direction: row !important; gap: 8px !important; font-size: 13px !important; }
+  .dbtn svg { width: 20px; height: 20px; }
+  .info { display: grid !important; grid-template-columns: 1fr 1fr; }
+  .info-row:nth-child(2n) { border-right: 0; }
+  .blocks { grid-template-columns: 1fr 1fr; }
+  h1.display.sm { font-size: 34px !important; }
+  .dial { width: 210px !important; height: 210px !important; }
+  .toast { bottom: 110px !important; }
+}
