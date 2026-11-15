@@ -3,46 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b0b0d">
-<title>Rakko — проба мемкоина</title>
+<meta name="theme-color" content="#000000">
+<title>Token check</title>
 <link rel="stylesheet" href="styles.css">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
 <div id="app"></div>
 
-<!-- onboarding -->
-<template id="tpl-onboard">
-  <div class="onboard">
-    <div class="onboard-art">
-      <div class="mascot" id="ob-mascot">🦝</div>
-      <div class="ob-ring"><span>?</span></div>
-    </div>
-    <div class="onboard-body">
-      <div class="ob-dots" id="ob-dots"></div>
-      <h1 id="ob-title"></h1>
-      <p id="ob-text"></p>
-    </div>
-    <div class="onboard-foot">
-      <button class="btn primary" id="ob-next">Дальше</button>
-      <button class="btn ghost" id="ob-skip">Пропустить</button>
-    </div>
-  </div>
-</template>
-
-<footer class="dock" id="dock">
-  <button class="dock-btn" data-tab="saved" aria-label="Сохранённые">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12a1 1 0 0 1 1 1v15l-7-4-7 4V5a1 1 0 0 1 1-1z"/></svg>
-    <span>Сохранённые</span>
-  </button>
-  <button class="dock-scan" data-tab="scan" aria-label="Сканировать">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
-  </button>
-  <button class="dock-btn" data-tab="profile" aria-label="Профиль">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>
-    <span>Профиль</span>
-  </button>
-</footer>
+<div class="dock-wrap" id="dock">
+  <nav class="dock">
+    <button class="dbtn" data-tab="saved" aria-label="Saved">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4.5h12a.5.5 0 0 1 .5.5v15L12 16l-6.5 4V5a.5.5 0 0 1 .5-.5z"/></svg>
+      <span data-label="saved">Список</span>
+    </button>
+    <button class="dscan" data-tab="scan" aria-label="Check">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+    </button>
+    <button class="dbtn" data-tab="profile" aria-label="Profile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/></svg>
+      <span data-label="profile">Профиль</span>
+    </button>
+  </nav>
+</div>
 
 <script src="app.js"></script>
 </body>
