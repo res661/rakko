@@ -482,7 +482,16 @@
         ['Buy / Sell tax', tk.gp ? ((tk.gp.buyTax || '0') + '% / ' + (tk.gp.sellTax || '0') + '%') : '—', ''],
         ['Reserve (GT)', tk.gtReserve ? usd(tk.gtReserve) : '—', '']
       ];
-      out += '<div class="info">' + rows.map((r) => '<div class="info-row"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + (r[2] ? ' <i style="color:' + (String(r[2]).startsWith('-') ? 'var(--red)' : 'var(--green)') + '">' + esc(r[2]) + '</i>' : '') + '</b></div>').join('') + '</div>';
+      const rowHtml = (r) => '<div class="info-row"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + (r[2] ? ' <i style="color:' + (String(r[2]).startsWith('-') ? 'var(--red)' : 'var(--green)') + '">' + esc(r[2]) + '</i>' : '') + '</b></div>';
+      const primary = rows.slice(0, 4);
+      const extra = rows.slice(4);
+      out += '<div class="info">' + primary.map(rowHtml).join('');
+      if (extra.length) {
+        out += '<button class="info-toggle" id="infoMore"><span>' + esc(S.lang === 'ru' ? 'Ещё ' + extra.length + ' показателей' : extra.length + ' more metrics') + '</span>' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>' +
+          '<div class="info-extra" id="infoExtra">' + extra.map(rowHtml).join('') + '</div>';
+      }
+      out += '</div>';
 
       // risks from rugcheck
       if (tk.risks && tk.risks.length) {
@@ -890,6 +899,13 @@
     });
     if ($('#lang')) $('#lang').onclick = () => { S.lang = S.lang === 'ru' ? 'en' : 'ru'; write(K.lang, S.lang); render(); };
     if ($('#clear')) $('#clear').onclick = () => { S.saved = []; write(K.saved, []); render(); toast(t('cleared')); };
+    const more = $('#infoMore');
+    if (more) more.onclick = function () {
+      const box = $('#infoExtra');
+      const open = box.classList.toggle('open');
+      more.classList.toggle('open', open);
+      haptic();
+    };
     if ($('#help')) $('#help').onclick = showHelp;
     if ($('#how')) $('#how').onclick = showHow;
     document.querySelectorAll('.cat').forEach(function (el) {
