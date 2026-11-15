@@ -395,12 +395,10 @@
 
     let out = top(t('checkTab')) + '<div class="page">';
     out += '<h1 class="display sm">' + esc(t('pasteTitle')) + '</h1>';
-    out += '<p class="lead" style="margin-bottom:14px">' + esc(t('pasteSub')) + '</p>';
     out += '<div class="field"><input id="mint" placeholder="' + esc(t('ph')) + '" autocomplete="off" spellcheck="false"><button class="icon-pill" id="paste">' + esc(t('paste')) + '</button></div>';
     out += '<div style="height:12px"></div>';
     out += '<button class="btn" id="go"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? '<span class="spinner"></span>' : esc(S.result ? t('again') : t('check'))) + '</button>';
     if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
-    if (!S.result) out += '<div class="legend"><div><span class="lg good"></span>' + esc(S.lang === 'ru' ? '70–100 — чисто' : '70–100 — clean') + '</div><div><span class="lg mid"></span>' + esc(S.lang === 'ru' ? '40–69 — рискованно' : '40–69 — risky') + '</div><div><span class="lg bad"></span>' + esc(S.lang === 'ru' ? '0–39 — опасно' : '0–39 — dangerous') + '</div></div>';
     if (S.busy) out += '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
 
     if (!S.result && S.saved.length) {
@@ -431,9 +429,9 @@
         '<div class="tk-bar"><i style="width:' + Math.round(S.result.score) + '%;background:' + scCol + '"></i></div>' +
         '<div class="tk-stats">' +
         '<div><span>MC</span><b>' + usd(tk.mc) + '</b></div>' +
-        '<div><span>' + esc(t('liqL')) + '</span><b>' + usd(tk.liq) + '</b></div>' +
-        '<div><span>' + esc(t('volL')) + '</span><b>' + usd(tk.vol) + '</b></div>' +
-        '<div><span>Age</span><b>' + esc(ageTxt) + '</b></div>' +
+        '<div><span>' + esc(S.lang === 'ru' ? 'Ликв.' : 'Liq') + '</span><b>' + usd(tk.liq) + '</b></div>' +
+        '<div><span>' + esc(S.lang === 'ru' ? 'Объём' : 'Vol') + '</span><b>' + usd(tk.vol) + '</b></div>' +
+        '<div><span>' + esc(S.lang === 'ru' ? 'Возраст' : 'Age') + '</span><b>' + esc(ageTxt) + '</b></div>' +
         '</div>' +
         '<div class="tk-links">' +
         (tk.url ? '<a class="tkl" href="' + esc(tk.url) + '" target="_blank" rel="noopener" aria-label="DEX"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18l6-6 4 3 6-8"/><path d="M16 7h4v4"/></svg></a>' : '') +
@@ -857,6 +855,8 @@
     }
     if ($('#go')) $('#go').onclick = runCheck;
     if ($('#save')) $('#save').onclick = () => {
+      const btn = $('#save');
+      if (btn) { btn.classList.add('saved'); btn.textContent = (S.lang === 'ru' ? 'Сохранено' : 'Saved'); }
       const r = S.result; if (!r) return;
       const item = { mint: r.token.mint, symbol: r.token.symbol, image: r.token.image, liq: r.token.liq, score: r.score, at: r.at };
       S.saved = [item].concat(S.saved.filter((x) => x.mint !== item.mint)).slice(0, 60);
