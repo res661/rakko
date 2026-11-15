@@ -178,7 +178,7 @@
     if (liq > 0) {
       let s = liq < 15000 ? 0.08 : liq < 40000 ? 0.35 : liq < 120000 ? 0.65 : liq < 400000 ? 0.88 : 1;
       const ratio = fdv > 0 ? liq / fdv : 0.1;
-      if (ratio < 0.03) s *= 0.65;
+      if (ratio < 0.03 && liq < 500000) s *= 0.65;
       b.push({ k: 'liq', w: 20, s, info: usd(liq) + (fdv ? ' · ' + Math.round(ratio * 100) + '% of FDV' : '') });
     }
 
@@ -186,7 +186,7 @@
     const totalH = Number(rug.totalHolders) || 0;
     if (holders.length || totalH) {
       const top10 = holders.slice(0, 10).reduce((a, h) => a + (Number(h.pct) || 0), 0);
-      let s = top10 > 80 ? 0.05 : top10 > 60 ? 0.25 : top10 > 45 ? 0.5 : top10 > 30 ? 0.75 : 0.9;
+      let s = top10 > 80 ? 0.05 : top10 > 60 ? 0.25 : top10 > 45 ? 0.55 : top10 > 30 ? 0.8 : 0.95;
       if (totalH && totalH < 100) s *= 0.5;
       if (totalH > 5000) s = Math.min(1, s * 1.08);
       b.push({ k: 'holders', w: 15, s: c01(s), info: (totalH ? num(totalH) + ' holders · ' : '') + 'top-10 ' + Math.round(top10) + '%' });
@@ -212,7 +212,7 @@
 
     if (vol > 0) {
       const turn = liq > 0 ? vol / liq : 0;
-      const s = turn < 0.2 ? 0.25 : turn < 0.6 ? 0.55 : turn < 2 ? 0.85 : turn < 6 ? 1 : 0.6;
+      const s = turn < 0.05 ? 0.3 : turn < 0.2 ? 0.6 : turn < 0.6 ? 0.8 : turn < 2 ? 0.95 : turn < 6 ? 1 : 0.7;
       b.push({ k: 'activity', w: 10, s: c01(s), info: usd(vol) + ' · ×' + turn.toFixed(1) });
     }
 
@@ -278,7 +278,7 @@
           const m = raw.gp && raw.gp.result ? raw.gp.result[Object.keys(raw.gp.result)[0]] : null;
           if (!m) return null;
           return {
-            honeypot: Number(m.is_honeypot) === 1,
+            honeypot: String(m.is_honeypot || '') === '1',
             mintable: Number(m.is_mintable) === 1,
             freezable: Number(m.freezable) === 1,
             ownerRenounced: Number(m.owner_renounced) === 1,
@@ -356,11 +356,11 @@
         '<div class="tk-top">' +
         '<span class="tk-ava">' + (tk.image ? '<img src="' + esc(tk.image) + '" alt="">' : esc(tk.symbol.slice(0, 2))) + '</span>' +
         '<span class="tk-id"><b>' + esc(tk.symbol) + '</b><span>' + esc(tk.name || '') + '</span></span>' +
-        '<span class="tk-score" style="color:' + scCol + '"><b>' + r.score + '</b><i>/100</i></span>' +
+        '<span class="tk-score" style="color:' + scCol + '"><b>' + S.result.score + '</b><i>/100</i></span>' +
         '</div>' +
         '<div class="tk-priceline"><b>' + esc(price(tk.price)) + '</b>' +
         '<span style="color:' + chCol + '">' + (tk.ch24 ? pct(tk.ch24) : '') + '</span></div>' +
-        '<div class="tk-bar"><i style="width:' + Math.round(r.score) + '%;background:' + scCol + '"></i></div>' +
+        '<div class="tk-bar"><i style="width:' + Math.round(S.result.score) + '%;background:' + scCol + '"></i></div>' +
         '<div class="tk-stats">' +
         '<div><span>MC</span><b>' + usd(tk.mc) + '</b></div>' +
         '<div><span>' + esc(t('liqL')) + '</span><b>' + usd(tk.liq) + '</b></div>' +
@@ -607,7 +607,13 @@
     applyTheme();
     if (!read(K.ob, false)) return viewOnboard();
     document.getElementById('dock').style.display = '';
-    app.innerHTML = S.tab === 'saved' ? viewSaved() : S.tab === 'profile' ? viewProfile() : viewAll();
+    try {
+      app.innerHTML = S.tab === 'saved' ? viewSaved() : S.tab === 'profile' ? viewProfile() : viewAll();
+    } catch (err) {
+      console.error(err);
+      app.innerHTML = '<div class="page"><div class="empty"><b>Ошибка отображения</b>' + esc(String(err && err.message || err)) + '</div></div>';
+      return;
+    }
     syncDock();
     bind();
     const bar = $('.dial .bar');
