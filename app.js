@@ -474,6 +474,12 @@
       onFs();
     } catch (e) {}
   }
+  function ensureFullscreen() {
+    if (!TG) return;
+    try { if (!TG.isFullscreen && TG.requestFullscreen) TG.requestFullscreen(); } catch (e) {}
+    try { if (TG.expand) TG.expand(); } catch (e) {}
+  }
+  document.addEventListener('pointerdown', ensureFullscreen, { once: false });
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-tab]');
     if (!btn) return;
