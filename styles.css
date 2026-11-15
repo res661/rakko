@@ -755,3 +755,43 @@ input, textarea { -webkit-user-select: text; user-select: text; }
 }
 .info-extra.open { max-height: 900px; opacity: 1; }
 .info-extra .info-row:first-child { border-top: .5px solid var(--line); }
+
+/* ===== checks v2: clear at a glance, no glow ===== */
+.sumline { display: flex; gap: 14px; margin: 2px 0 12px; }
+.sumline span { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; color: var(--text-2); }
+.sd { width: 8px; height: 8px; border-radius: 50%; }
+.sd.good { background: var(--green); }
+.sd.mid { background: var(--yellow); }
+.sd.bad { background: var(--red); }
+
+.cats { gap: 10px; }
+.cat {
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--card);
+  border: .5px solid var(--line);
+  box-shadow: none !important;
+  gap: 0;
+}
+.cat-top { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; }
+.cat-ico {
+  width: 34px; height: 34px; border-radius: 11px; margin-bottom: 0;
+  display: grid; place-items: center; flex: none;
+}
+.cat.green .cat-ico { color: var(--green); background: rgba(50,215,75,.13); }
+.cat.yellow .cat-ico { color: var(--yellow); background: rgba(255,214,10,.13); }
+.cat.red .cat-ico { color: var(--red); background: rgba(255,69,58,.13); }
+.cat-v {
+  margin: 0; font-size: 22px; font-weight: 750; letter-spacing: -.04em;
+  font-variant-numeric: tabular-nums; line-height: 1;
+  color: var(--c);
+}
+.cat-v i { font-size: 11px; font-weight: 600; color: var(--text-3); margin-left: 1px; }
+.cat-t { margin-top: 12px; font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; color: var(--text); }
+.cat-pb { display: block; width: 100%; height: 3px; border-radius: 99px; background: var(--card-2); margin-top: 10px; overflow: hidden; }
+.cat-pb i { display: block; height: 100%; border-radius: 99px; background: var(--c); transition: width .3s ease; }
+.cat-s { margin-top: 8px; font-size: 11px; color: var(--text-3); line-height: 1.35; max-height: 30px; overflow: hidden; }
+.cat:active { background: var(--card-2); transform: scale(.98); }
+
+/* kill any tinted glow on scroll */
+.cat, .tk-card, .info, .ins, .risk-list, .block, .item { box-shadow: none !important; }
