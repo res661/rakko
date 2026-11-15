@@ -502,13 +502,24 @@
       }
 
       // checks blocks
+      const goodN = S.result.blocks.filter(function (x) { return x.s >= 0.7; }).length;
+      const warnN = S.result.blocks.filter(function (x) { return x.s >= 0.4 && x.s < 0.7; }).length;
+      const badN = S.result.blocks.filter(function (x) { return x.s < 0.4; }).length;
       out += '<div class="sec-head"><p class="eyebrow">' + esc(t('checksK')) + '</p><button class="help" id="help">?</button></div>';
+      out += '<div class="sumline">' +
+        '<span><i class="sd good"></i>' + goodN + '</span>' +
+        '<span><i class="sd mid"></i>' + warnN + '</span>' +
+        '<span><i class="sd bad"></i>' + badN + '</span>' +
+        '</div>';
       out += '<div class="cats">' + S.result.blocks.map((x, bi) => {
-        const c = x.s >= 0.7 ? 'var(--green)' : x.s >= 0.4 ? 'var(--yellow)' : 'var(--red)';
-        return '<button class="cat" data-bi="' + bi + '" style="--c:' + c + '">' +
-          '<span class="cat-ico" style="color:' + c + ';background:color-mix(in srgb,' + c + ' 16%, transparent)">' + (BICON[x.k] || '') + '</span>' +
+        const c = x.s >= 0.7 ? 'green' : x.s >= 0.4 ? 'yellow' : 'red';
+        const col = 'var(--' + c + ')';
+        const p = Math.round(x.s * 100);
+        return '<button class="cat ' + c + '" data-bi="' + bi + '" style="--c:' + col + '">' +
+          '<div class="cat-top"><span class="cat-ico">' + (BICON[x.k] || '') + '</span>' +
+          '<span class="cat-v">' + p + '<i>%</i></span></div>' +
           '<span class="cat-t">' + esc(t(x.k)) + '</span>' +
-          '<span class="cat-v">' + Math.round(x.s * 100) + '<i>%</i></span>' +
+          '<span class="cat-pb"><i style="width:' + p + '%"></i></span>' +
           '<span class="cat-s">' + esc(x.info) + '</span></button>';
       }).join('') + '</div>';
       out += '<div id="block-detail"></div>';
