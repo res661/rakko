@@ -1,536 +1,470 @@
-/* Rakko — проба мемкоина */
+/* Token check — one tap score */
 (function () {
   'use strict';
 
   const TG = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-  const LS = {
-    onboard: 'rakko.onboard.v1',
-    saved: 'rakko.saved.v1',
-    stats: 'rakko.stats.v1',
-    theme: 'rakko.theme.v1',
-    lang: 'rakko.lang.v1'
+  const K = {
+    ob: 'tc.onboard.v1', saved: 'tc.saved.v1', stats: 'tc.stats.v1',
+    theme: 'tc.theme.v1', lang: 'tc.lang.v1'
   };
 
-  const state = {
+  const S = {
     tab: 'scan',
-    saved: read(LS.saved, []),
-    stats: read(LS.stats, { scans: 0 }),
-    theme: read(LS.theme, 'auto'),
+    saved: read(K.saved, []),
+    stats: read(K.stats, { scans: 0 }),
+    theme: read(K.theme, 'auto'),
     lang: null,
     result: null,
     busy: false,
-    error: ''
+    error: '',
+    lastMint: ''
   };
 
   /* ---------------- storage ---------------- */
-  function read(key, fallback) {
-    try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch (e) { return fallback; }
-  }
-  function write(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
-  }
+  function read(key, fb) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fb; } catch (e) { return fb; } }
+  function write(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {} }
 
   /* ---------------- i18n ---------------- */
-  const DICT = {
+  const D = {
     ru: {
-      scan: 'Проверка монеты', saved: 'Сохранённые', profile: 'Профиль',
-      pasteTitle: 'Вставь адрес монеты',
-      pasteSub: 'Rakko проверит ликвидность, холдеров, дев-кошелёк, контракт и активность. Одна кнопка — оценка от 0 до 100.',
-      pastePh: 'Адрес контракта (Solana)', paste: 'Вставить', check: 'Проверить', checking: 'Проверяю…',
+      checkTab: 'Проверка', savedTab: 'Список', profileTab: 'Профиль',
+      pasteTitle: 'Проверь монету', pasteSub: 'Вставь адрес — получишь оценку от 0 до 100 и поймёшь, стоит ли рисковать.',
+      ph: 'Адрес контракта Solana', paste: 'Вставить', check: 'Проверить', checking: 'Проверяю…',
       howTitle: 'Как читать оценку',
-      howText: '<b>70–100</b> — чисто. <b>40–69</b> — рискованно. <b>0–39</b> — опасно. Оценка не гарантия: раг бывает и у чистых монет.',
-      result: 'Результат', why: 'Почему такой балл', toList: 'В список', again: 'Проверить другую',
-      clear: 'Очистить список', theme: 'Тема', themeAuto: 'как в телефоне', themeDark: 'тёмная', themeLight: 'светлая',
-      changeTheme: 'Сменить тему', scans: 'проверок', inList: 'в списке',
-      emptySaved: 'Пока пусто.<br>Проверь монету и добавь её в список — Rakko будет хранить оценку.',
-      good: 'Выглядит чисто', mid: 'Рискованно', bad: 'Опасно',
-      of100: 'из 100', liq: 'Ликвидность', holders: 'Распределение', dev: 'Дев и бандлы',
-      contract: 'Контракт', activity: 'Активность', age: 'Возраст', price: 'Цена за 24ч', links: 'Ссылки',
-      noSocials: 'нет соцсетей', linksCount: 'ссылок', mintOpen: 'минт открыт', freeze: 'заморозка',
-      revoked: 'полномочия отозваны', riskFound: 'найдены риски', noRisks: 'критичных рисков нет',
-      holdersWord: 'холдеров', top10: 'топ-10', pairLives: 'пара живёт',
-      min: 'мин', h: 'ч', d: 'дн', vol24: 'за 24ч', turnover: 'оборот ×', ofFdv: 'от FDV',
-      save: 'Добавлено в список', cleared: 'Список очищен', errAddr: 'Это не похоже на адрес Solana (32–44 символа)',
-      notFound: 'Монета не найдена', fewData: 'Мало данных — оценка приблизительная',
-      fail: 'Не удалось проверить: ', noClipboard: 'Нет доступа к буферу — вставь вручную',
-      tapCoin: 'Нажми на монету — проверим заново',
-      guest: 'Гость', noUser: 'без username', version: 'Rakko · версия 0.1 · данные: DexScreener, Rugcheck. Только чтение, без доступа к кошельку. Оценка — не гарантия.',
-      ob1t: 'Что умеет Rakko', ob1p: 'Одна кнопка — и ты видишь, стоит ли связываться с монетой. Без таблиц и 20 вкладок.',
-      ob2t: 'Оценка от 0 до 100', ob2p: 'Ликвидность, холдеры, дев-кошелёк, контракт, активность, возраст и ссылки — всё в одном балле.',
-      ob3t: 'Список и контроль', ob3p: 'Сохраняй монеты и перепроверяй их позже. Rakko всегда под рукой — внутри Telegram.',
-      next: 'Дальше', start: 'Начать', skip: 'Пропустить', language: 'Язык'
+      how: '70–100 — чисто. 40–69 — рискованно. 0–39 — опасно. Оценка не гарантия: раг случается и с чистыми монетами.',
+      result: 'Результат', why: 'Почему такой балл', save: 'В список', again: 'Проверить другую',
+      liq: 'Ликвидность', holders: 'Распределение', dev: 'Дев и бандлы', contract: 'Контракт',
+      activity: 'Активность', age: 'Возраст', price: 'Цена за 24ч', links: 'Ссылки',
+      good: 'Чисто', mid: 'Рискованно', bad: 'Опасно', of100: 'из 100',
+      priceL: 'цена', liqL: 'ликвидность', volL: 'объём 24ч',
+      emptyTitle: 'Список пуст', emptyText: 'Проверь монету и сохрани её — оценка останется здесь.',
+      tapCoin: 'Нажми, чтобы проверить заново',
+      scanned: 'проверок', savedN: 'сохранено',
+      theme: 'Тема', themeAuto: 'Системная', themeDark: 'Тёмная', themeLight: 'Светлая',
+      langRow: 'Язык', clear: 'Очистить список', cleared: 'Список очищен',
+      savedToast: 'Сохранено', guest: 'Гость', noUser: 'без username',
+      about: 'Данные: DexScreener, Rugcheck. Только чтение, без доступа к кошельку. Оценка — не гарантия.',
+      errAddr: 'Не похоже на адрес Solana (32–44 символа)', notFound: 'Монета не найдена',
+      fewData: 'Мало данных — оценка приблизительная', fail: 'Ошибка: ', noClip: 'Нет доступа к буферу',
+      next: 'Дальше', start: 'Начать', skip: 'Пропустить',
+      ob1t: 'Одна кнопка.\nОдна оценка.', ob1p: 'Вставь адрес монеты — и получишь балл от 0 до 100. Без таблиц и двадцати вкладок.',
+      ob2t: 'Восемь проверок\nв одном числе.', ob2p: 'Ликвидность, холдеры, дев-кошелёк, контракт, активность, возраст, цена, ссылки.',
+      ob3t: 'Сохраняй\nи перепроверяй.', ob3p: 'Список монет с оценками — чтобы видеть, что изменилось за день.',
+      obCardK: 'ОЦЕНКА', obCardS: 'из 8 блоков'
     },
     en: {
-      scan: 'Scan token', saved: 'Saved', profile: 'Profile',
-      pasteTitle: 'Paste a token address',
-      pasteSub: 'Rakko checks liquidity, holders, dev wallet, contract and activity. One button — a score from 0 to 100.',
-      pastePh: 'Contract address (Solana)', paste: 'Paste', check: 'Check', checking: 'Checking…',
+      checkTab: 'Check', savedTab: 'Saved', profileTab: 'Profile',
+      pasteTitle: 'Check a token', pasteSub: 'Paste the address — get a score from 0 to 100 and know whether it is worth the risk.',
+      ph: 'Solana contract address', paste: 'Paste', check: 'Check', checking: 'Checking…',
       howTitle: 'How to read the score',
-      howText: '<b>70–100</b> — clean. <b>40–69</b> — risky. <b>0–39</b> — dangerous. The score is not a guarantee: rugs happen to clean tokens too.',
-      result: 'Result', why: 'Why this score', toList: 'Save', again: 'Check another',
-      clear: 'Clear list', theme: 'Theme', themeAuto: 'system', themeDark: 'dark', themeLight: 'light',
-      changeTheme: 'Change theme', scans: 'scans', inList: 'saved',
-      emptySaved: 'Nothing yet.<br>Check a token and save it — Rakko will keep the score.',
-      good: 'Looks clean', mid: 'Risky', bad: 'Dangerous',
-      of100: 'of 100', liq: 'Liquidity', holders: 'Distribution', dev: 'Dev & bundles',
-      contract: 'Contract', activity: 'Activity', age: 'Age', price: '24h price', links: 'Links',
-      noSocials: 'no socials', linksCount: 'links', mintOpen: 'mint open', freeze: 'freeze on',
-      revoked: 'authorities revoked', riskFound: 'risks found', noRisks: 'no critical risks',
-      holdersWord: 'holders', top10: 'top-10', pairLives: 'pair age',
-      min: 'min', h: 'h', d: 'd', vol24: '24h volume', turnover: 'turnover ×', ofFdv: 'of FDV',
-      save: 'Saved to list', cleared: 'List cleared', errAddr: 'That does not look like a Solana address (32–44 chars)',
-      notFound: 'Token not found', fewData: 'Not enough data — score is approximate',
-      fail: 'Check failed: ', noClipboard: 'No clipboard access — paste manually',
-      tapCoin: 'Tap a token to re-check it',
-      guest: 'Guest', noUser: 'no username', version: 'Rakko · v0.1 · data: DexScreener, Rugcheck. Read-only, no wallet access. Score is not a guarantee.',
-      ob1t: 'What Rakko does', ob1p: 'One button and you know whether to touch a token. No spreadsheets, no 20 tabs.',
-      ob2t: 'A score from 0 to 100', ob2p: 'Liquidity, holders, dev wallet, contract, activity, age and links — all in one number.',
-      ob3t: 'Saved list', ob3p: 'Save tokens and re-check them later. Rakko lives inside Telegram.',
-      next: 'Next', start: 'Start', skip: 'Skip', language: 'Language'
+      how: '70–100 — clean. 40–69 — risky. 0–39 — dangerous. The score is not a guarantee: rugs happen to clean tokens too.',
+      result: 'Result', why: 'Why this score', save: 'Save', again: 'Check another',
+      liq: 'Liquidity', holders: 'Distribution', dev: 'Dev & bundles', contract: 'Contract',
+      activity: 'Activity', age: 'Age', price: '24h price', links: 'Links',
+      good: 'Clean', mid: 'Risky', bad: 'Dangerous', of100: 'of 100',
+      priceL: 'price', liqL: 'liquidity', volL: '24h volume',
+      emptyTitle: 'Nothing saved', emptyText: 'Check a token and save it — the score stays here.',
+      tapCoin: 'Tap to re-check',
+      scanned: 'checks', savedN: 'saved',
+      theme: 'Theme', themeAuto: 'System', themeDark: 'Dark', themeLight: 'Light',
+      langRow: 'Language', clear: 'Clear list', cleared: 'List cleared',
+      savedToast: 'Saved', guest: 'Guest', noUser: 'no username',
+      about: 'Data: DexScreener, Rugcheck. Read-only, no wallet access. Score is not a guarantee.',
+      errAddr: 'Not a Solana address (32–44 chars)', notFound: 'Token not found',
+      fewData: 'Not enough data — score is approximate', fail: 'Error: ', noClip: 'No clipboard access',
+      next: 'Next', start: 'Start', skip: 'Skip',
+      ob1t: 'One button.\nOne score.', ob1p: 'Paste a token address and get a number from 0 to 100. No spreadsheets, no twenty tabs.',
+      ob2t: 'Eight checks\nin one number.', ob2p: 'Liquidity, holders, dev wallet, contract, activity, age, price, links.',
+      ob3t: 'Save it.\nRe-check it.', ob3p: 'A list of tokens with scores, so you can see what changed.',
+      obCardK: 'SCORE', obCardS: 'across 8 blocks'
     }
   };
+  const t = (k) => (D[S.lang] && D[S.lang][k]) || D.ru[k] || k;
   function detectLang() {
-    const saved = read(LS.lang, null);
+    const saved = read(K.lang, null);
     if (saved === 'ru' || saved === 'en') return saved;
-    const code = TG && TG.initDataUnsafe && TG.initDataUnsafe.user ? (TG.initDataUnsafe.user.language_code || '') : (navigator.language || '');
+    const code = (TG && TG.initDataUnsafe && TG.initDataUnsafe.user && TG.initDataUnsafe.user.language_code) || navigator.language || '';
     return /^ru/i.test(code) ? 'ru' : 'en';
   }
-  const t = (key) => (DICT[state.lang] && DICT[state.lang][key]) || DICT.ru[key] || key;
 
   /* ---------------- helpers ---------------- */
-  const $ = (sel, root) => (root || document).querySelector(sel);
-  const el = document.getElementById('app');
-  const fmtUsd = (n) => {
-    n = Number(n);
-    if (!isFinite(n) || n <= 0) return '—';
+  const $ = (s, r) => (r || document).querySelector(s);
+  const app = document.getElementById('app');
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const usd = (n) => {
+    n = Number(n); if (!isFinite(n) || n <= 0) return '—';
     if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
     if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
     if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
     return '$' + n.toFixed(2);
   };
-  const fmtNum = (n) => {
-    n = Number(n);
-    if (!isFinite(n)) return '—';
-    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
-    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
-    return String(n);
+  const price = (n) => {
+    n = Number(n); if (!isFinite(n) || n <= 0) return '—';
+    if (n >= 1) return '$' + n.toFixed(2);
+    if (n >= 0.01) return '$' + n.toFixed(4);
+    return '$' + n.toPrecision(4);
   };
+  const num = (n) => { n = Number(n); if (!isFinite(n)) return '—'; return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n); };
   const pct = (n) => (isFinite(Number(n)) ? (Number(n) >= 0 ? '+' : '') + Number(n).toFixed(1) + '%' : '—');
-  const clamp01 = (n) => Math.max(0, Math.min(1, n));
-  const toast = (msg) => {
-    let t = $('.toast');
-    if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
-    t.textContent = msg;
-    requestAnimationFrame(() => t.classList.add('show'));
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => t.classList.remove('show'), 2200);
-  };
-  const haptic = (type) => {
+  const c01 = (n) => Math.max(0, Math.min(1, n));
+  function haptic(kind) {
+    if (!TG || !TG.HapticFeedback) return;
     try {
-      if (!TG || !TG.HapticFeedback) return;
-      if (type === 'ok') TG.HapticFeedback.notificationOccurred('success');
-      else if (type === 'err') TG.HapticFeedback.notificationOccurred('error');
+      if (kind === 'ok') TG.HapticFeedback.notificationOccurred('success');
+      else if (kind === 'err') TG.HapticFeedback.notificationOccurred('error');
       else TG.HapticFeedback.impactOccurred('light');
     } catch (e) {}
-  };
-  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function toast(msg) {
+    let el = $('.toast');
+    if (!el) { el = document.createElement('div'); el.className = 'toast'; document.body.appendChild(el); }
+    el.textContent = msg;
+    requestAnimationFrame(() => el.classList.add('show'));
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.classList.remove('show'), 2000);
+  }
 
   /* ---------------- theme ---------------- */
   function applyTheme() {
-    const t = state.theme;
-    const dark = t === 'dark' || (t === 'auto' && (!TG || TG.colorScheme !== 'light'));
-    document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
-    if (TG && TG.setHeaderColor) { try { TG.setHeaderColor(dark ? '#0b0b0d' : '#f2f3f6'); } catch (e) {} }
+    const dark = S.theme === 'auto' ? (!TG || TG.colorScheme !== 'light') : S.theme === 'dark';
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    document.querySelector('meta[name=theme-color]').setAttribute('content', dark ? '#000000' : '#f5f5f7');
+    if (TG && TG.setHeaderColor) { try { TG.setHeaderColor(dark ? '#000000' : '#f5f5f7'); } catch (e) {} }
+    if (TG && TG.setBackgroundColor) { try { TG.setBackgroundColor(dark ? '#000000' : '#f5f5f7'); } catch (e) {} }
   }
 
   /* ---------------- data ---------------- */
-  async function fetchJson(url, ms) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), ms || 6000);
+  function isAddr(s) { return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(s || '').trim()); }
+  async function getJson(url, ms) {
+    const c = new AbortController();
+    const id = setTimeout(() => c.abort(), ms || 7000);
     try {
-      const res = await fetch(url, { signal: ctrl.signal, headers: { accept: 'application/json' } });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return await res.json();
-    } finally { clearTimeout(timer); }
+      const r = await fetch(url, { signal: c.signal, headers: { accept: 'application/json' } });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    } finally { clearTimeout(id); }
   }
-
-  function isAddress(s) { return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(s || '').trim()); }
-
-  async function loadToken(mint) {
-    const out = { mint: mint, dex: null, rug: null, errors: [] };
-    const dexPromise = fetchJson('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(mint))
-      .then((d) => { out.dex = d; }).catch((e) => out.errors.push('dex'));
-    const rugPromise = fetchJson('https://api.rugcheck.xyz/v1/tokens/' + encodeURIComponent(mint) + '/report/summary')
-      .then((d) => { out.rug = d; }).catch(() => fetchJson('https://api.rugcheck.xyz/v1/tokens/' + encodeURIComponent(mint) + '/report')
-        .then((d) => { out.rug = d; }).catch((e) => out.errors.push('rug')));
-    await Promise.all([dexPromise, rugPromise]);
+  async function loadRaw(mint) {
+    const out = { mint: mint, dex: null, rug: null };
+    await Promise.all([
+      getJson('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(mint)).then((d) => { out.dex = d; }).catch(() => {}),
+      getJson('https://api.rugcheck.xyz/v1/tokens/' + encodeURIComponent(mint) + '/report').then((d) => { out.rug = d; }).catch(() => {})
+    ]);
     return out;
   }
-
-  function pickPair(dex) {
-    const pairs = (dex && dex.pairs) || [];
-    if (!pairs.length) return null;
-    return pairs.slice().sort((a, b) => (Number(b.liquidity && b.liquidity.usd) || 0) - (Number(a.liquidity && a.liquidity.usd) || 0))[0];
+  function bestPair(dex) {
+    const list = (dex && dex.pairs) || [];
+    return list.slice().sort((a, b) => (Number(b.liquidity && b.liquidity.usd) || 0) - (Number(a.liquidity && a.liquidity.usd) || 0))[0] || null;
   }
 
-  /* ---------------- score ---------------- */
-  function buildScore(raw) {
-    const pair = pickPair(raw.dex);
+  /* ---------------- scoring ---------------- */
+  function scoreToken(raw) {
+    const pair = bestPair(raw.dex);
     const rug = raw.rug || {};
-    const blocks = [];
-
+    const b = [];
     const liq = Number(pair && pair.liquidity && pair.liquidity.usd) || 0;
     const fdv = Number(pair && pair.fdv) || Number(pair && pair.marketCap) || 0;
-    const vol24 = Number(pair && pair.volume && pair.volume.h24) || 0;
+    const vol = Number(pair && pair.volume && pair.volume.h24) || 0;
 
-    // 1. ликвидность (20)
     if (liq > 0) {
-      let s;
-      if (liq < 15000) s = 0.1;
-      else if (liq < 40000) s = 0.4;
-      else if (liq < 120000) s = 0.7;
-      else if (liq < 400000) s = 0.9;
-      else s = 1;
-      const ratio = fdv > 0 ? liq / fdv : 1;
-      if (ratio < 0.03) s *= 0.7; else if (ratio > 0.15) s = Math.min(1, s * 1.05);
-      blocks.push({ key: 'liq', icon: '💧', title: t('liq'), w: 20, s: clamp01(s), info: fmtUsd(liq) + (fdv ? ' · ' + Math.round(ratio * 100) + '% ' + t('ofFdv') : '') });
+      let s = liq < 15000 ? 0.08 : liq < 40000 ? 0.35 : liq < 120000 ? 0.65 : liq < 400000 ? 0.88 : 1;
+      const ratio = fdv > 0 ? liq / fdv : 0.1;
+      if (ratio < 0.03) s *= 0.65;
+      b.push({ k: 'liq', w: 20, s, info: usd(liq) + (fdv ? ' · ' + Math.round(ratio * 100) + '% of FDV' : '') });
     }
 
-    // 2. распределение (15)
     const holders = rug.topHolders || [];
-    const totalHolders = Number(rug.totalHolders) || 0;
-    if (holders.length || totalHolders) {
+    const totalH = Number(rug.totalHolders) || 0;
+    if (holders.length || totalH) {
       const top10 = holders.slice(0, 10).reduce((a, h) => a + (Number(h.pct) || 0), 0);
-      let s = 0.85;
-      if (top10 > 80) s = 0.05; else if (top10 > 60) s = 0.25; else if (top10 > 45) s = 0.5; else if (top10 > 30) s = 0.75;
-      if (totalHolders && totalHolders < 100) s *= 0.55; else if (totalHolders > 3000) s = Math.min(1, s * 1.08);
-      blocks.push({ key: 'holders', icon: '👥', title: t('holders'), w: 15, s: clamp01(s), info: (totalHolders ? fmtNum(totalHolders) + ' ' + t('holdersWord') + ' · ' : '') + t('top10') + ' ' + Math.round(top10) + '%' });
+      let s = top10 > 80 ? 0.05 : top10 > 60 ? 0.25 : top10 > 45 ? 0.5 : top10 > 30 ? 0.75 : 0.9;
+      if (totalH && totalH < 100) s *= 0.5;
+      if (totalH > 5000) s = Math.min(1, s * 1.08);
+      b.push({ k: 'holders', w: 15, s: c01(s), info: (totalH ? num(totalH) + ' holders · ' : '') + 'top-10 ' + Math.round(top10) + '%' });
     }
 
-    // 3. дев и бандлы (20) — по рискам Rugcheck
-    const risks = (rug.risks || []).map((r) => ({ name: String(r.name || ''), level: String(r.level || r.score || ''), value: r.value }));
-    const rugScore = Number(rug.score_normalised);
-    if (risks.length || isFinite(rugScore)) {
-      let s = isFinite(rugScore) ? clamp01(1 - rugScore / 100) : 0.6;
-      const bad = risks.filter((r) => /danger|high/i.test(r.level)).length;
-      const warn = risks.filter((r) => /warn|medium/i.test(r.level)).length;
-      s = clamp01(s - bad * 0.18 - warn * 0.07);
-      const names = risks.filter((r) => /danger|high/i.test(r.level)).map((r) => r.name).slice(0, 2);
-      blocks.push({ key: 'dev', icon: '🕵️', title: t('dev'), w: 20, s: s, info: names.length ? names.join(', ') : (bad ? t('riskFound') : t('noRisks')) });
+    const risks = (rug.risks || []);
+    const norm = Number(rug.score_normalised);
+    if (risks.length || isFinite(norm)) {
+      let s = isFinite(norm) ? c01(1 - norm / 100) : 0.6;
+      const bad = risks.filter((r) => /danger|high/i.test(String(r.level))).length;
+      const warn = risks.filter((r) => /warn|medium/i.test(String(r.level))).length;
+      s = c01(s - bad * 0.18 - warn * 0.07);
+      const names = risks.filter((r) => /danger|high/i.test(String(r.level))).map((r) => String(r.name)).slice(0, 2);
+      b.push({ k: 'dev', w: 20, s, info: names.length ? names.join(', ') : t('mid') === 'Risky' ? 'no critical risks' : 'критичных рисков нет' });
     }
 
-    // 4. контракт (15)
-    const mintAuth = rug.mintAuthority;
-    const freezeAuth = rug.freezeAuthority;
-    if (mintAuth !== undefined || freezeAuth !== undefined) {
-      let s = 1;
-      const notes = [];
-      if (mintAuth) { s -= 0.5; notes.push(t('mintOpen')); }
-      if (freezeAuth) { s -= 0.35; notes.push(t('freeze')); }
-      blocks.push({ key: 'contract', icon: '📄', title: t('contract'), w: 15, s: clamp01(s), info: notes.length ? notes.join(', ') : t('revoked') });
+    if (rug.mintAuthority !== undefined || rug.freezeAuthority !== undefined) {
+      let s = 1; const notes = [];
+      if (rug.mintAuthority) { s -= 0.5; notes.push(t('contract') === 'Contract' ? 'mint open' : 'минт открыт'); }
+      if (rug.freezeAuthority) { s -= 0.35; notes.push(t('contract') === 'Contract' ? 'freeze on' : 'заморозка'); }
+      b.push({ k: 'contract', w: 15, s: c01(s), info: notes.length ? notes.join(' · ') : (t('contract') === 'Contract' ? 'authorities revoked' : 'полномочия отозваны') });
     }
 
-    // 5. активность (10)
-    if (vol24 > 0 || liq > 0) {
-      const turnover = liq > 0 ? vol24 / liq : 0;
-      let s;
-      if (turnover < 0.2) s = 0.25; else if (turnover < 0.6) s = 0.55; else if (turnover < 2) s = 0.85; else if (turnover < 6) s = 1; else s = 0.6;
-      blocks.push({ key: 'activity', icon: '📈', title: t('activity'), w: 10, s: clamp01(s), info: fmtUsd(vol24) + ' ' + t('vol24') + (turnover ? ' · ' + t('turnover') + turnover.toFixed(1) : '') });
+    if (vol > 0) {
+      const turn = liq > 0 ? vol / liq : 0;
+      const s = turn < 0.2 ? 0.25 : turn < 0.6 ? 0.55 : turn < 2 ? 0.85 : turn < 6 ? 1 : 0.6;
+      b.push({ k: 'activity', w: 10, s: c01(s), info: usd(vol) + ' · ×' + turn.toFixed(1) });
     }
 
-    // 6. возраст (10)
     const created = Number(pair && pair.pairCreatedAt) || 0;
     if (created > 0) {
-      const hours = (Date.now() - created) / 36e5;
-      let s;
-      if (hours < 1) s = 0.15; else if (hours < 6) s = 0.35; else if (hours < 24) s = 0.6; else if (hours < 72) s = 0.8; else s = 1;
-      const ageTxt = hours < 1 ? Math.round(hours * 60) + ' ' + t('min') : hours < 48 ? Math.round(hours) + ' ' + t('h') : Math.round(hours / 24) + ' ' + t('d');
-      blocks.push({ key: 'age', icon: '⏳', title: t('age'), w: 10, s: s, info: t('pairLives') + ' ' + ageTxt });
+      const h = (Date.now() - created) / 36e5;
+      const s = h < 1 ? 0.15 : h < 6 ? 0.35 : h < 24 ? 0.6 : h < 72 ? 0.8 : 1;
+      const txt = h < 1 ? Math.round(h * 60) + 'm' : h < 48 ? Math.round(h) + 'h' : Math.round(h / 24) + 'd';
+      b.push({ k: 'age', w: 10, s, info: txt });
     }
 
-    // 7. структура цены (5)
-    const ch24 = Number(pair && pair.priceChange && pair.priceChange.h24);
-    if (isFinite(ch24)) {
-      let s = ch24 > -25 ? 0.8 : ch24 > -50 ? 0.5 : ch24 > -75 ? 0.25 : 0.1;
-      if (ch24 > 400) s -= 0.3;
-      blocks.push({ key: 'price', icon: '🎢', title: t('price'), w: 5, s: clamp01(s), info: pct(ch24) });
+    const ch = Number(pair && pair.priceChange && pair.priceChange.h24);
+    if (isFinite(ch)) {
+      let s = ch > -25 ? 0.8 : ch > -50 ? 0.5 : ch > -75 ? 0.25 : 0.1;
+      if (ch > 400) s -= 0.3;
+      b.push({ k: 'price', w: 5, s: c01(s), info: pct(ch) });
     }
 
-    // 8. соцсети (5)
     const info = (pair && pair.info) || {};
-    const socials = (info.socials || []).length + (info.websites || []).length;
     if (pair) {
-      const s = socials >= 2 ? 1 : socials === 1 ? 0.6 : 0.15;
-      blocks.push({ key: 'social', icon: '🔗', title: t('links'), w: 5, s: s, info: socials ? socials + ' ' + t('linksCount') : t('noSocials') });
+      const links = (info.socials || []).length + (info.websites || []).length;
+      b.push({ k: 'links', w: 5, s: links >= 2 ? 1 : links === 1 ? 0.6 : 0.15, info: links ? String(links) : '—' });
     }
 
-    const totalW = blocks.reduce((a, b) => a + b.w, 0);
-    const score = totalW ? Math.round(blocks.reduce((a, b) => a + b.s * b.w, 0) / totalW * 100) : 0;
-
-    const worst = blocks.slice().sort((a, b) => a.s - b.s).filter((b) => b.s < 0.6).slice(0, 3);
-    const reasons = (worst.length ? worst : blocks.slice().sort((a, b) => a.s - b.s).slice(0, 2)).map((b) => b.title + ': ' + b.info);
+    const tw = b.reduce((a, x) => a + x.w, 0);
+    const score = tw ? Math.round(b.reduce((a, x) => a + x.s * x.w, 0) / tw * 100) : 0;
+    const worst = b.slice().sort((x, y) => x.s - y.s).filter((x) => x.s < 0.65).slice(0, 3);
+    const reasons = (worst.length ? worst : b.slice().sort((x, y) => x.s - y.s).slice(0, 2)).map((x) => t(x.k) + ' · ' + x.info);
 
     return {
-      score: score,
-      blocks: blocks,
-      reasons: reasons,
+      score, blocks: b, reasons,
       token: {
         mint: raw.mint,
         symbol: (pair && pair.baseToken && pair.baseToken.symbol) || 'TOKEN',
         name: (pair && pair.baseToken && pair.baseToken.name) || '',
-        image: (info.imageUrl) || '',
+        image: info.imageUrl || '',
         price: Number(pair && pair.priceUsd) || 0,
-        liq: liq, fdv: fdv, vol24: vol24, ch24: ch24,
-        dex: (pair && pair.dexId) || '', url: (pair && pair.url) || ''
+        liq, vol,
+        url: (pair && pair.url) || ''
       },
       at: Date.now()
     };
   }
 
-  /* ---------------- views ---------------- */
-  function topBar(title, brandIcon) {
-    return '<header class="top"><span class="brand">' + (brandIcon || '🦝') + '</span><h1>' + esc(title) + '</h1></header>';
-  }
+  /* ---------------- ui parts ---------------- */
+  const ICON_CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+  const ICON_EMPTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5 12 4l8 3.5v9L12 20l-8-3.5z"/><path d="M4 7.5 12 11l8-3.5M12 11v9"/></svg>';
 
-  function verdictOf(score) {
-    if (score >= 70) return { cls: 'good', text: t('good'), mascot: '🦝' };
-    if (score >= 40) return { cls: 'mid', text: t('mid'), mascot: '🤨' };
-    return { cls: 'bad', text: t('bad'), mascot: '😾' };
+  function top(title) {
+    return '<header class="top"><h1>' + esc(title) + '</h1><div class="spacer"></div></header>';
   }
-
-  function ringHtml(score) {
-    const r = 92, c = 2 * Math.PI * r;
-    const off = c * (1 - score / 100);
-    const v = verdictOf(score);
+  function verdict(score) {
+    if (score >= 70) return { cls: 'good', label: t('good') };
+    if (score >= 40) return { cls: 'mid', label: t('mid') };
+    return { cls: 'bad', label: t('bad') };
+  }
+  function dial(score) {
+    const v = verdict(score);
     const color = v.cls === 'good' ? 'var(--green)' : v.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
-    return '<div class="score-wrap"><div class="ring" style="color:' + color + '">' +
-      '<svg width="208" height="208" viewBox="0 0 208 208">' +
-      '<circle class="track" cx="104" cy="104" r="' + r + '" fill="none" stroke-width="14"/>' +
-      '<circle class="val" cx="104" cy="104" r="' + r + '" fill="none" stroke-width="14" stroke-dasharray="' + c + '" stroke-dashoffset="' + c + '" data-off="' + off + '"/>' +
-      '</svg><div class="ring-mid"><b>' + score + '</b><span>'+ t('of100') +'</span></div></div>' +
-      '<div class="verdict ' + v.cls + '">' + v.mascot + ' ' + v.text + '</div></div>';
+    const r = 96, c = 2 * Math.PI * r, off = c * (1 - score / 100);
+    return '<div class="score-view"><div class="dial" style="color:' + color + '">' +
+      '<svg width="230" height="230" viewBox="0 0 230 230">' +
+      '<circle class="trk" cx="115" cy="115" r="' + r + '" fill="none" stroke-width="10"/>' +
+      '<circle class="bar" cx="115" cy="115" r="' + r + '" fill="none" stroke-width="10" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + c.toFixed(1) + '" data-to="' + off.toFixed(1) + '"/>' +
+      '</svg><div class="mid"><b>' + score + '</b><span>' + t('of100') + '</span></div></div>' +
+      '<div class="verdict ' + v.cls + '">' + v.label + '</div></div>';
   }
 
-  function scanView() {
-    if (state.result) return resultView();
-    return topBar(t('scan')) +
+  /* ---------------- views ---------------- */
+  function viewScan() {
+    if (S.result) return viewResult();
+    return top(t('checkTab')) +
       '<div class="page">' +
-      '<div class="card">' +
-      '<h2>' + t('pasteTitle') + '</h2>' +
-      '<p class="small muted">' + t('pasteSub') + '</p>' +
-      '<div class="field"><input id="mint" placeholder="' + t('pastePh') + '" autocomplete="off" spellcheck="false"><button class="paste" id="paste">' + t('paste') + '</button></div>' +
-      '<div style="height:12px"></div>' +
-      '<button class="btn primary" id="go">' + (state.busy ? t('checking') : t('check')) + '</button>' +
-      (state.error ? '<p class="err" style="margin-top:10px">' + esc(state.error) + '</p>' : '') +
-      '</div>' +
-      '<div class="card">' +
-      '<h2>' + t('howTitle') + '</h2>' +
-      '<p class="small muted">' + t('howText') + '</p>' +
-      '</div></div>';
-  }
-
-  function resultView() {
-    const r = state.result;
-    const t = r.token;
-    const blocks = r.blocks.map((b) => {
-      const color = b.s >= 0.7 ? 'var(--green)' : b.s >= 0.4 ? 'var(--yellow)' : 'var(--red)';
-      return '<div class="block" data-block="' + b.key + '">' +
-        '<button class="block-head"><span class="chip" style="background:color-mix(in srgb,' + color + ' 14%, transparent);color:' + color + '">' + b.icon + '</span>' +
-        '<span>' + esc(b.title) + '</span><span class="val" style="color:' + color + '">' + Math.round(b.s * 100) + '</span></button>' +
-        '<div class="block-body"><div class="bar" style="color:' + color + '"><i style="width:' + Math.round(b.s * 100) + '%"></i></div>' + esc(b.info) + '</div></div>';
-    }).join('');
-
-    return topBar(t('result')) +
-      '<div class="page">' +
-      '<div class="card">' + ringHtml(r.score) +
-      '<div style="text-align:center;margin-top:6px"><b>' + esc(t.symbol || 'TOKEN') + '</b>' + (t.name ? ' <span class="muted small">' + esc(t.name) + '</span>' : '') + '</div>' +
-      '<div class="row small muted" style="justify-content:center;margin-top:8px;gap:14px;display:flex">' +
-      '<span>💰 ' + fmtUsd(t.price) + '</span><span>💧 ' + fmtUsd(t.liq) + '</span><span>📊 ' + fmtUsd(t.vol24) + '</span></div>' +
-      '</div>' +
-      '<div class="card"><h2>' + t('why') + '</h2>' + r.reasons.map((x) => '<p class="small muted">• ' + esc(x) + '</p>').join('') + '</div>' +
-      '<div class="blocks">' + blocks + '</div>' +
-      '<div class="card"><div class="row">' +
-      '<button class="btn primary" id="save">' + t('toList') + '</button>' +
-      (t.url ? '<button class="btn" id="open">DexScreener</button>' : '') +
-      '</div><div style="height:8px"></div><button class="btn ghost" id="again">' + t('again') + '</button></div>' +
+      '<h1 class="display">' + t('pasteTitle').replace(/\n/g, '<br>') + '</h1>' +
+      '<p class="lead">' + esc(t('pasteSub')) + '</p>' +
+      '<div class="field"><input id="mint" placeholder="' + esc(t('ph')) + '" autocomplete="off" spellcheck="false"><button class="icon-pill" id="paste">' + esc(t('paste')) + '</button></div>' +
+      '<div style="height:14px"></div>' +
+      '<button class="btn" id="go">' + (S.busy ? '<span class="spinner"></span>' : esc(t('check'))) + '</button>' +
+      (S.error ? '<p class="err">' + esc(S.error) + '</p>' : '') +
+      '<div style="height:22px"></div>' +
+      '<p class="eyebrow">' + esc(t('howTitle')) + '</p>' +
+      '<p class="tiny" style="margin-top:6px">' + esc(t('how')) + '</p>' +
       '</div>';
   }
 
-  function savedView() {
-    if (!state.saved.length) {
-      return topBar(t('saved')) + '<div class="page"><div class="empty"><span class="m">🦝</span>' + t('emptySaved') + '</div></div>';
-    }
-    const items = state.saved.map((s) => {
-      const v = verdictOf(s.score);
-      const color = v.cls === 'good' ? 'var(--green)' : v.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
-      return '<button class="item" data-mint="' + esc(s.mint) + '">' +
-        '<span class="ava">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : '🪙') + '</span>' +
-        '<span class="meta"><b>' + esc(s.symbol) + '</b><span>' + fmtUsd(s.liq) + ' ликвидность</span></span>' +
-        '<span class="score" style="color:' + color + '">' + s.score + '</span></button>';
+  function viewResult() {
+    const r = S.result, tk = r.token;
+    const blocks = r.blocks.map((x) => {
+      const color = x.s >= 0.7 ? 'var(--green)' : x.s >= 0.4 ? 'var(--yellow)' : 'var(--red)';
+      return '<div class="block">' +
+        '<button class="block-head"><span class="dot" style="background:' + color + '"></span>' +
+        '<span>' + esc(t(x.k)) + '</span>' +
+        '<span class="val" style="color:' + color + '">' + Math.round(x.s * 100) + '</span>' + ICON_CHEV + '</button>' +
+        '<div class="block-body"><div class="bar" style="color:' + color + '"><i style="width:' + Math.round(x.s * 100) + '%"></i></div>' + esc(x.info) + '</div></div>';
     }).join('');
-    return topBar(t('saved')) + '<div class="page"><div class="list">' + items + '</div>' +
-      '<p class="tiny" style="text-align:center;margin-top:14px">' + t('tapCoin') + '</p></div>';
+
+    return top(t('result')) +
+      '<div class="page">' +
+      dial(r.score) +
+      '<div class="token-line" style="text-align:center"><b>' + esc(tk.symbol) + '</b>' + (tk.name ? ' · ' + esc(tk.name) : '') + '</div>' +
+      '<div class="metrics">' +
+      '<div class="metric"><b>' + price(tk.price) + '</b><span>' + esc(t('priceL')) + '</span></div>' +
+      '<div class="metric"><b>' + usd(tk.liq) + '</b><span>' + esc(t('liqL')) + '</span></div>' +
+      '<div class="metric"><b>' + usd(tk.vol) + '</b><span>' + esc(t('volL')) + '</span></div>' +
+      '</div>' +
+      '<div style="height:22px"></div>' +
+      '<p class="eyebrow" style="margin-bottom:8px">' + esc(t('why')) + '</p>' +
+      r.reasons.map((x) => '<p class="small muted" style="margin:0 0 4px">— ' + esc(x) + '</p>').join('') +
+      '<div class="blocks">' + blocks + '</div>' +
+      '<div style="height:18px"></div>' +
+      '<div class="row"><button class="btn" id="save">' + esc(t('save')) + '</button>' +
+      (tk.url ? '<button class="btn secondary" id="open">Dex</button>' : '') + '</div>' +
+      '<div style="height:8px"></div>' +
+      '<button class="btn ghost" id="again">' + esc(t('again')) + '</button>' +
+      '</div>';
   }
 
-  function profileView() {
+  function viewSaved() {
+    if (!S.saved.length) {
+      return top(t('savedTab')) + '<div class="page"><div class="empty"><div class="ring">' + ICON_EMPTY + '</div><b>' + esc(t('emptyTitle')) + '</b>' + esc(t('emptyText')) + '</div></div>';
+    }
+    const items = S.saved.map((s) => {
+      const v = verdict(s.score);
+      const color = v.cls === 'good' ? 'var(--green)' : v.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
+      return '<button class="item" data-mint="' + esc(s.mint) + '">' +
+        '<span class="ava">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(s.symbol.slice(0, 2))) + '</span>' +
+        '<span class="meta"><b>' + esc(s.symbol) + '</b><span>' + usd(s.liq) + '</span></span>' +
+        '<span class="num" style="color:' + color + '">' + s.score + '</span></button>';
+    }).join('');
+    return top(t('savedTab')) + '<div class="page"><div class="list">' + items + '</div><p class="tiny" style="text-align:center;margin-top:16px">' + esc(t('tapCoin')) + '</p></div>';
+  }
+
+  function viewProfile() {
     const u = TG && TG.initDataUnsafe ? TG.initDataUnsafe.user : null;
     const name = u ? [u.first_name, u.last_name].filter(Boolean).join(' ') : t('guest');
     const handle = u && u.username ? '@' + u.username : t('noUser');
-    const avatar = u && u.photo_url ? '<img src="' + esc(u.photo_url) + '" alt="">' : (name[0] || '🦝');
-    return topBar(t('profile')) + '<div class="page">' +
-      '<div class="card"><div class="profile-head">' +
-      '<span class="pfp">' + avatar + '</span>' +
-      '<span><b>' + esc(name) + '</b><span>' + esc(handle) + '</span></span></div>' +
-      '<div class="stats"><div class="stat"><b>' + state.stats.scans + '</b><span>' + t('scans') + '</span></div>' +
-      '<div class="stat"><b>' + state.saved.length + '</b><span>' + t('inList') + '</span></div></div></div>' +
-      '<div class="card">' +
-      '<div class="set-row">' + t('language') + '<span class="val">' + (state.lang === 'ru' ? 'Русский' : 'English') + '</span></div>' +
-      '<button class="btn sm" id="lang" style="margin-top:10px">' + (state.lang === 'ru' ? 'Switch to English' : 'Переключить на русский') + '</button>' +
-      '<div style="height:10px"></div>' +
-      '<div class="set-row">' + t('theme') + '<span class="val" id="theme-val">' + (state.theme === 'auto' ? t('themeAuto') : state.theme === 'dark' ? t('themeDark') : t('themeLight')) + '</span></div>' +
-      '<button class="btn sm" id="theme" style="margin-top:12px">' + t('changeTheme') + '</button>' +
-      '<div style="height:10px"></div>' +
-      '<button class="btn danger sm" id="clear">' + t('clear') + '</button>' +
+    const pfp = u && u.photo_url ? '<img src="' + esc(u.photo_url) + '" alt="">' : esc(name.slice(0, 1).toUpperCase());
+    const themeLabel = S.theme === 'auto' ? t('themeAuto') : S.theme === 'dark' ? t('themeDark') : t('themeLight');
+    return top(t('profileTab')) +
+      '<div class="page">' +
+      '<div class="phead"><span class="pfp">' + pfp + '</span><span><b>' + esc(name) + '</b><span>' + esc(handle) + '</span></span></div>' +
+      '<div class="stats"><div class="stat"><b>' + (S.stats.scans || 0) + '</b><span>' + esc(t('scanned')) + '</span></div>' +
+      '<div class="stat"><b>' + S.saved.length + '</b><span>' + esc(t('savedN')) + '</span></div></div>' +
+      '<div style="height:22px"></div>' +
+      '<div class="set-card">' +
+      '<button class="set-row" id="theme">' + esc(t('theme')) + '<span class="val">' + esc(themeLabel) + '</span></button>' +
+      '<button class="set-row" id="lang">' + esc(t('langRow')) + '<span class="val">' + (S.lang === 'ru' ? 'Русский' : 'English') + '</span></button>' +
+      '<button class="set-row" id="clear">' + esc(t('clear')) + '</button>' +
       '</div>' +
-      '<div class="card"><p class="tiny">' + t('version') + '</p></div>' +
+      '<p class="tiny" style="margin-top:18px">' + esc(t('about')) + '</p>' +
       '</div>';
+  }
+
+  function viewOnboard() {
+    const slides = [
+      { t: t('ob1t'), p: t('ob1p'), v: '82', s: t('obCardS') },
+      { t: t('ob2t'), p: t('ob2p'), v: '8', s: t('obCardS') },
+      { t: t('ob3t'), p: t('ob3p'), v: '12', s: t('obCardS') }
+    ];
+    let i = 0;
+    document.getElementById('dock').style.display = 'none';
+    app.innerHTML = '<div class="ob"><div class="ob-top"><button class="ob-skip" id="obSkip">' + esc(t('skip')) + '</button></div>' +
+      '<div class="ob-art"><span class="halo"></span><div class="ob-card"><div class="k">' + esc(t('obCardK')) + '</div><div class="v" id="obV"></div><div class="s" id="obS"></div></div></div>' +
+      '<div class="ob-body"><h1 id="obT"></h1><p id="obP"></p></div>' +
+      '<div class="ob-dots" id="obD"></div>' +
+      '<div class="ob-foot"><button class="btn" id="obNext">' + esc(t('next')) + '</button></div></div>';
+    const paint = () => {
+      $('#obT').innerHTML = slides[i].t.replace(/\n/g, '<br>');
+      $('#obP').textContent = slides[i].p;
+      $('#obV').textContent = slides[i].v;
+      $('#obS').textContent = slides[i].s;
+      $('#obD').innerHTML = slides.map((_, k) => '<i' + (k === i ? ' class="on"' : '') + '></i>').join('');
+      $('#obNext').textContent = i === slides.length - 1 ? t('start') : t('next');
+    };
+    const done = () => { write(K.ob, true); render(); };
+    $('#obNext').onclick = () => { haptic(); if (i < slides.length - 1) { i++; paint(); } else done(); };
+    $('#obSkip').onclick = done;
+    paint();
   }
 
   /* ---------------- render ---------------- */
   function render() {
     applyTheme();
-    if (!read(LS.onboard, false)) return renderOnboarding();
-    if (state.tab === 'saved') el.innerHTML = savedView();
-    else if (state.tab === 'profile') el.innerHTML = profileView();
-    else el.innerHTML = scanView();
-    bind();
+    if (!read(K.ob, false)) return viewOnboard();
     document.getElementById('dock').style.display = '';
-    document.querySelectorAll('.dock-btn').forEach((b) => b.classList.toggle('on', b.dataset.tab === state.tab));
-    const savedBtn = document.querySelector('.dock-btn[data-tab="saved"] span');
-    const profBtn = document.querySelector('.dock-btn[data-tab="profile"] span');
-    if (savedBtn) savedBtn.textContent = t('saved');
-    if (profBtn) profBtn.textContent = t('profile');
-    const ring = $('.ring .val');
-    if (ring) requestAnimationFrame(() => { ring.style.strokeDashoffset = ring.dataset.off; });
+    app.innerHTML = S.tab === 'saved' ? viewSaved() : S.tab === 'profile' ? viewProfile() : viewScan();
+    syncDock();
+    bind();
+    const bar = $('.dial .bar');
+    if (bar) requestAnimationFrame(() => { bar.style.strokeDashoffset = bar.dataset.to; });
   }
 
-  function renderOnboarding() {
-    const slides = [
-      { t: t('ob1t'), p: t('ob1p'), m: '🦝' },
-      { t: t('ob2t'), p: t('ob2p'), m: '🔍' },
-      { t: t('ob3t'), p: t('ob3p'), m: '⭐' }
-    ];
-    let i = 0;
-    document.getElementById('dock').style.display = 'none';
-    el.innerHTML = '<div class="onboard">' +
-      '<div class="onboard-art"><div class="ob-ring"><span>' + slides[0].m + '</span></div></div>' +
-      '<div class="onboard-body"><div class="ob-dots">' + slides.map((_, k) => '<i' + (k === 0 ? ' class="on"' : '') + '></i>').join('') + '</div>' +
-      '<h1></h1><p></p></div>' +
-      '<div class="onboard-foot"><button class="btn primary" id="ob-next">' + t('next') + '</button><button class="btn ghost" id="ob-skip">' + t('skip') + '</button></div></div>';
-    const setSlide = () => {
-      $('.onboard-body h1').textContent = slides[i].t;
-      $('.onboard-body p').textContent = slides[i].p;
-      $('.ob-ring span').textContent = slides[i].m;
-      document.querySelectorAll('.ob-dots i').forEach((d, k) => d.classList.toggle('on', k === i));
-      $('#ob-next').textContent = i === slides.length - 1 ? t('start') : t('next');
-    };
-    const done = () => { write(LS.onboard, true); render(); };
-    $('#ob-next').onclick = () => { haptic(); if (i < slides.length - 1) { i++; setSlide(); } else done(); };
-    $('#ob-skip').onclick = done;
-    setSlide();
+  function syncDock() {
+    document.querySelectorAll('.dbtn').forEach((b) => b.classList.toggle('on', b.dataset.tab === S.tab));
+    const l1 = document.querySelector('[data-label="saved"]');
+    const l2 = document.querySelector('[data-label="profile"]');
+    if (l1) l1.textContent = t('savedTab');
+    if (l2) l2.textContent = t('profileTab');
   }
 
   function bind() {
-    const go = $('#go');
-    if (go) go.onclick = startScan;
-    const paste = $('#paste');
-    if (paste) paste.onclick = async () => {
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text) { $('#mint').value = text.trim(); haptic(); }
-      } catch (e) { toast(t('noClipboard')); }
-    };
-    const mint = $('#mint');
-    if (mint) {
-      mint.addEventListener('keydown', (e) => { if (e.key === 'Enter') startScan(); });
-      if (state.lastMint) mint.value = state.lastMint;
+    if ($('#mint')) {
+      const input = $('#mint');
+      if (S.lastMint) input.value = S.lastMint;
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') runCheck(); });
+      $('#paste').onclick = async () => {
+        try { const txt = await navigator.clipboard.readText(); if (txt) { input.value = txt.trim(); haptic(); } }
+        catch (e) { toast(t('noClip')); }
+      };
     }
-    const save = $('#save');
-    if (save) save.onclick = () => {
-      const r = state.result; if (!r) return;
+    if ($('#go')) $('#go').onclick = runCheck;
+    if ($('#save')) $('#save').onclick = () => {
+      const r = S.result; if (!r) return;
       const item = { mint: r.token.mint, symbol: r.token.symbol, image: r.token.image, liq: r.token.liq, score: r.score, at: r.at };
-      state.saved = [item].concat(state.saved.filter((s) => s.mint !== item.mint)).slice(0, 50);
-      write(LS.saved, state.saved);
-      haptic('ok'); toast(t('save'));
+      S.saved = [item].concat(S.saved.filter((x) => x.mint !== item.mint)).slice(0, 60);
+      write(K.saved, S.saved); haptic('ok'); toast(t('savedToast'));
     };
-    const open = $('#open');
-    if (open) open.onclick = () => { const u = state.result && state.result.token.url; if (u) window.open(u, '_blank'); };
-    const again = $('#again');
-    if (again) again.onclick = () => { state.result = null; state.error = ''; render(); };
+    if ($('#open')) $('#open').onclick = () => { const u = S.result && S.result.token.url; if (u) window.open(u, '_blank'); };
+    if ($('#again')) $('#again').onclick = () => { S.result = null; S.error = ''; render(); };
     document.querySelectorAll('.block-head').forEach((b) => b.onclick = () => b.parentElement.classList.toggle('open'));
     document.querySelectorAll('.item').forEach((it) => it.onclick = () => {
-      const mintAddr = it.dataset.mint;
-      state.tab = 'scan';
-      state.lastMint = mintAddr;
-      render();
-      setTimeout(startScan, 60);
+      S.tab = 'scan'; S.lastMint = it.dataset.mint; S.result = null; render(); setTimeout(runCheck, 80);
     });
-    const langBtn = $('#lang');
-    if (langBtn) langBtn.onclick = () => {
-      state.lang = state.lang === 'ru' ? 'en' : 'ru';
-      write(LS.lang, state.lang);
-      haptic();
-      render();
+    if ($('#theme')) $('#theme').onclick = () => {
+      S.theme = S.theme === 'auto' ? 'dark' : S.theme === 'dark' ? 'light' : 'auto';
+      write(K.theme, S.theme); render();
     };
-    const theme = $('#theme');
-    if (theme) theme.onclick = () => {
-      state.theme = state.theme === 'auto' ? 'dark' : state.theme === 'dark' ? 'light' : 'auto';
-      write(LS.theme, state.theme); render(); haptic();
-    };
-    const clear = $('#clear');
-    if (clear) clear.onclick = () => { state.saved = []; write(LS.saved, []); render(); toast(t('cleared')); };
+    if ($('#lang')) $('#lang').onclick = () => { S.lang = S.lang === 'ru' ? 'en' : 'ru'; write(K.lang, S.lang); render(); };
+    if ($('#clear')) $('#clear').onclick = () => { S.saved = []; write(K.saved, []); render(); toast(t('cleared')); };
   }
 
-  async function startScan() {
+  async function runCheck() {
     const input = $('#mint');
-    const mintAddr = (input && input.value || '').trim();
-    if (!isAddress(mintAddr)) { state.error = t('errAddr'); render(); haptic('err'); return; }
-    state.busy = true; state.error = ''; state.lastMint = mintAddr;
-    render();
+    const mint = (input && input.value || '').trim();
+    if (!isAddr(mint)) { S.error = t('errAddr'); render(); haptic('err'); return; }
+    S.busy = true; S.error = ''; S.lastMint = mint; render();
     try {
-      const raw = await loadToken(mintAddr);
-      const pair = pickPair(raw.dex);
-      if (!pair && !raw.rug) throw new Error(t('notFound'));
-      state.result = buildScore(raw);
-      if (state.result.blocks.length < 3) state.error = t('fewData');
-      state.stats.scans = (state.stats.scans || 0) + 1;
-      write(LS.stats, state.stats);
+      const raw = await loadRaw(mint);
+      if (!bestPair(raw.dex) && !raw.rug) throw new Error(t('notFound'));
+      S.result = scoreToken(raw);
+      if (S.result.blocks.length < 3) S.error = t('fewData');
+      S.stats.scans = (S.stats.scans || 0) + 1; write(K.stats, S.stats);
       haptic('ok');
     } catch (e) {
-      state.error = t('fail') + (e && e.message ? e.message : 'network error');
+      S.error = t('fail') + (e && e.message ? e.message : '');
       haptic('err');
     }
-    state.busy = false;
-    render();
+    S.busy = false; render();
   }
 
   /* ---------------- boot ---------------- */
-  state.lang = detectLang();
+  S.lang = detectLang();
   if (TG) {
-    try {
-      TG.ready();
-      TG.expand();
-      TG.setHeaderColor('#0b0b0d');
-      TG.disableVerticalSwipes && TG.disableVerticalSwipes();
-    } catch (e) {}
+    try { TG.ready(); TG.expand(); TG.setHeaderColor('#000000'); TG.disableVerticalSwipes && TG.disableVerticalSwipes(); } catch (e) {}
   }
   document.addEventListener('click', (e) => {
-    const btn = e.target.closest('.dock-btn, .dock-scan');
+    const btn = e.target.closest('[data-tab]');
     if (!btn) return;
-    state.tab = btn.dataset.tab;
-    if (state.tab === 'scan' && state.result) state.result = null;
-    haptic();
-    render();
+    S.tab = btn.dataset.tab;
+    if (S.tab !== 'scan') S.result = null;
+    haptic(); render();
   });
   render();
 })();
