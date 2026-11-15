@@ -659,6 +659,34 @@
     } catch (e) {}
   }
 
+  function showFatal(err) {
+    try {
+      const msg = String(err && err.message || err);
+      const where = String(err && err.stack || '').split('\n').slice(0, 3).join(' | ');
+      app.innerHTML = '<div class="page"><div class="card" style="margin-top:20px">' +
+        '<b style="font-size:17px">Ошибка отображения</b>' +
+        '<p class="small" style="margin-top:8px;word-break:break-word">' + esc(msg) + '</p>' +
+        '<p class="tiny" style="word-break:break-word">' + esc(where) + '</p>' +
+        '<p class="tiny">platform: ' + esc(PLATFORM) + ' · ua: ' + esc((navigator.userAgent || '').slice(0, 60)) + '</p>' +
+        '<button class="btn sm" id="cp" style="margin-top:12px">Скопировать текст</button>' +
+        '<button class="btn ghost sm" id="rl" style="margin-top:8px">Перезагрузить</button>' +
+        '</div></div>';
+      const cp = document.getElementById('cp');
+      if (cp) cp.onclick = function () {
+        const txt = msg + '\n' + where + '\nplatform: ' + PLATFORM;
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt);
+        if (TG && TG.showAlert) TG.showAlert(txt);
+      };
+      const rl = document.getElementById('rl');
+      if (rl) rl.onclick = function () { location.reload(); };
+    } catch (e) {
+      app.textContent = 'Ошибка: ' + String(err && err.message || err);
+    }
+  }
+
+  window.addEventListener('error', function (e) { if (e && e.error) showFatal(e.error); });
+  window.addEventListener('unhandledrejection', function (e) { if (e && e.reason) showFatal(e.reason); });
+
   /* ---------------- render ---------------- */
   function render() {
     if (!read(K.ob, false)) return viewOnboard();
@@ -666,8 +694,7 @@
     try {
       app.innerHTML = S.tab === 'saved' ? viewSaved() : S.tab === 'profile' ? viewProfile() : viewAll();
     } catch (err) {
-      console.error(err);
-      app.innerHTML = '<div class="page"><div class="empty"><b>Ошибка отображения</b>' + esc(String(err && err.message || err)) + '</div></div>';
+      showFatal(err);
       return;
     }
     syncDock();
