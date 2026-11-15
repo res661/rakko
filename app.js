@@ -523,15 +523,7 @@
       }
 
       // checks blocks
-      const goodN = S.result.blocks.filter(function (x) { return x.s >= 0.7; }).length;
-      const warnN = S.result.blocks.filter(function (x) { return x.s >= 0.4 && x.s < 0.7; }).length;
-      const badN = S.result.blocks.filter(function (x) { return x.s < 0.4; }).length;
       out += '<div class="sec-head"><p class="eyebrow">' + esc(t('checksK')) + '</p><button class="help" id="help">?</button></div>';
-      out += '<div class="sumline">' +
-        '<span><i class="sd good"></i>' + goodN + '</span>' +
-        '<span><i class="sd mid"></i>' + warnN + '</span>' +
-        '<span><i class="sd bad"></i>' + badN + '</span>' +
-        '</div>';
       out += '<div class="cats">' + S.result.blocks.map((x, bi) => {
         const c = x.s >= 0.7 ? 'green' : x.s >= 0.4 ? 'yellow' : 'red';
         const col = 'var(--' + c + ')';
@@ -742,19 +734,56 @@
     wrap.querySelector('#mx').onclick = close;
   }
 
+  function blockArt(k, c) {
+    if (k === 'liq') return '<svg viewBox="0 0 120 60" fill="none"><rect x="6" y="8" width="108" height="10" rx="5" fill="var(--card-2)"/><rect x="6" y="8" width="64" height="10" rx="5" fill="' + c + '" opacity=".8"/><rect x="6" y="26" width="108" height="10" rx="5" fill="var(--card-2)"/><rect x="6" y="26" width="34" height="10" rx="5" fill="' + c + '" opacity=".55"/><rect x="6" y="44" width="108" height="10" rx="5" fill="var(--card-2)"/><rect x="6" y="44" width="86" height="10" rx="5" fill="' + c + '" opacity=".35"/></svg>';
+    if (k === 'holders') return '<svg viewBox="0 0 120 60" fill="none"><circle cx="26" cy="30" r="12" stroke="' + c + '" stroke-width="4"/><circle cx="60" cy="30" r="9" stroke="' + c + '" stroke-width="3" opacity=".7"/><circle cx="92" cy="30" r="6" stroke="' + c + '" stroke-width="3" opacity=".45"/></svg>';
+    if (k === 'dev') return '<svg viewBox="0 0 120 60" fill="none"><rect x="18" y="10" width="84" height="40" rx="8" stroke="' + c + '" stroke-width="3"/><path d="M44 26l-8 6 8 6M76 26l8 6-8 6" stroke="' + c + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    if (k === 'contract') return '<svg viewBox="0 0 120 60" fill="none"><rect x="38" y="8" width="44" height="44" rx="8" stroke="' + c + '" stroke-width="3"/><path d="M48 22h24M48 32h24M48 42h14" stroke="' + c + '" stroke-width="3" stroke-linecap="round"/></svg>';
+    if (k === 'activity') return '<svg viewBox="0 0 120 60" fill="none"><path d="M8 46l18-16 14 10 16-22 18 16 18-24" stroke="' + c + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    if (k === 'age') return '<svg viewBox="0 0 120 60" fill="none"><circle cx="60" cy="30" r="20" stroke="' + c + '" stroke-width="3"/><path d="M60 18v12l9 6" stroke="' + c + '" stroke-width="3" stroke-linecap="round"/></svg>';
+    if (k === 'price') return '<svg viewBox="0 0 120 60" fill="none"><path d="M8 20l20 14 16-10 20 16 22-22" stroke="' + c + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    return '<svg viewBox="0 0 120 60" fill="none"><circle cx="36" cy="30" r="13" stroke="' + c + '" stroke-width="3"/><circle cx="84" cy="30" r="13" stroke="' + c + '" stroke-width="3"/><path d="M49 30h22" stroke="' + c + '" stroke-width="3" stroke-linecap="round"/></svg>';
+  }
+
   function showBlock(i) {
     const b = S.result && S.result.blocks[i];
     if (!b) return;
+    const ru = S.lang === 'ru';
     const help = (HELP[S.lang] || HELP.ru).find(function (h) { return h[0] === t(b.k); });
     const c = b.s >= 0.7 ? 'var(--green)' : b.s >= 0.4 ? 'var(--yellow)' : 'var(--red)';
+    const p = Math.round(b.s * 100);
+    const verdictWord = p >= 70 ? (ru ? 'В норме' : 'Healthy') : p >= 40 ? (ru ? 'Средне' : 'Mixed') : (ru ? 'Плохо' : 'Poor');
+    const advice = p >= 70
+      ? (ru ? 'Блок в порядке — можно не заострять внимание.' : 'This block is fine.')
+      : p >= 40
+        ? (ru ? 'Есть риск. Проверь детали перед входом.' : 'Some risk. Check details before entering.')
+        : (ru ? 'Сильный минус. Это одна из главных причин не входить.' : 'Major negative. One of the key reasons to stay out.');
+
     const wrap = document.createElement('div');
     wrap.className = 'modal';
-    wrap.innerHTML = '<div class="modal-card"><div class="modal-head"><span class="cat-ico" style="color:' + c + ';background:color-mix(in srgb,' + c + ' 16%, transparent)">' + (BICON[b.k] || '') + '</span><b style="margin-left:10px">' + esc(t(b.k)) + '</b><button class="modal-x" id="mx">✕</button></div>' +
-      '<div class="modal-body"><div class="mb-score" style="color:' + c + '">' + Math.round(b.s * 100) + '<i>%</i></div>' +
-      '<div class="bar" style="color:' + c + '"><i style="width:' + Math.round(b.s * 100) + '%"></i></div>' +
+    wrap.innerHTML = '<div class="modal-card sheet">' +
+      '<div class="modal-head"><span class="cat-ico" style="color:' + c + ';background:rgba(255,255,255,.06)">' + (BICON[b.k] || '') + '</span>' +
+      '<b style="margin-left:10px">' + esc(t(b.k)) + '</b><button class="modal-x" id="mx">✕</button></div>' +
+      '<div class="pager" id="pager">' +
+      // page 1: data
+      '<section class="pg"><div class="pg-score" style="color:' + c + '">' + p + '<i>%</i></div>' +
+      '<div class="pg-word" style="color:' + c + '">' + esc(verdictWord) + '</div>' +
+      '<div class="bar" style="color:' + c + '"><i style="width:' + p + '%"></i></div>' +
       '<p class="small muted">' + esc(b.info) + '</p>' +
-      (help ? '<p class="small">' + esc(help[1]) + '</p>' : '') + '</div></div>';
+      '<p class="tiny">' + esc(advice) + '</p></section>' +
+      // page 2: meaning + illustration
+      '<section class="pg"><div class="pg-art" style="color:' + c + '">' + blockArt(b.k, c) + '</div>' +
+      '<p class="small">' + esc(help ? help[1] : '') + '</p></section>' +
+      '</div>' +
+      '<div class="pager-dots"><i class="on"></i><i></i></div>' +
+      '</div>';
     document.body.appendChild(wrap);
+    const pager = wrap.querySelector('#pager');
+    const dots = wrap.querySelectorAll('.pager-dots i');
+    pager.addEventListener('scroll', function () {
+      const idx = Math.round(pager.scrollLeft / pager.clientWidth);
+      dots.forEach(function (d, k) { d.classList.toggle('on', k === idx); });
+    });
     const close = function () { wrap.remove(); };
     wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
     wrap.querySelector('#mx').onclick = close;
