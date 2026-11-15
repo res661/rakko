@@ -511,9 +511,14 @@
       // actions
       if (S.result.blocks.length < 8) out += '<p class="tiny" style="margin-top:16px">' + esc(S.lang === 'ru' ? 'Часть данных недоступна — оценка по ' + S.result.blocks.length + ' из 8 блоков.' : 'Some data unavailable — scored on ' + S.result.blocks.length + ' of 8 blocks.') + '</p>';
       out += '<div id="similar"></div>';
-      out += '<div class="actions"><button class="btn" id="save">' + esc(t('save')) + '</button>' +
-        (tk.creator ? '<button class="btn secondary" id="blkDev">' + esc(S.black.devs[tk.creator] ? (S.lang === 'ru' ? 'Разблокировать' : 'Unblock') : (S.lang === 'ru' ? 'Блок дева' : 'Block dev')) + '</button>' : '') +
-        '</div>';
+      out += '<div class="actions-main"><button class="btn" id="save">' + esc(t('save')) + '</button></div>';
+      if (tk.creator) {
+        const blocked = !!S.black.devs[tk.creator];
+        out += '<button class="ghost-action' + (blocked ? ' on' : '') + '" id="blkDev">' +
+          '<span class="ga-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><path d="M6.5 6.5l11 11"/></svg></span>' +
+          '<span>' + esc(blocked ? (S.lang === 'ru' ? 'Создатель заблокирован' : 'Creator blocked') : (S.lang === 'ru' ? 'Заблокировать создателя' : 'Block creator')) + '</span>' +
+          '</button>';
+      }
       if (S.black.tokens[tk.mint]) out += '<p class="tiny" style="margin-top:10px;color:var(--red)">' + esc(S.lang === 'ru' ? 'Монета в чёрном списке' : 'Token is blacklisted') + '</p>';
       out += '<p class="tiny" style="margin-top:14px">' + esc(tk.mint) + '</p>';
       out += '<p class="tiny">' + esc(t('about')) + '</p></div>';
