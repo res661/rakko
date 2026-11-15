@@ -795,3 +795,13 @@ input, textarea { -webkit-user-select: text; user-select: text; }
 
 /* kill any tinted glow on scroll */
 .cat, .tk-card, .info, .ins, .risk-list, .block, .item { box-shadow: none !important; }
+
+/* ===== live list ===== */
+.item .ch { font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; margin-right: 2px; }
+.item .num { min-width: 34px; text-align: right; }
+.tk-priceline b.tick { animation: tickPulse .6s ease; }
+@keyframes tickPulse {
+  0% { color: var(--text); transform: none; }
+  30% { color: var(--blue); transform: translateY(-1px); }
+  100% { color: var(--text); transform: none; }
+}
