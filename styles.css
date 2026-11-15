@@ -561,3 +561,40 @@ p.lead { margin: 0 0 16px; font-size: 15px; line-height: 1.4; color: var(--text-
   background: var(--blue);
 }
 .dbtn { position: relative; }
+
+/* ===== fix: content below Telegram header ===== */
+#app { padding-top: calc(var(--top-inset, 0px) + 6px); }
+@media (max-width: 759px) {
+  .page { padding-top: 78px; }
+  #app { padding-top: 0; }
+}
+@media (min-width: 760px) {
+  .page { padding-top: 20px; }
+}
+
+/* ===== card link icons ===== */
+.tk-links { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.tkl {
+  width: 34px; height: 34px; border-radius: 11px;
+  display: grid; place-items: center;
+  background: var(--card-2); border: .5px solid var(--line);
+  color: var(--text-2); text-decoration: none;
+  transition: background .15s, color .15s, transform .15s;
+}
+.tkl svg { width: 17px; height: 17px; }
+.tkl:active { transform: scale(.94); background: #222; color: #fff; }
+
+/* ===== bottom actions ===== */
+.actions { display: flex; gap: 10px; margin-top: 18px; }
+.actions .btn { flex: 1; }
+.actions .btn.secondary { flex: 0 0 auto; padding: 0 20px; font-size: 15px; }
+
+/* ===== less animation: instant, only press feedback ===== */
+.page > *, .block, .item, .ins-row, .cat, .dial, .verdict, .verdict-bar, .tk-card, .res {
+  animation: none !important;
+}
+.btn, .dbtn, .dscan, .item, .cat, .tkl, .set-row, .block-head, .help, .icon-pill {
+  transition: transform .12s ease, background .12s ease, opacity .12s ease;
+}
+.btn:active, .dscan:active, .dbtn:active { transform: scale(.97); }
+.item:active, .cat:active, .tkl:active { transform: scale(.985); }
