@@ -319,6 +319,14 @@
     if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
     if (S.busy) out += '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
 
+    if (!S.result && S.saved.length) {
+      out += '<p class="eyebrow" style="margin-top:24px">' + esc(S.lang === 'ru' ? 'НЕДАВНИЕ' : 'RECENT') + '</p>';
+      out += '<div class="list recent-list">' + S.saved.slice(0, 5).map(function (s, i) {
+        const vv = verdictLabel(s.score);
+        const cc = vv.cls === 'good' ? 'var(--green)' : vv.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
+        return '<button class="item" style="--i:' + i + '" data-mint="' + esc(s.mint) + '"><span class="ava">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(s.symbol.slice(0, 2))) + '</span><span class="meta"><b>' + esc(s.symbol) + '</b><span>' + usd(s.liq) + '</span></span><span class="num" style="color:' + cc + '">' + s.score + '</span></button>';
+      }).join('') + '</div>';
+    }
     if (tk && S.result) {
       out += '<div class="res">';
       out += dial(S.result.score);
