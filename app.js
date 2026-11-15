@@ -8,7 +8,7 @@
 
   const K = {
     ob: 'tc.onboard.v1', saved: 'tc.saved.v1', stats: 'tc.stats.v1',
-    theme: 'tc.theme.v1', lang: 'tc.lang.v1'
+    theme: 'tc.theme.v1', lang: 'tc.lang.v1', black: 'tc.black.v1'
   };
 
   const S = {
@@ -17,6 +17,7 @@
     stats: read(K.stats, { scans: 0 }),
     theme: 'dark',
     lang: null,
+    black: read(K.black, { devs: {}, tokens: {} }),
     result: null,
     busy: false,
     error: '',
@@ -152,12 +153,13 @@
     } finally { clearTimeout(id); }
   }
   async function loadRaw(mint) {
-    const out = { mint: mint, dex: null, rug: null, gt: null, gp: null, sup: null };
+    const out = { mint: mint, dex: null, rug: null, gt: null, gp: null, pump: null };
     await Promise.all([
       getJson('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(mint)).then((d) => { out.dex = d; }).catch(() => {}),
       getJson('https://api.rugcheck.xyz/v1/tokens/' + encodeURIComponent(mint) + '/report').then((d) => { out.rug = d; }).catch(() => {}),
       getJson('https://api.geckoterminal.com/api/v2/networks/solana/tokens/' + encodeURIComponent(mint), 6000).then((d) => { out.gt = d; }).catch(() => {}),
-      getJson('https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=' + encodeURIComponent(mint), 6000).then((d) => { out.gp = d; }).catch(() => {})
+      getJson('https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=' + encodeURIComponent(mint), 6000).then((d) => { out.gp = d; }).catch(() => {}),
+      getJson('https://frontend-api.pump.fun/coins/' + encodeURIComponent(mint), 5000).then((d) => { out.pump = d; }).catch(() => {})
     ]);
     return out;
   }
@@ -271,6 +273,13 @@
         socials: (info.socials || []).map((s) => ({ type: s.type, url: s.url })),
         sites: (info.websites || []).map((s) => s.url),
         url: (pair && pair.url) || '',
+        lpLocked: (function () {
+          const m = (rug.markets || [])[0];
+          if (!m) return null;
+          const v = m.lp && (m.lp.lpLockedPct !== undefined ? m.lp.lpLockedPct : m.lp.lpLocked);
+          return v === undefined ? null : Number(v);
+        })(),
+        pump: raw.pump && raw.pump.symbol ? { complete: !!raw.pump.complete, curve: Number(raw.pump.virtual_sol_reserves) || 0, replies: Number(raw.pump.reply_count) || 0 } : null,
         gtReserve: Number(raw.gt && raw.gt.data && raw.gt.data.attributes && raw.gt.data.attributes.total_reserve_in_usd) || 0,
         gtVol: Number(raw.gt && raw.gt.data && raw.gt.data.attributes && raw.gt.data.attributes.volume_usd && raw.gt.data.attributes.volume_usd.h24) || 0,
         gtMc: Number(raw.gt && raw.gt.data && raw.gt.data.attributes && raw.gt.data.attributes.market_cap_usd) || 0,
@@ -322,6 +331,45 @@
     if (score >= 40) return { cls: 'mid', label: t('mid') };
     return { cls: 'bad', label: t('bad') };
   }
+  function buildInsights(tk) {
+    const ru = S.lang === 'ru';
+    const out = [];
+    const add = (tone, text) => out.push({ tone, text });
+    const lowLiq = tk.liq > 0 && tk.liq < 10000;
+
+    if (tk.gp && tk.gp.honeypot) add('bad', ru ? 'Honeypot: продать не получится. Не покупай.' : 'Honeypot: you will not be able to sell.');
+    if (tk.mintAuth) add('bad', ru ? 'Минт открыт: создатель может напечатать токены в любой момент.' : 'Mint authority open: the dev can mint tokens anytime.');
+    if (tk.freezeAuth) add('bad', ru ? 'Заморозка открыта: продажи могут заблокировать.' : 'Freeze authority open: sells can be blocked.');
+    if (tk.gp && Number(tk.gp.buyTax) > 5) add('bad', ru ? 'Налог на покупку ' + tk.gp.buyTax + '% — почти всегда скам.' : 'Buy tax ' + tk.gp.buyTax + '% — almost always a scam.');
+    if (tk.gp && Number(tk.gp.sellTax) > 5) add('bad', ru ? 'Налог на продажу ' + tk.gp.sellTax + '% — почти всегда скам.' : 'Sell tax ' + tk.gp.sellTax + '% — almost always a scam.');
+    if (lowLiq) add('bad', ru ? 'Ликвидность меньше $10K — выйти без потерь почти невозможно.' : 'Liquidity under $10K — almost impossible to exit cleanly.');
+    if (tk.fdv && tk.liq && tk.liq / tk.fdv < 0.02) add('warn', ru ? 'Ликвидность — ' + Math.round(tk.liq / tk.fdv * 100) + '% от FDV: при обвале выйти сложно.' : 'Liquidity is ' + Math.round(tk.liq / tk.fdv * 100) + '% of FDV: hard to exit in a dump.');
+    if (tk.holders && tk.holders < 200) add('warn', ru ? 'Всего ' + num(tk.holders) + ' холдеров — легко манипулировать.' : 'Only ' + num(tk.holders) + ' holders — easy to manipulate.');
+    if (tk.top && tk.top.length) {
+      const top10 = tk.top.slice(0, 10).reduce((s, h) => s + h.pct, 0);
+      if (top10 > 50) add('warn', ru ? 'Топ-10 держат ' + Math.round(top10) + '% — могут обрушить цену.' : 'Top-10 hold ' + Math.round(top10) + '% — they can crash the price.');
+    }
+    if (tk.created) {
+      const h = (Date.now() - tk.created) / 36e5;
+      if (h < 1) add('warn', ru ? 'Монете меньше часа — истории нет, всё может измениться.' : 'Less than an hour old — no history yet.');
+      if (h > 24 * 30) add('good', ru ? 'Монета живёт ' + Math.round(h / 24) + ' дней — прошла проверку временем.' : 'Alive for ' + Math.round(h / 24) + ' days — survived the test of time.');
+    }
+    if (tk.ch24 <= -30) add('warn', ru ? 'Падение ' + pct(tk.ch24) + ' за 24ч — идёт дамп или потеря интереса.' : pct(tk.ch24) + ' in 24h — dumping or losing interest.');
+    if (tk.ch24 >= 300) add('warn', ru ? 'Рост ' + pct(tk.ch24) + ' за 24ч — высокий риск войти на пике.' : pct(tk.ch24) + ' in 24h — high risk of buying the top.');
+    if (tk.buys && tk.sells && tk.sells > tk.buys * 1.6) add('warn', ru ? 'Продаж в ' + (tk.sells / tk.buys).toFixed(1) + ' раза больше покупок.' : (tk.sells / tk.buys).toFixed(1) + '× more sells than buys.');
+    if (tk.buys && tk.sells && tk.buys > tk.sells * 1.6 && tk.ch24 > 0) add('good', ru ? 'Покупают активнее, чем продают (' + tk.buys + ' / ' + tk.sells + ').' : 'Buy pressure dominates (' + tk.buys + ' / ' + tk.sells + ').');
+    if (tk.gp && tk.gp.lp && tk.gp.lp <= 2) add('warn', ru ? 'Ликвидность в ' + tk.gp.lp + ' кошельке(ах) — пул могут вывести.' : 'Liquidity in ' + tk.gp.lp + ' wallet(s) — the pool can be pulled.');
+    if (tk.lpLocked !== null && tk.lpLocked > 90) add('good', ru ? 'LP заблокирован на ' + Math.round(tk.lpLocked) + '% — пул нельзя вывести.' : 'LP locked ' + Math.round(tk.lpLocked) + '% — the pool cannot be pulled.');
+    if (tk.lpLocked !== null && tk.lpLocked < 50) add('warn', ru ? 'LP заблокирован только на ' + Math.round(tk.lpLocked) + '% — разработчик может собрать ликвидность.' : 'LP locked only ' + Math.round(tk.lpLocked) + '% — the dev can pull liquidity.');
+    if (tk.pump && !tk.pump.complete) add('info', ru ? 'Ещё на бондинг-кривой Pump.fun — не вышла на DEX.' : 'Still on the Pump.fun bonding curve — not on a DEX yet.');
+    if (tk.pump && tk.pump.complete) add('good', ru ? 'Прошла градацию Pump.fun — есть внешний пул.' : 'Graduated from Pump.fun — has an external pool.');
+    if (!tk.socials.length && !tk.sites.length) add('warn', ru ? 'Нет ссылок на сайт и соцсети — красный флаг.' : 'No website or socials — red flag.');
+    if (tk.risks.length) tk.risks.slice(0, 2).forEach((r) => add('warn', (ru ? 'Риск: ' : 'Risk: ') + r.name));
+    if (S.black.devs[tk.creator]) add('bad', ru ? 'Создатель в твоём чёрном списке — ты уже блокировал его.' : 'Creator is in your blacklist — you blocked them before.');
+    if (S.black.tokens[tk.mint]) add('bad', ru ? 'Эта монета в твоём чёрном списке.' : 'This token is in your blacklist.');
+    return out;
+  }
+
   function verdictLabel(score) {
     if (score >= 70) return { txt: t('vCan'), cls: 'good' };
     if (score >= 40) return { txt: t('vRisk'), cls: 'mid' };
@@ -346,7 +394,6 @@
     const colorOf = (c) => c === 'good' ? 'var(--green)' : c === 'mid' ? 'var(--yellow)' : 'var(--red)';
 
     let out = top(t('checkTab')) + '<div class="page">';
-    out += '<div class="banner"><div class="banner-art">' + ART.shield + '</div><div class="banner-txt"><b>' + esc(S.lang === 'ru' ? 'Проверка за один тап' : 'One-tap check') + '</b><span>' + esc(S.lang === 'ru' ? '8 блоков: ликвидность, холдеры, дев, контракт, активность, возраст, цена, ссылки' : '8 blocks: liquidity, holders, dev, contract, activity, age, price, links') + '</span></div></div>';
     out += '<h1 class="display sm">' + esc(t('pasteTitle')) + '</h1>';
     out += '<p class="lead" style="margin-bottom:14px">' + esc(t('pasteSub')) + '</p>';
     out += '<div class="field"><input id="mint" placeholder="' + esc(t('ph')) + '" autocomplete="off" spellcheck="false"><button class="icon-pill" id="paste">' + esc(t('paste')) + '</button></div>';
@@ -392,6 +439,16 @@
         (tk.holders ? ' · ' + num(tk.holders) + ' holders' : '') +
         (tk.buys || tk.sells ? ' · ' + tk.buys + '/' + tk.sells : '') +
         '</div></div>';
+      // insights
+      const insights = buildInsights(tk);
+      if (insights.length) {
+        out += '<p class="eyebrow" style="margin-top:20px">' + esc(S.lang === 'ru' ? 'Что важно' : 'Key findings') + '</p>';
+        out += '<div class="ins">' + insights.map(function (x, i) {
+          const c = x.tone === 'bad' ? 'var(--red)' : x.tone === 'warn' ? 'var(--yellow)' : x.tone === 'good' ? 'var(--green)' : 'var(--text-3)';
+          return '<div class="ins-row" style="--i:' + i + '"><span class="ins-dot" style="background:' + c + '"></span><span>' + esc(x.text) + '</span></div>';
+        }).join('') + '</div>';
+      }
+
       // info grid
       const rows = [
         [t('priceL'), price(tk.price), tk.ch24 ? pct(tk.ch24) : ''],
@@ -448,7 +505,15 @@
       // actions
       if (S.result.blocks.length < 8) out += '<p class="tiny" style="margin-top:16px">' + esc(S.lang === 'ru' ? 'Часть данных недоступна — оценка по ' + S.result.blocks.length + ' из 8 блоков.' : 'Some data unavailable — scored on ' + S.result.blocks.length + ' of 8 blocks.') + '</p>';
       out += '<div id="similar"></div>';
-      out += '<div style="height:20px"></div><div class="row"><button class="btn" id="save">' + esc(t('save')) + '</button>' + (tk.url ? '<button class="btn secondary" id="open">Dex</button>' : '') + '</div>';
+      const isBlack = !!(S.black.devs[tk.creator] || S.black.tokens[tk.mint]);
+      out += '<div class="row" style="margin-top:16px">' +
+        '<button class="btn" id="save">' + esc(t('save')) + '</button>' +
+        (tk.url ? '<button class="btn secondary" id="open">Dex</button>' : '') +
+        '</div>';
+      out += '<div class="row" style="margin-top:8px">' +
+        '<button class="btn secondary sm" id="blkTok">' + esc(isBlack ? (S.lang === 'ru' ? 'Разблокировать монету' : 'Unblock token') : (S.lang === 'ru' ? 'Монету в чёрный список' : 'Blacklist token')) + '</button>' +
+        (tk.creator ? '<button class="btn secondary sm" id="blkDev">' + esc(S.black.devs[tk.creator] ? (S.lang === 'ru' ? 'Разблокировать создателя' : 'Unblock creator') : (S.lang === 'ru' ? 'Создателя в чёрный список' : 'Blacklist creator')) + '</button>' : '') +
+        '</div>';
       out += '<p class="tiny" style="margin-top:14px">' + esc(tk.mint) + '</p>';
       out += '<p class="tiny">' + esc(t('about')) + '</p></div>';
     }
@@ -531,6 +596,7 @@
       '<div style="height:22px"></div>' +
       '<div class="set-card">' +
       '<button class="set-row" id="lang">' + esc(t('langRow')) + '<span class="val">' + (S.lang === 'ru' ? 'Русский' : 'English') + '</span></button>' +
+      '<button class="set-row" id="how">' + esc(S.lang === 'ru' ? 'Как это работает' : 'How it works') + '<span class="val">›</span></button>' +
       '<button class="set-row" id="clear">' + esc(t('clear')) + '</button>' +
       '</div>' +
       '<p class="tiny" style="margin-top:18px">' + esc(t('about')) + '</p>' +
@@ -599,6 +665,32 @@
       ['LP holders', 'How many wallets hold liquidity. 1–2 means the pool can be pulled.']
     ]
   };
+
+  function showHow() {
+    const ru = S.lang === 'ru';
+    const steps = ru ? [
+      ['Проверка', 'Вставь адрес монеты. Rakko опрашивает DexScreener, Rugcheck, GoPlus, GeckoTerminal и Pump.fun — параллельно, за 1–2 секунды.'],
+      ['Оценка', 'Каждый блок получает 0–100%. Из них собирается общий балл. Цвет: зелёный — чисто, жёлтый — рискованно, красный — опасно.'],
+      ['Инсайты', 'Правила находят конкретику: открыт минт, LP не заблокирован, продаж больше покупок, создатель уже запускал монеты.'],
+      ['Чёрный список', 'Блокируй монету или создателя. При следующей проверке Rakko сразу предупредит.'],
+      ['Точность', 'Оценка — не гарантия. Rag бывает и у чистых монет. Задача — сэкономить время и показать риски, а не решать за тебя.']
+    ] : [
+      ['Check', 'Paste the address. Rakko queries DexScreener, Rugcheck, GoPlus, GeckoTerminal and Pump.fun in parallel — 1–2 seconds.'],
+      ['Score', 'Each block scores 0–100%. They combine into one number. Green — clean, yellow — risky, red — dangerous.'],
+      ['Insights', 'Rules surface concrete facts: mint open, LP unlocked, more sells than buys, creator launched tokens before.'],
+      ['Blacklist', 'Block a token or a creator. Next check Rakko warns you instantly.'],
+      ['Accuracy', 'A score is not a guarantee. Rugs happen to clean tokens too. The goal is to save time and show risks, not decide for you.']
+    ];
+    const wrap = document.createElement('div');
+    wrap.className = 'modal';
+    wrap.innerHTML = '<div class="modal-card"><div class="modal-head"><b>' + (ru ? 'Как работает Rakko' : 'How Rakko works') + '</b><button class="modal-x" id="mx">✕</button></div><div class="modal-body">' +
+      steps.map(function (s, i) { return '<div class="how-step"><span class="how-n">' + (i + 1) + '</span><div><b>' + esc(s[0]) + '</b><span>' + esc(s[1]) + '</span></div></div>'; }).join('') +
+      '</div></div>';
+    document.body.appendChild(wrap);
+    const close = function () { wrap.remove(); };
+    wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
+    wrap.querySelector('#mx').onclick = close;
+  }
 
   function showBlock(i) {
     const b = S.result && S.result.blocks[i];
@@ -776,9 +868,21 @@
     if ($('#lang')) $('#lang').onclick = () => { S.lang = S.lang === 'ru' ? 'en' : 'ru'; write(K.lang, S.lang); render(); };
     if ($('#clear')) $('#clear').onclick = () => { S.saved = []; write(K.saved, []); render(); toast(t('cleared')); };
     if ($('#help')) $('#help').onclick = showHelp;
+    if ($('#how')) $('#how').onclick = showHow;
     document.querySelectorAll('.cat').forEach(function (el) {
       el.onclick = function () { showBlock(+el.dataset.bi); };
     });
+    if ($('#blkTok') && S.result) $('#blkTok').onclick = function () {
+      const m = S.result.token.mint;
+      if (S.black.tokens[m]) delete S.black.tokens[m]; else S.black.tokens[m] = Date.now();
+      write(K.black, S.black); haptic(); render();
+    };
+    if ($('#blkDev') && S.result) $('#blkDev').onclick = function () {
+      const d = S.result.token.creator;
+      if (!d) return;
+      if (S.black.devs[d]) delete S.black.devs[d]; else S.black.devs[d] = Date.now();
+      write(K.black, S.black); haptic(); render();
+    };
     if (S.result) loadSimilar(S.result.token);
   }
 
@@ -807,6 +911,7 @@
   if (TG) {
     try {
       TG.ready();
+      document.documentElement.style.setProperty('--top-inset', TG.isFullscreen ? '58px' : '4px');
       if (!IS_DESKTOP) {
         TG.expand();
         if (TG.requestFullscreen) TG.requestFullscreen();
@@ -819,7 +924,7 @@
     try {
       const onFs = () => document.documentElement.style.setProperty('--fs', TG.isFullscreen ? '1' : '0');
       if (TG.onEvent) TG.onEvent('fullscreenChanged', onFs);
-      if (TG.onEvent) TG.onEvent('viewportChanged', () => { if (TG.expand) TG.expand(); });
+      if (TG.onEvent) TG.onEvent('viewportChanged', () => { if (TG.expand) TG.expand(); document.documentElement.style.setProperty('--top-inset', TG.isFullscreen ? '58px' : '4px'); });
       onFs();
     } catch (e) {}
   }
