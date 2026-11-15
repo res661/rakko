@@ -15,7 +15,7 @@
     tab: 'scan',
     saved: read(K.saved, []),
     stats: read(K.stats, { scans: 0 }),
-    theme: read(K.theme, 'auto'),
+    theme: 'dark',
     lang: null,
     result: null,
     busy: false,
@@ -293,6 +293,14 @@
   }
 
   /* ---------------- ui parts ---------------- */
+
+  const ART = {
+    shield: '<svg viewBox="0 0 120 120" fill="none"><path d="M60 14l34 12v26c0 22-14 40-34 50-20-10-34-28-34-50V26l34-12z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M46 60l10 10 20-22" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    gauge: '<svg viewBox="0 0 120 120" fill="none"><path d="M18 84a42 42 0 1 1 84 0" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M60 84l22-26" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="60" cy="84" r="5" fill="currentColor"/><path d="M22 64h10M88 64h10M60 26v10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>',
+    layers: '<svg viewBox="0 0 120 120" fill="none"><path d="M60 20l40 20-40 20-40-20 40-20z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M20 60l40 20 40-20M20 80l40 20 40-20" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>',
+    list: '<svg viewBox="0 0 120 120" fill="none"><rect x="24" y="24" width="72" height="16" rx="8" stroke="currentColor" stroke-width="3"/><rect x="24" y="52" width="72" height="16" rx="8" stroke="currentColor" stroke-width="3"/><rect x="24" y="80" width="44" height="16" rx="8" stroke="currentColor" stroke-width="3"/></svg>'
+  };
+
   const ICON_CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
   const ICON_EMPTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5 12 4l8 3.5v9L12 20l-8-3.5z"/><path d="M4 7.5 12 11l8-3.5M12 11v9"/></svg>';
 
@@ -327,12 +335,14 @@
     const colorOf = (c) => c === 'good' ? 'var(--green)' : c === 'mid' ? 'var(--yellow)' : 'var(--red)';
 
     let out = top(t('checkTab')) + '<div class="page">';
+    out += '<div class="banner"><div class="banner-art">' + ART.shield + '</div><div class="banner-txt"><b>' + esc(S.lang === 'ru' ? 'Проверка за один тап' : 'One-tap check') + '</b><span>' + esc(S.lang === 'ru' ? '8 блоков: ликвидность, холдеры, дев, контракт, активность, возраст, цена, ссылки' : '8 blocks: liquidity, holders, dev, contract, activity, age, price, links') + '</span></div></div>';
     out += '<h1 class="display sm">' + esc(t('pasteTitle')) + '</h1>';
     out += '<p class="lead" style="margin-bottom:14px">' + esc(t('pasteSub')) + '</p>';
     out += '<div class="field"><input id="mint" placeholder="' + esc(t('ph')) + '" autocomplete="off" spellcheck="false"><button class="icon-pill" id="paste">' + esc(t('paste')) + '</button></div>';
     out += '<div style="height:12px"></div>';
     out += '<button class="btn" id="go"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? '<span class="spinner"></span>' : esc(S.result ? t('again') : t('check'))) + '</button>';
     if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
+    if (!S.result) out += '<div class="legend"><div><span class="lg good"></span>' + esc(S.lang === 'ru' ? '70–100 — чисто' : '70–100 — clean') + '</div><div><span class="lg mid"></span>' + esc(S.lang === 'ru' ? '40–69 — рискованно' : '40–69 — risky') + '</div><div><span class="lg bad"></span>' + esc(S.lang === 'ru' ? '0–39 — опасно' : '0–39 — dangerous') + '</div></div>';
     if (S.busy) out += '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
 
     if (!S.result && S.saved.length) {
@@ -504,7 +514,6 @@
       '<div class="stat"><b>' + S.saved.length + '</b><span>' + esc(t('savedN')) + '</span></div></div>' +
       '<div style="height:22px"></div>' +
       '<div class="set-card">' +
-      '<button class="set-row" id="theme">' + esc(t('theme')) + '<span class="val">' + esc(themeLabel) + '</span></button>' +
       '<button class="set-row" id="lang">' + esc(t('langRow')) + '<span class="val">' + (S.lang === 'ru' ? 'Русский' : 'English') + '</span></button>' +
       '<button class="set-row" id="clear">' + esc(t('clear')) + '</button>' +
       '</div>' +
@@ -514,14 +523,14 @@
 
   function viewOnboard() {
     const slides = [
-      { t: t('ob1t'), p: t('ob1p'), v: '82', s: t('obCardS') },
-      { t: t('ob2t'), p: t('ob2p'), v: '8', s: t('obCardS') },
-      { t: t('ob3t'), p: t('ob3p'), v: '12', s: t('obCardS') }
+      { t: t('ob1t'), p: t('ob1p'), v: '82', s: t('obCardS'), art: 'gauge' },
+      { t: t('ob2t'), p: t('ob2p'), v: '8', s: t('obCardS'), art: 'layers' },
+      { t: t('ob3t'), p: t('ob3p'), v: '12', s: t('obCardS'), art: 'list' }
     ];
     let i = 0;
     document.getElementById('dock').style.display = 'none';
     app.innerHTML = '<div class="ob"><div class="ob-top"><button class="ob-skip" id="obSkip">' + esc(t('skip')) + '</button></div>' +
-      '<div class="ob-art"><span class="halo"></span><div class="ob-card"><div class="k">' + esc(t('obCardK')) + '</div><div class="v" id="obV"></div><div class="s" id="obS"></div></div></div>' +
+      '<div class="ob-art"><span class="halo"></span><div class="ob-card"><div class="ob-ico" id="obArt"></div><div class="k">' + esc(t('obCardK')) + '</div><div class="v" id="obV"></div><div class="s" id="obS"></div></div></div>' +
       '<div class="ob-body"><h1 id="obT"></h1><p id="obP"></p></div>' +
       '<div class="ob-dots" id="obD"></div>' +
       '<div class="ob-foot"><button class="btn" id="obNext">' + esc(t('next')) + '</button></div></div>';
@@ -529,6 +538,7 @@
       $('#obT').innerHTML = slides[i].t.replace(/\n/g, '<br>');
       $('#obP').textContent = slides[i].p;
       $('#obV').textContent = slides[i].v;
+      const artEl = $('#obArt'); if (artEl) artEl.innerHTML = ART[slides[i].art] || '';
       $('#obS').textContent = slides[i].s;
       $('#obD').innerHTML = slides.map((_, k) => '<i' + (k === i ? ' class="on"' : '') + '></i>').join('');
       $('#obNext').textContent = i === slides.length - 1 ? t('start') : t('next');
@@ -548,7 +558,13 @@
       ['Активность', 'Объём торгов против ликвидности. Слишком мало — мёртвая монета, слишком много за минуту — манипуляция.'],
       ['Возраст', 'Сколько живёт пара. Совсем новая — выше риск, старая — больше истории.'],
       ['Цена за 24ч', 'Сильное падение — возможен дамп; сильный рост — риск войти на пике.'],
-      ['Ссылки', 'Сайт и соцсети. Их отсутствие — красный флаг.']
+      ['Ссылки', 'Сайт и соцсети. Их отсутствие — красный флаг.'],
+      ['MC / FDV', 'MC — капитализация по цене, FDV — если бы все токены стоили столько же. FDV сильно выше MC = много токенов ещё не в обороте.'],
+      ['Holders', 'Сколько кошельков держат монету. Мало — легко манипулировать.'],
+      ['Buys / Sells', 'Сделки за 24ч. Перекос в продажи — давление вниз.'],
+      ['Honeypot', 'Ловушка: купить можно, продать нельзя. Если «да» — не покупай.'],
+      ['Buy / Sell tax', 'Налог на покупку и продажу. Выше 5% — почти всегда скам.'],
+      ['LP holders', 'Сколько кошельков держат ликвидность. 1–2 — риск вывода пула.']
     ],
     en: [
       ['Liquidity', 'How much money is in the pool. Low liquidity means you cannot exit without huge slippage.'],
@@ -558,7 +574,13 @@
       ['Activity', 'Volume vs liquidity. Too low — dead token; too high in a minute — manipulation.'],
       ['Age', 'How long the pair has existed. Very new — higher risk, older — more history.'],
       ['24h price', 'A deep drop may be a dump; a huge pump is a risk of buying the top.'],
-      ['Links', 'Website and socials. Missing links are a red flag.']
+      ['Links', 'Website and socials. Missing links are a red flag.'],
+      ['MC / FDV', 'MC is price × supply; FDV assumes all tokens are unlocked. FDV far above MC means lots of locked tokens.'],
+      ['Holders', 'How many wallets hold the token. Few holders = easy manipulation.'],
+      ['Buys / Sells', 'Trades in 24h. More sells = downward pressure.'],
+      ['Honeypot', 'You can buy but not sell. If yes — do not buy.'],
+      ['Buy / Sell tax', 'Tax on trades. Above 5% is almost always a scam.'],
+      ['LP holders', 'How many wallets hold liquidity. 1–2 means the pool can be pulled.']
     ]
   };
 
@@ -604,7 +626,6 @@
 
   /* ---------------- render ---------------- */
   function render() {
-    applyTheme();
     if (!read(K.ob, false)) return viewOnboard();
     document.getElementById('dock').style.display = '';
     try {
@@ -690,10 +711,6 @@
     document.querySelectorAll('.item').forEach((it) => it.onclick = () => {
       S.tab = 'scan'; S.lastMint = it.dataset.mint; S.result = null; render(); setTimeout(runCheck, 80);
     });
-    if ($('#theme')) $('#theme').onclick = () => {
-      S.theme = S.theme === 'auto' ? 'dark' : S.theme === 'dark' ? 'light' : 'auto';
-      write(K.theme, S.theme); render();
-    };
     if ($('#lang')) $('#lang').onclick = () => { S.lang = S.lang === 'ru' ? 'en' : 'ru'; write(K.lang, S.lang); render(); };
     if ($('#clear')) $('#clear').onclick = () => { S.saved = []; write(K.saved, []); render(); toast(t('cleared')); };
     if ($('#help')) $('#help').onclick = showHelp;
