@@ -944,5 +944,14 @@
     if (S.tab !== 'scan') S.result = null;
     haptic(); render();
   });
+  // block pinch-zoom / double-tap zoom (make it feel native)
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (ev) {
+    document.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });
+  });
+  document.addEventListener('touchmove', function (e) {
+    if (e.touches && e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('dblclick', function (e) { e.preventDefault(); }, { passive: false });
+
   render();
 })();
