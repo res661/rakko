@@ -329,6 +329,34 @@
     }
     if (tk && S.result) {
       out += '<div class="res">';
+      const chCol = (tk.ch24 || 0) >= 0 ? 'var(--green)' : 'var(--red)';
+      const ageTxt = (function () {
+        if (!tk.created) return '—';
+        const h = (Date.now() - tk.created) / 36e5;
+        return h < 1 ? Math.round(h * 60) + 'm' : h < 48 ? Math.round(h) + 'h' : Math.round(h / 24) + 'd';
+      })();
+      out += '<div class="tk-card">' +
+        '<div class="tk-top">' +
+        '<span class="tk-ava">' + (tk.image ? '<img src="' + esc(tk.image) + '" alt="">' : esc(tk.symbol.slice(0, 2))) + '</span>' +
+        '<span class="tk-id"><b>' + esc(tk.symbol) + '</b><span>' + esc(tk.name || '') + '</span></span>' +
+        '<span class="tk-chg" style="color:' + chCol + ';background:color-mix(in srgb,' + chCol + ' 14%, transparent)">' + (tk.ch24 ? pct(tk.ch24) : '—') + '</span>' +
+        '</div>' +
+        '<div class="tk-price">' + esc(price(tk.price)) + '</div>' +
+        '<div class="tk-stats">' +
+        '<div><span>MC</span><b>' + usd(tk.mc) + '</b></div>' +
+        '<div><span>' + esc(t('liqL')) + '</span><b>' + usd(tk.liq) + '</b></div>' +
+        '<div><span>' + esc(t('volL')) + '</span><b>' + usd(tk.vol) + '</b></div>' +
+        '<div><span>Age</span><b>' + esc(ageTxt) + '</b></div>' +
+        '</div>' +
+        '<div class="tk-chips">' +
+        '<span class="chip2">' + esc((tk.dex || '—').toUpperCase()) + '</span>' +
+        (tk.holders ? '<span class="chip2">' + num(tk.holders) + ' holders</span>' : '') +
+        (tk.buys || tk.sells ? '<span class="chip2">' + tk.buys + ' buys / ' + tk.sells + ' sells</span>' : '') +
+        (isFinite(tk.rugScore) ? '<span class="chip2">Rugcheck ' + Math.round(tk.rugScore) + '</span>' : '') +
+        (tk.mintAuth ? '<span class="chip2 bad">mint open</span>' : '') +
+        (tk.freezeAuth ? '<span class="chip2 bad">freeze</span>' : '') +
+        '</div></div>';
+
       out += dial(S.result.score);
       out += '<div class="verdict-bar"><span class="k">' + esc(t('verdictK')) + '</span><b style="color:' + colorOf(v.cls) + '">' + esc(v.txt) + '</b></div>';
       out += '<div class="token-line" style="text-align:center"><b>' + esc(tk.symbol) + '</b>' + (tk.name ? ' · ' + esc(tk.name) : '') + '</div>';
@@ -342,7 +370,11 @@
         [t('volL'), usd(tk.vol), ''],
         ['Buys / Sells', String(tk.buys) + ' / ' + String(tk.sells), ''],
         ['Holders', tk.holders ? num(tk.holders) : '—', ''],
-        ['DEX', (tk.dex || '—').toUpperCase(), '']
+        ['DEX', (tk.dex || '—').toUpperCase(), ''],
+        ['FDV / MC', (tk.mc && tk.fdv ? (tk.fdv / tk.mc).toFixed(2) + '×' : '—'), ''],
+        ['1h / 6h', (tk.ch1 ? pct(tk.ch1) : '—') + ' / ' + (tk.ch6 ? pct(tk.ch6) : '—'), ''],
+        ['Creator', tk.creator ? tk.creator.slice(0, 6) + '…' + tk.creator.slice(-4) : '—', ''],
+        ['Pair', tk.pairAddr ? tk.pairAddr.slice(0, 6) + '…' + tk.pairAddr.slice(-4) : '—', '']
       ];
       out += '<div class="info">' + rows.map((r) => '<div class="info-row"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + (r[2] ? ' <i style="color:' + (String(r[2]).startsWith('-') ? 'var(--red)' : 'var(--green)') + '">' + esc(r[2]) + '</i>' : '') + '</b></div>').join('') + '</div>';
 
@@ -413,11 +445,7 @@
       dial(r.score) +
       (function () { var v = verdictLabel(r.score); return '<div class="verdict-bar"><span class="k">' + esc(t('verdictK')) + '</span><b class="' + v.cls + '" style="color:var(--' + (v.cls === 'good' ? 'green' : v.cls === 'mid' ? 'yellow' : 'red') + ')">' + esc(v.txt) + '</b></div>'; })() +
       '<div class="token-line" style="text-align:center"><b>' + esc(tk.symbol) + '</b>' + (tk.name ? ' · ' + esc(tk.name) : '') + '</div>' +
-      '<div class="metrics">' +
-      '<div class="metric"><b>' + price(tk.price) + '</b><span>' + esc(t('priceL')) + '</span></div>' +
-      '<div class="metric"><b>' + usd(tk.liq) + '</b><span>' + esc(t('liqL')) + '</span></div>' +
-      '<div class="metric"><b>' + usd(tk.vol) + '</b><span>' + esc(t('volL')) + '</span></div>' +
-      '</div>' +
+
       '<div style="height:22px"></div>' +
       '<p class="eyebrow" style="margin-bottom:8px">' + esc(t('checksK')) + '</p>' +
       r.reasons.map((x) => '<p class="small muted" style="margin:0 0 4px">— ' + esc(x) + '</p>').join('') +
