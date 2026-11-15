@@ -530,9 +530,25 @@
       const input = $('#mint');
       if (S.lastMint) input.value = S.lastMint;
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') runCheck(); });
+      const tryPaste = async () => {
+        try {
+          const txt = await navigator.clipboard.readText();
+          if (txt && txt.trim()) { input.value = txt.trim(); haptic(); return true; }
+        } catch (e) {}
+        return false;
+      };
       $('#paste').onclick = async () => {
-        try { const txt = await navigator.clipboard.readText(); if (txt) { input.value = txt.trim(); haptic(); } }
-        catch (e) { toast(t('noClip')); }
+        if (await tryPaste()) return;
+        input.focus();
+        const oldHint = document.querySelector('.paste-hint');
+        if (oldHint) oldHint.remove();
+        const hint = document.createElement('div');
+        hint.className = 'paste-hint';
+        hint.innerHTML = (S.lang === 'ru'
+          ? 'Браузер не дал доступ к буферу. Нажми в поле и удерживай — появится <b>«Вставить»</b>.'
+          : 'Browser blocked clipboard access. Press and hold the field and tap <b>Paste</b>.');
+        input.parentElement.insertAdjacentElement('afterend', hint);
+        setTimeout(function () { hint.remove(); }, 5000);
       };
     }
     if ($('#go')) $('#go').onclick = runCheck;
