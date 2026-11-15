@@ -404,3 +404,44 @@ html.desktop .onboard { position: static; min-height: 100vh; max-width: 560px; m
 @media (min-width: 720px) {
   html.desktop body::before { opacity: .6; }
 }
+/* ===== desktop: render as a floating app window inside the webview ===== */
+html.desktop body {
+  background: #08080a;
+  display: flex; justify-content: center; align-items: center;
+  min-height: 100vh; padding: 20px;
+  overflow: hidden;
+}
+html.desktop #app {
+  width: 420px; max-width: 100%;
+  height: min(860px, calc(100vh - 40px));
+  margin: 0;
+  border-radius: 34px;
+  overflow-y: auto; overflow-x: hidden;
+  border: .5px solid rgba(255,255,255,.12);
+  background: var(--bg);
+  box-shadow: 0 40px 120px rgba(0,0,0,.65), 0 0 0 10px rgba(255,255,255,.03);
+  padding-bottom: 110px;
+  scrollbar-width: thin;
+}
+html.desktop #app::-webkit-scrollbar { width: 6px; }
+html.desktop #app::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 99px; }
+html.desktop .top { position: sticky; top: 0; max-width: none; }
+html.desktop .dock-wrap {
+  position: fixed; left: auto; right: auto;
+  width: 420px; max-width: calc(100% - 40px);
+  margin: 0 auto; transform: none;
+  bottom: calc(50vh - min(860px, calc(100vh - 40px)) / 2 + 14px);
+}
+html.desktop .onboard { position: absolute; }
+html.desktop .ob {
+  position: fixed; inset: 0; margin: auto;
+  width: 420px; height: min(860px, calc(100vh - 40px));
+  border-radius: 34px; overflow: hidden;
+  border: .5px solid rgba(255,255,255,.12);
+  box-shadow: 0 40px 120px rgba(0,0,0,.65);
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+}
+html.desktop .page { padding: 20px 22px 8px; }
+html.desktop .dial { width: 220px; height: 220px; }
+html.desktop h1.display { font-size: 34px; }
+html.desktop .toast { bottom: 120px; }
