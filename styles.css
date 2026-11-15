@@ -390,3 +390,17 @@ h2 { margin: 0 0 8px; font-size: 17px; font-weight: 600; letter-spacing: -0.02em
   animation: rise .3s ease both;
 }
 .paste-hint b { color: var(--text); }
+/* desktop: windowed look, never fullscreen */
+html.desktop body { background: #0b0b0d; align-items: flex-start; padding: 0; }
+html.desktop #app {
+  max-width: 560px; margin: 0 auto;
+  min-height: 100vh;
+  border-left: .5px solid var(--line); border-right: .5px solid var(--line);
+  background: var(--bg);
+}
+html.desktop .dock-wrap { max-width: 560px; left: 50%; transform: translateX(-50%); right: auto; width: 100%; }
+html.desktop .top { max-width: 560px; margin: 0 auto; }
+html.desktop .onboard { position: static; min-height: 100vh; max-width: 560px; margin: 0 auto; }
+@media (min-width: 720px) {
+  html.desktop body::before { opacity: .6; }
+}
