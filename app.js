@@ -246,6 +246,25 @@
         image: info.imageUrl || '',
         price: Number(pair && pair.priceUsd) || 0,
         liq, vol,
+        fdv: Number(pair && pair.fdv) || 0,
+        mc: Number(pair && pair.marketCap) || 0,
+        ch24: Number(pair && pair.priceChange && pair.priceChange.h24) || 0,
+        ch6: Number(pair && pair.priceChange && pair.priceChange.h6) || 0,
+        ch1: Number(pair && pair.priceChange && pair.priceChange.h1) || 0,
+        buys: Number(pair && pair.txns && pair.txns.h24 && pair.txns.h24.buys) || 0,
+        sells: Number(pair && pair.txns && pair.txns.h24 && pair.txns.h24.sells) || 0,
+        dex: (pair && pair.dexId) || '',
+        pairAddr: (pair && pair.pairAddress) || '',
+        created: Number(pair && pair.pairCreatedAt) || 0,
+        holders: Number(rug.totalHolders) || 0,
+        top: (rug.topHolders || []).slice(0, 5).map((h) => ({ addr: String(h.address || h.owner || ''), pct: Number(h.pct) || 0 })),
+        risks: (rug.risks || []).slice(0, 6).map((r) => ({ name: String(r.name || ''), level: String(r.level || ''), desc: String(r.description || '') })),
+        rugScore: Number(rug.score_normalised),
+        mintAuth: !!rug.mintAuthority,
+        freezeAuth: !!rug.freezeAuthority,
+        creator: String(rug.creator || ''),
+        socials: (info.socials || []).map((s) => ({ type: s.type, url: s.url })),
+        sites: (info.websites || []).map((s) => s.url),
         url: (pair && pair.url) || ''
       },
       at: Date.now()
@@ -283,6 +302,73 @@
   }
 
   /* ---------------- views ---------------- */
+  function viewAll() {
+    const tk = S.result ? S.result.token : null;
+    const v = S.result ? verdictLabel(S.result.score) : null;
+    const colorOf = (c) => c === 'good' ? 'var(--green)' : c === 'mid' ? 'var(--yellow)' : 'var(--red)';
+
+    let out = top(t('checkTab')) + '<div class="page">';
+    out += '<h1 class="display sm">' + esc(t('pasteTitle')) + '</h1>';
+    out += '<p class="lead" style="margin-bottom:14px">' + esc(t('pasteSub')) + '</p>';
+    out += '<div class="field"><input id="mint" placeholder="' + esc(t('ph')) + '" autocomplete="off" spellcheck="false"><button class="icon-pill" id="paste">' + esc(t('paste')) + '</button></div>';
+    out += '<div style="height:12px"></div>';
+    out += '<button class="btn" id="go"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? '<span class="spinner"></span>' : esc(S.result ? t('again') : t('check'))) + '</button>';
+    if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
+    if (S.busy) out += '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
+
+    if (tk && S.result) {
+      out += '<div class="res">';
+      out += dial(S.result.score);
+      out += '<div class="verdict-bar"><span class="k">' + esc(t('verdictK')) + '</span><b style="color:' + colorOf(v.cls) + '">' + esc(v.txt) + '</b></div>';
+      out += '<div class="token-line" style="text-align:center"><b>' + esc(tk.symbol) + '</b>' + (tk.name ? ' · ' + esc(tk.name) : '') + '</div>';
+
+      // info grid
+      const rows = [
+        [t('priceL'), price(tk.price), tk.ch24 ? pct(tk.ch24) : ''],
+        ['MC', usd(tk.mc), ''],
+        ['FDV', usd(tk.fdv), ''],
+        [t('liqL'), usd(tk.liq), ''],
+        [t('volL'), usd(tk.vol), ''],
+        ['Buys / Sells', String(tk.buys) + ' / ' + String(tk.sells), ''],
+        ['Holders', tk.holders ? num(tk.holders) : '—', ''],
+        ['DEX', (tk.dex || '—').toUpperCase(), '']
+      ];
+      out += '<div class="info">' + rows.map((r) => '<div class="info-row"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + (r[2] ? ' <i style="color:' + (String(r[2]).startsWith('-') ? 'var(--red)' : 'var(--green)') + '">' + esc(r[2]) + '</i>' : '') + '</b></div>').join('') + '</div>';
+
+      // risks from rugcheck
+      if (tk.risks && tk.risks.length) {
+        out += '<p class="eyebrow" style="margin-top:18px">RISKS</p><div class="risk-list">' + tk.risks.map((r) => {
+          const low = /warn|medium|low/i.test(r.level);
+          return '<div class="risk"><span class="dot" style="background:' + (low ? 'var(--yellow)' : 'var(--red)') + '"></span><span><b>' + esc(r.name) + '</b>' + (r.desc ? '<span class="tiny">' + esc(r.desc) + '</span>' : '') + '</span></div>';
+        }).join('') + '</div>';
+      }
+
+      // checks blocks
+      out += '<p class="eyebrow" style="margin-top:18px">' + esc(t('checksK')) + '</p><div class="blocks">' + S.result.blocks.map((x, bi) => {
+        const c = x.s >= 0.7 ? 'var(--green)' : x.s >= 0.4 ? 'var(--yellow)' : 'var(--red)';
+        return '<div class="block" style="--i:' + bi + '"><button class="block-head"><span class="dot" style="background:' + c + '"></span><span>' + esc(t(x.k)) + '</span><span class="val" style="color:' + c + '">' + Math.round(x.s * 100) + '</span>' + ICON_CHEV + '</button><div class="block-body"><div class="bar" style="color:' + c + '"><i style="width:' + Math.round(x.s * 100) + '%"></i></div>' + esc(x.info) + '</div></div>';
+      }).join('') + '</div>';
+
+      // top holders
+      if (tk.top && tk.top.length) {
+        out += '<p class="eyebrow" style="margin-top:18px">TOP HOLDERS</p><div class="risk-list">' + tk.top.map((h) => '<div class="risk"><span class="dot" style="background:var(--text-3)"></span><span><b>' + esc(h.pct.toFixed(2)) + '%</b><span class="tiny">' + esc(h.addr ? h.addr.slice(0, 6) + '…' + h.addr.slice(-4) : '—') + '</span></span></div>').join('') + '</div>';
+      }
+
+      // links
+      const links = (tk.socials || []).concat((tk.sites || []).map((u) => ({ type: 'site', url: u })));
+      if (links.length) {
+        out += '<p class="eyebrow" style="margin-top:18px">LINKS</p><div class="chips">' + links.map((l) => '<a class="chip" href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.type) + '</a>').join('') + '</div>';
+      }
+
+      // actions
+      out += '<div style="height:20px"></div><div class="row"><button class="btn" id="save">' + esc(t('save')) + '</button>' + (tk.url ? '<button class="btn secondary" id="open">Dex</button>' : '') + '</div>';
+      out += '<p class="tiny" style="margin-top:14px">' + esc(tk.mint) + '</p>';
+      out += '<p class="tiny">' + esc(t('about')) + '</p></div>';
+    }
+    out += '</div>';
+    return out;
+  }
+
   function viewScan() {
     if (S.result) return viewResult();
     return top(t('checkTab')) +
@@ -401,7 +487,7 @@
     applyTheme();
     if (!read(K.ob, false)) return viewOnboard();
     document.getElementById('dock').style.display = '';
-    app.innerHTML = S.tab === 'saved' ? viewSaved() : S.tab === 'profile' ? viewProfile() : viewScan();
+    app.innerHTML = S.tab === 'saved' ? viewSaved() : S.tab === 'profile' ? viewProfile() : viewAll();
     syncDock();
     bind();
     const bar = $('.dial .bar');
@@ -457,7 +543,7 @@
       write(K.saved, S.saved); haptic('ok'); toast(t('savedToast'));
     };
     if ($('#open')) $('#open').onclick = () => { const u = S.result && S.result.token.url; if (u) window.open(u, '_blank'); };
-    if ($('#again')) $('#again').onclick = () => { S.result = null; S.error = ''; render(); };
+
     document.querySelectorAll('.block-head').forEach((b) => b.onclick = () => b.parentElement.classList.toggle('open'));
     document.querySelectorAll('.item').forEach((it) => it.onclick = () => {
       S.tab = 'scan'; S.lastMint = it.dataset.mint; S.result = null; render(); setTimeout(runCheck, 80);
