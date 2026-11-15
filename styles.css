@@ -357,3 +357,36 @@ h2 { margin: 0 0 8px; font-size: 17px; font-weight: 600; letter-spacing: -0.02em
   text-transform: capitalize;
 }
 .chip:active { background: var(--card-2); }
+/* ================= desktop / tablet ================= */
+@media (min-width: 720px) {
+  body { background: #000; display: flex; justify-content: center; }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(60% 50% at 50% 0%, rgba(10,132,255,.10), transparent 70%);
+  }
+  #app {
+    width: 100%; max-width: 520px; min-height: 100vh;
+    border-left: .5px solid var(--line); border-right: .5px solid var(--line);
+    position: relative; z-index: 1;
+  }
+  .dock-wrap { max-width: 520px; margin: 0 auto; }
+  .top { max-width: 520px; margin: 0 auto; }
+  .dial { width: 260px; height: 260px; }
+  h1.display { font-size: 44px; }
+  .page { padding: 24px 24px 8px; }
+}
+@media (min-width: 1100px) {
+  #app { max-width: 560px; }
+  .dock-wrap { max-width: 560px; }
+  .top { max-width: 560px; }
+}
+:root[data-theme="light"] body::before { background: radial-gradient(60% 50% at 50% 0%, rgba(10,132,255,.08), transparent 70%); }
+
+/* paste hint */
+.paste-hint {
+  margin-top: 8px; padding: 10px 14px; border-radius: 14px;
+  background: var(--card-2); border: .5px solid var(--line);
+  font-size: 13px; color: var(--text-2);
+  animation: rise .3s ease both;
+}
+.paste-hint b { color: var(--text); }
