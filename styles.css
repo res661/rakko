@@ -805,3 +805,25 @@ input, textarea { -webkit-user-select: text; user-select: text; }
   30% { color: var(--blue); transform: translateY(-1px); }
   100% { color: var(--text); transform: none; }
 }
+
+/* ===== swipeable block sheet ===== */
+.modal-card.sheet { padding: 16px 0 calc(20px + env(safe-area-inset-bottom)); overflow: hidden; }
+.modal-card.sheet .modal-head { padding: 0 18px 12px; margin-bottom: 0; }
+.pager {
+  display: flex; overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; gap: 0;
+}
+.pager::-webkit-scrollbar { display: none; }
+.pager .pg {
+  min-width: 100%; scroll-snap-align: start;
+  padding: 8px 18px 4px; box-sizing: border-box;
+}
+.pg-score { font-size: 52px; font-weight: 750; letter-spacing: -.05em; line-height: 1; font-variant-numeric: tabular-nums; }
+.pg-score i { font-style: normal; font-size: 18px; font-weight: 600; opacity: .5; }
+.pg-word { margin-top: 6px; font-size: 15px; font-weight: 650; }
+.pg-art { margin: 6px 0 14px; }
+.pg-art svg { width: 100%; height: auto; display: block; }
+.pager-dots { display: flex; justify-content: center; gap: 6px; padding-top: 12px; }
+.pager-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.22); transition: background .2s, width .2s; }
+.pager-dots i.on { width: 16px; border-radius: 99px; background: rgba(255,255,255,.75); }
