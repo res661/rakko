@@ -351,33 +351,26 @@
         const h = (Date.now() - tk.created) / 36e5;
         return h < 1 ? Math.round(h * 60) + 'm' : h < 48 ? Math.round(h) + 'h' : Math.round(h / 24) + 'd';
       })();
+      const scCol = v.cls === 'good' ? 'var(--green)' : v.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
       out += '<div class="tk-card">' +
         '<div class="tk-top">' +
         '<span class="tk-ava">' + (tk.image ? '<img src="' + esc(tk.image) + '" alt="">' : esc(tk.symbol.slice(0, 2))) + '</span>' +
         '<span class="tk-id"><b>' + esc(tk.symbol) + '</b><span>' + esc(tk.name || '') + '</span></span>' +
-        '<span class="tk-chg" style="color:' + chCol + ';background:color-mix(in srgb,' + chCol + ' 14%, transparent)">' + (tk.ch24 ? pct(tk.ch24) : '—') + '</span>' +
-        '<span class="vio ' + v.cls + ' tk-vio">' + (v.cls === 'good' ? '✓' : v.cls === 'mid' ? '!' : '✕') + '</span>' +
+        '<span class="tk-score" style="color:' + scCol + '"><b>' + r.score + '</b><i>/100</i></span>' +
         '</div>' +
-        '<div class="tk-price">' + esc(price(tk.price)) + '</div>' +
+        '<div class="tk-priceline"><b>' + esc(price(tk.price)) + '</b>' +
+        '<span style="color:' + chCol + '">' + (tk.ch24 ? pct(tk.ch24) : '') + '</span></div>' +
+        '<div class="tk-bar"><i style="width:' + Math.round(r.score) + '%;background:' + scCol + '"></i></div>' +
         '<div class="tk-stats">' +
         '<div><span>MC</span><b>' + usd(tk.mc) + '</b></div>' +
         '<div><span>' + esc(t('liqL')) + '</span><b>' + usd(tk.liq) + '</b></div>' +
         '<div><span>' + esc(t('volL')) + '</span><b>' + usd(tk.vol) + '</b></div>' +
         '<div><span>Age</span><b>' + esc(ageTxt) + '</b></div>' +
         '</div>' +
-        '<div class="tk-chips">' +
-        '<span class="chip2">' + esc((tk.dex || '—').toUpperCase()) + '</span>' +
-        (tk.holders ? '<span class="chip2">' + num(tk.holders) + ' holders</span>' : '') +
-        (tk.buys || tk.sells ? '<span class="chip2">' + tk.buys + ' buys / ' + tk.sells + ' sells</span>' : '') +
-        (isFinite(tk.rugScore) ? '<span class="chip2">Rugcheck ' + Math.round(tk.rugScore) + '</span>' : '') +
-        (tk.mintAuth ? '<span class="chip2 bad">mint open</span>' : '') +
-        (tk.freezeAuth ? '<span class="chip2 bad">freeze</span>' : '') +
+        '<div class="tk-meta">' + esc((tk.dex || '').toUpperCase()) +
+        (tk.holders ? ' · ' + num(tk.holders) + ' holders' : '') +
+        (tk.buys || tk.sells ? ' · ' + tk.buys + '/' + tk.sells : '') +
         '</div></div>';
-
-      out += dial(S.result.score);
-
-      out += '<div class="token-line" style="text-align:center"><b>' + esc(tk.symbol) + '</b>' + (tk.name ? ' · ' + esc(tk.name) : '') + '</div>';
-
       // info grid
       const rows = [
         [t('priceL'), price(tk.price), tk.ch24 ? pct(tk.ch24) : ''],
