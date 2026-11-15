@@ -152,10 +152,12 @@
     } finally { clearTimeout(id); }
   }
   async function loadRaw(mint) {
-    const out = { mint: mint, dex: null, rug: null };
+    const out = { mint: mint, dex: null, rug: null, gt: null, gp: null, sup: null };
     await Promise.all([
       getJson('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(mint)).then((d) => { out.dex = d; }).catch(() => {}),
-      getJson('https://api.rugcheck.xyz/v1/tokens/' + encodeURIComponent(mint) + '/report').then((d) => { out.rug = d; }).catch(() => {})
+      getJson('https://api.rugcheck.xyz/v1/tokens/' + encodeURIComponent(mint) + '/report').then((d) => { out.rug = d; }).catch(() => {}),
+      getJson('https://api.geckoterminal.com/api/v2/networks/solana/tokens/' + encodeURIComponent(mint), 6000).then((d) => { out.gt = d; }).catch(() => {}),
+      getJson('https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=' + encodeURIComponent(mint), 6000).then((d) => { out.gp = d; }).catch(() => {})
     ]);
     return out;
   }
@@ -268,7 +270,23 @@
         creator: String(rug.creator || ''),
         socials: (info.socials || []).map((s) => ({ type: s.type, url: s.url })),
         sites: (info.websites || []).map((s) => s.url),
-        url: (pair && pair.url) || ''
+        url: (pair && pair.url) || '',
+        gtReserve: Number(raw.gt && raw.gt.data && raw.gt.data.attributes && raw.gt.data.attributes.total_reserve_in_usd) || 0,
+        gtVol: Number(raw.gt && raw.gt.data && raw.gt.data.attributes && raw.gt.data.attributes.volume_usd && raw.gt.data.attributes.volume_usd.h24) || 0,
+        gtMc: Number(raw.gt && raw.gt.data && raw.gt.data.attributes && raw.gt.data.attributes.market_cap_usd) || 0,
+        gp: (function () {
+          const m = raw.gp && raw.gp.result ? raw.gp.result[Object.keys(raw.gp.result)[0]] : null;
+          if (!m) return null;
+          return {
+            honeypot: Number(m.is_honeypot) === 1,
+            mintable: Number(m.is_mintable) === 1,
+            freezable: Number(m.freezable) === 1,
+            ownerRenounced: Number(m.owner_renounced) === 1,
+            buyTax: m.buy_tax, sellTax: m.sell_tax,
+            holders: Number(m.holder_count) || 0,
+            lp: Number(m.lp_holder_count) || 0
+          };
+        })()
       },
       at: Date.now()
     };
@@ -338,6 +356,7 @@
         '<span class="tk-ava">' + (tk.image ? '<img src="' + esc(tk.image) + '" alt="">' : esc(tk.symbol.slice(0, 2))) + '</span>' +
         '<span class="tk-id"><b>' + esc(tk.symbol) + '</b><span>' + esc(tk.name || '') + '</span></span>' +
         '<span class="tk-chg" style="color:' + chCol + ';background:color-mix(in srgb,' + chCol + ' 14%, transparent)">' + (tk.ch24 ? pct(tk.ch24) : '—') + '</span>' +
+        '<span class="vio ' + v.cls + ' tk-vio">' + (v.cls === 'good' ? '✓' : v.cls === 'mid' ? '!' : '✕') + '</span>' +
         '</div>' +
         '<div class="tk-price">' + esc(price(tk.price)) + '</div>' +
         '<div class="tk-stats">' +
@@ -356,7 +375,7 @@
         '</div></div>';
 
       out += dial(S.result.score);
-      out += '<div class="vbadge"><span class="vio ' + v.cls + '">' + (v.cls === 'good' ? '✓' : v.cls === 'mid' ? '!' : '✕') + '</span></div>';
+
       out += '<div class="token-line" style="text-align:center"><b>' + esc(tk.symbol) + '</b>' + (tk.name ? ' · ' + esc(tk.name) : '') + '</div>';
 
       // info grid
@@ -372,7 +391,13 @@
         ['FDV / MC', (tk.mc && tk.fdv ? (tk.fdv / tk.mc).toFixed(2) + '×' : '—'), ''],
         ['1h / 6h', (tk.ch1 ? pct(tk.ch1) : '—') + ' / ' + (tk.ch6 ? pct(tk.ch6) : '—'), ''],
         ['Creator', tk.creator ? tk.creator.slice(0, 6) + '…' + tk.creator.slice(-4) : '—', ''],
-        ['Pair', tk.pairAddr ? tk.pairAddr.slice(0, 6) + '…' + tk.pairAddr.slice(-4) : '—', '']
+        ['Pair', tk.pairAddr ? tk.pairAddr.slice(0, 6) + '…' + tk.pairAddr.slice(-4) : '—', ''],
+        ['Holders (GP)', tk.gp && tk.gp.holders ? num(tk.gp.holders) : '—', ''],
+        ['LP holders', tk.gp && tk.gp.lp ? String(tk.gp.lp) : '—', ''],
+        ['Honeypot', tk.gp ? (tk.gp.honeypot ? 'да' : 'нет') : '—', ''],
+        ['Mint / Freeze', tk.gp ? ((tk.gp.mintable ? 'open' : 'revoked') + ' / ' + (tk.gp.freezable ? 'open' : 'revoked')) : '—', ''],
+        ['Buy / Sell tax', tk.gp ? ((tk.gp.buyTax || '0') + '% / ' + (tk.gp.sellTax || '0') + '%') : '—', ''],
+        ['Reserve (GT)', tk.gtReserve ? usd(tk.gtReserve) : '—', '']
       ];
       out += '<div class="info">' + rows.map((r) => '<div class="info-row"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + (r[2] ? ' <i style="color:' + (String(r[2]).startsWith('-') ? 'var(--red)' : 'var(--green)') + '">' + esc(r[2]) + '</i>' : '') + '</b></div>').join('') + '</div>';
 
