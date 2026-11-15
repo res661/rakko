@@ -435,6 +435,20 @@
         '<div><span>' + esc(t('volL')) + '</span><b>' + usd(tk.vol) + '</b></div>' +
         '<div><span>Age</span><b>' + esc(ageTxt) + '</b></div>' +
         '</div>' +
+        '<div class="tk-links">' +
+        (tk.url ? '<a class="tkl" href="' + esc(tk.url) + '" target="_blank" rel="noopener" aria-label="DEX"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18l6-6 4 3 6-8"/><path d="M16 7h4v4"/></svg></a>' : '') +
+        (tk.socials || []).map(function (s) {
+          const u = String(s.url || '');
+          const t2 = String(s.type || '').toLowerCase();
+          let ic = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c3 3 3 13 0 16M12 4c-3 3-3 13 0 16"/></svg>';
+          if (t2.indexOf('twitter') > -1 || t2 === 'x' || u.indexOf('x.com') > -1 || u.indexOf('twitter.com') > -1) ic = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 3h3l-6.6 7.6L21.7 21h-5.9l-4.6-6-5.3 6H3l7-8.1L2.7 3h6l4.2 5.5L17.5 3zm-1 16h1.6L7.6 4.7H5.9L16.5 19z"/></svg>';
+          else if (t2.indexOf('telegram') > -1 || u.indexOf('t.me') > -1) ic = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.5 4.3 2.9 11.4c-1 .4-1 1.7.1 2l4.6 1.4 1.8 5.5c.3.9 1.4 1.1 2 .4l2.5-2.6 4.6 3.4c.8.6 1.9.1 2.1-.8l3-14.2c.2-1-.8-1.8-1.7-1.4zM8.7 14.3l8.6-5.4-6.6 6.5-.2 3-1.8-4.1z"/></svg>';
+          return '<a class="tkl" href="' + esc(u) + '" target="_blank" rel="noopener">' + ic + '</a>';
+        }).join('') +
+        (tk.sites || []).map(function (u) {
+          return '<a class="tkl" href="' + esc(u) + '" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c3 3 3 13 0 16M12 4c-3 3-3 13 0 16"/></svg></a>';
+        }).join('') +
+        '</div>' +
         '<div class="tk-meta">' + esc((tk.dex || '').toUpperCase()) +
         (tk.holders ? ' · ' + num(tk.holders) + ' holders' : '') +
         (tk.buys || tk.sells ? ' · ' + tk.buys + '/' + tk.sells : '') +
@@ -496,24 +510,13 @@
         out += '<details class="holders"><summary>' + esc(S.lang === 'ru' ? 'Топ держателей' : 'Top holders') + ' <i>' + tk.top.length + '</i></summary><div class="risk-list">' + tk.top.map((h) => '<div class="risk"><span class="dot" style="background:var(--text-3)"></span><span><b>' + esc(h.pct.toFixed(2)) + '%</b><span class="tiny">' + esc(h.addr ? h.addr.slice(0, 6) + '…' + h.addr.slice(-4) : '—') + '</span></span></div>').join('') + '</div></details>';
       }
 
-      // links
-      const links = (tk.socials || []).concat((tk.sites || []).map((u) => ({ type: 'site', url: u })));
-      if (links.length) {
-        out += '<p class="eyebrow" style="margin-top:18px">LINKS</p><div class="chips">' + links.map((l) => '<a class="chip" href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.type) + '</a>').join('') + '</div>';
-      }
-
       // actions
       if (S.result.blocks.length < 8) out += '<p class="tiny" style="margin-top:16px">' + esc(S.lang === 'ru' ? 'Часть данных недоступна — оценка по ' + S.result.blocks.length + ' из 8 блоков.' : 'Some data unavailable — scored on ' + S.result.blocks.length + ' of 8 blocks.') + '</p>';
       out += '<div id="similar"></div>';
-      const isBlack = !!(S.black.devs[tk.creator] || S.black.tokens[tk.mint]);
-      out += '<div class="row" style="margin-top:16px">' +
-        '<button class="btn" id="save">' + esc(t('save')) + '</button>' +
-        (tk.url ? '<button class="btn secondary" id="open">Dex</button>' : '') +
+      out += '<div class="actions"><button class="btn" id="save">' + esc(t('save')) + '</button>' +
+        (tk.creator ? '<button class="btn secondary" id="blkDev">' + esc(S.black.devs[tk.creator] ? (S.lang === 'ru' ? 'Разблокировать' : 'Unblock') : (S.lang === 'ru' ? 'Блок дева' : 'Block dev')) + '</button>' : '') +
         '</div>';
-      out += '<div class="row" style="margin-top:8px">' +
-        '<button class="btn secondary sm" id="blkTok">' + esc(isBlack ? (S.lang === 'ru' ? 'Разблокировать монету' : 'Unblock token') : (S.lang === 'ru' ? 'Монету в чёрный список' : 'Blacklist token')) + '</button>' +
-        (tk.creator ? '<button class="btn secondary sm" id="blkDev">' + esc(S.black.devs[tk.creator] ? (S.lang === 'ru' ? 'Разблокировать создателя' : 'Unblock creator') : (S.lang === 'ru' ? 'Создателя в чёрный список' : 'Blacklist creator')) + '</button>' : '') +
-        '</div>';
+      if (S.black.tokens[tk.mint]) out += '<p class="tiny" style="margin-top:10px;color:var(--red)">' + esc(S.lang === 'ru' ? 'Монета в чёрном списке' : 'Token is blacklisted') + '</p>';
       out += '<p class="tiny" style="margin-top:14px">' + esc(tk.mint) + '</p>';
       out += '<p class="tiny">' + esc(t('about')) + '</p></div>';
     }
