@@ -387,3 +387,12 @@ p.lead { margin: 0 0 16px; font-size: 15px; line-height: 1.4; color: var(--text-
 .holders summary i { font-style: normal; color: var(--text-2); }
 .holders summary::after { content: '+'; margin-left: auto; font-size: 16px; color: var(--text-3); }
 .holders[open] summary::after { content: '–'; }
+/* verdict badge on token card */
+.tk-vio {
+  width: 30px; height: 30px; font-size: 14px; margin-left: 6px; flex: none;
+}
+.tk-top { flex-wrap: nowrap; }
+.tk-chg { flex: none; }
+
+/* info rows can wrap on small screens */
+.info-row b { max-width: 58%; text-align: right; overflow: hidden; text-overflow: ellipsis; }
