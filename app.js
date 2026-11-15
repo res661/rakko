@@ -326,6 +326,27 @@
   const ICON_EMPTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5 12 4l8 3.5v9L12 20l-8-3.5z"/><path d="M4 7.5 12 11l8-3.5M12 11v9"/></svg>';
 
   function top() { return ''; }
+
+  function ago(ts) {
+    const m = Math.max(1, Math.round((Date.now() - ts) / 60000));
+    if (m < 60) return (S.lang === 'ru' ? m + ' мин назад' : m + 'm ago');
+    const h = Math.round(m / 60);
+    return (S.lang === 'ru' ? h + ' ч назад' : h + 'h ago');
+  }
+
+  function countUp(el, to, ms) {
+    if (!el) return;
+    const dur = ms || 520;
+    const start = performance.now();
+    const from = 0;
+    const tick = (now) => {
+      const k = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - k, 3);
+      el.textContent = String(Math.round(from + (to - from) * eased));
+      if (k < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
   function verdict(score) {
     if (score >= 70) return { cls: 'good', label: t('good') };
     if (score >= 40) return { cls: 'mid', label: t('mid') };
@@ -600,9 +621,12 @@
     const items = S.saved.map((s) => {
       const v = verdict(s.score);
       const color = v.cls === 'good' ? 'var(--green)' : v.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
+      const ch = Number(s.ch24) || 0;
+      const chCol = ch >= 0 ? 'var(--green)' : 'var(--red)';
       return '<button class="item" data-mint="' + esc(s.mint) + '">' +
         '<span class="ava">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(s.symbol.slice(0, 2))) + '</span>' +
-        '<span class="meta"><b>' + esc(s.symbol) + '</b><span>' + usd(s.liq) + '</span></span>' +
+        '<span class="meta"><b>' + esc(s.symbol) + '</b><span>' + usd(s.liq) + (s.at ? ' · ' + ago(s.at) : '') + '</span></span>' +
+        '<span class="ch" style="color:' + chCol + '">' + (ch ? pct(ch) : '') + '</span>' +
         '<span class="num" style="color:' + color + '">' + s.score + '</span></button>';
     }).join('');
     return top(t('savedTab')) + '<div class="page"><div class="list">' + items + '</div><p class="tiny" style="text-align:center;margin-top:16px">' + esc(t('tapCoin')) + '</p></div>';
@@ -820,7 +844,13 @@
     const bar = $('.dial .bar');
     if (bar) requestAnimationFrame(() => { bar.style.strokeDashoffset = bar.dataset.to; });
     decorate();
+    countUp(document.querySelector('.tk-score b'), S.result ? S.result.score : 0, 600);
+    countUp(document.querySelector('.gauge-mid b'), S.result ? S.result.score : 0, 600);
+    const en = document.getElementById('infoMore');
+    if (en) en.addEventListener('click', function () { hang(); });
   }
+
+  function hang() {}
 
   function decorate() {
     const page = document.querySelector('.page');
@@ -842,6 +872,44 @@
       };
       requestAnimationFrame(tick);
     }
+  }
+
+  async function refreshLive() {
+    try {
+      if (S.tab === 'saved' && S.saved.length) {
+        const mints = S.saved.slice(0, 25).map(function (s) { return s.mint; }).join(',');
+        const res = await getJson('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(mints), 6000);
+        const pairs = (res && res.pairs) || [];
+        let changed = false;
+        S.saved.forEach(function (s) {
+          const p = pairs.filter(function (x) { return x.baseToken && x.baseToken.address === s.mint; })
+            .sort(function (x, y) { return (Number(y.liquidity && y.liquidity.usd) || 0) - (Number(x.liquidity && x.liquidity.usd) || 0); })[0];
+          if (!p) return;
+          const liq = Number(p.liquidity && p.liquidity.usd) || 0;
+          const ch = Number(p.priceChange && p.priceChange.h24) || 0;
+          const price = Number(p.priceUsd) || 0;
+          if (liq !== s.liq || ch !== s.ch24 || price !== s.price) {
+            s.liq = liq; s.ch24 = ch; s.price = price; s.at = Date.now(); changed = true;
+          }
+        });
+        if (changed) { write(K.saved, S.saved); render(); }
+      }
+      if (S.result && S.tab === 'scan') {
+        const res = await getJson('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(S.result.token.mint), 6000);
+        const p = bestPair(res);
+        if (p) {
+          const price = Number(p.priceUsd) || 0;
+          const ch = Number(p.priceChange && p.priceChange.h24) || 0;
+          if (price !== S.result.token.price || ch !== S.result.token.ch24) {
+            S.result.token.price = price;
+            S.result.token.ch24 = ch;
+            render();
+            const pEl = document.querySelector('.tk-priceline b');
+            if (pEl) { pEl.classList.add('tick'); setTimeout(function () { pEl.classList.remove('tick'); }, 700); }
+          }
+        }
+      }
+    } catch (e) {}
   }
 
   function syncDock() {
@@ -898,7 +966,7 @@
       const btn = $('#save');
       if (btn) { btn.classList.add('saved'); btn.textContent = (S.lang === 'ru' ? 'Сохранено' : 'Saved'); }
       const r = S.result; if (!r) return;
-      const item = { mint: r.token.mint, symbol: r.token.symbol, image: r.token.image, liq: r.token.liq, score: r.score, at: r.at };
+      const item = { mint: r.token.mint, symbol: r.token.symbol, image: r.token.image, liq: r.token.liq, price: r.token.price, ch24: r.token.ch24, score: r.score, at: Date.now() };
       S.saved = [item].concat(S.saved.filter((x) => x.mint !== item.mint)).slice(0, 60);
       write(K.saved, S.saved); haptic('ok'); toast(t('savedToast'));
     };
@@ -1023,6 +1091,9 @@
       setTimeout(function () { hint.remove(); }, 6000);
     } catch (e) {}
   }, 400);
+
+  setInterval(refreshLive, 45000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshLive(); });
 
   render();
 })();
