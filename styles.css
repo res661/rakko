@@ -445,3 +445,61 @@ html.desktop .page { padding: 20px 22px 8px; }
 html.desktop .dial { width: 220px; height: 220px; }
 html.desktop h1.display { font-size: 34px; }
 html.desktop .toast { bottom: 120px; }
+/* ===== wide viewport (PC / Telegram Desktop / Web): windowed card ===== */
+@media (min-width: 760px) {
+  html, body { height: 100%; }
+  body {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 18px !important;
+    background: #08080a !important;
+    overflow: hidden;
+  }
+  #app {
+    width: 440px !important;
+    max-width: 100% !important;
+    height: min(880px, calc(100vh - 36px)) !important;
+    margin: 0 auto !important;
+    border-radius: 34px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    border: .5px solid rgba(255,255,255,.13) !important;
+    box-shadow: 0 40px 120px rgba(0,0,0,.65), 0 0 0 10px rgba(255,255,255,.025) !important;
+    background: var(--bg) !important;
+    padding-bottom: 118px !important;
+    position: relative;
+    scrollbar-width: thin;
+  }
+  #app::-webkit-scrollbar { width: 6px; }
+  #app::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 99px; }
+  .top { position: sticky; top: 0; max-width: none !important; }
+  .dock-wrap {
+    position: fixed !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: 440px !important;
+    max-width: calc(100% - 36px) !important;
+    margin: 0 !important;
+    bottom: calc(max(18px, (100vh - min(880px, calc(100vh - 36px))) / 2 + 14px)) !important;
+  }
+  .ob {
+    position: fixed !important;
+    left: 50% !important; top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 440px !important;
+    height: min(880px, calc(100vh - 36px)) !important;
+    margin: 0 !important;
+    border-radius: 34px !important;
+    overflow: hidden !important;
+    border: .5px solid rgba(255,255,255,.13) !important;
+    box-shadow: 0 40px 120px rgba(0,0,0,.65) !important;
+  }
+  .page { padding: 20px 22px 8px !important; }
+  .dial { width: 220px !important; height: 220px !important; }
+  h1.display { font-size: 32px !important; }
+  h1.display.sm { font-size: 28px !important; }
+  .toast { bottom: 130px !important; }
+  body::before { display: none; }
+}
