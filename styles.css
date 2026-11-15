@@ -335,3 +335,25 @@ h2 { margin: 0 0 8px; font-size: 17px; font-weight: 600; letter-spacing: -0.02em
 
 /* skeleton while checking */
 .skel-wrap { display: grid; gap: 10px; margin-top: 18px; }
+/* ================= inline result ================= */
+.res { animation: rise .4s cubic-bezier(.22,1,.36,1) both; }
+.info { margin-top: 16px; background: var(--card); border: .5px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.info-row { display: flex; align-items: center; padding: 13px 16px; border-bottom: .5px solid var(--line); font-size: 15px; }
+.info-row:last-child { border-bottom: 0; }
+.info-row span { color: var(--text-2); }
+.info-row b { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+.info-row i { font-style: normal; font-size: 13px; margin-left: 6px; }
+.risk-list { background: var(--card); border: .5px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.risk { display: flex; align-items: flex-start; gap: 10px; padding: 13px 16px; border-bottom: .5px solid var(--line); font-size: 14px; }
+.risk:last-child { border-bottom: 0; }
+.risk .dot { margin-top: 6px; }
+.risk b { display: block; font-weight: 600; font-size: 14px; }
+.risk .tiny { display: block; margin-top: 2px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-flex; align-items: center; height: 34px; padding: 0 14px;
+  border-radius: 999px; background: var(--card); border: .5px solid var(--line);
+  color: var(--text); font-size: 13px; font-weight: 600; text-decoration: none;
+  text-transform: capitalize;
+}
+.chip:active { background: var(--card-2); }
