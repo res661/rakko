@@ -50,7 +50,9 @@
       ob1t: 'Одна кнопка.\nОдна оценка.', ob1p: 'Вставь адрес монеты — и получишь балл от 0 до 100. Без таблиц и двадцати вкладок.',
       ob2t: 'Восемь проверок\nв одном числе.', ob2p: 'Ликвидность, холдеры, дев-кошелёк, контракт, активность, возраст, цена, ссылки.',
       ob3t: 'Сохраняй\nи перепроверяй.', ob3p: 'Список монет с оценками — чтобы видеть, что изменилось за день.',
-      obCardK: 'ОЦЕНКА', obCardS: 'из 8 блоков'
+      obCardK: 'ОЦЕНКА', obCardS: 'из 8 блоков',
+      verdictK: 'Вердикт', vCan: 'Можно', vRisk: 'Рискованно', vNo: 'Нельзя',
+      checksK: 'Проверки', scanning: 'Проверяю монету…'
     },
     en: {
       checkTab: 'Check', savedTab: 'Saved', profileTab: 'Profile',
@@ -76,7 +78,9 @@
       ob1t: 'One button.\nOne score.', ob1p: 'Paste a token address and get a number from 0 to 100. No spreadsheets, no twenty tabs.',
       ob2t: 'Eight checks\nin one number.', ob2p: 'Liquidity, holders, dev wallet, contract, activity, age, price, links.',
       ob3t: 'Save it.\nRe-check it.', ob3p: 'A list of tokens with scores, so you can see what changed.',
-      obCardK: 'SCORE', obCardS: 'across 8 blocks'
+      obCardK: 'SCORE', obCardS: 'across 8 blocks',
+      verdictK: 'Verdict', vCan: 'Safe', vRisk: 'Risky', vNo: 'Avoid',
+      checksK: 'Checks', scanning: 'Checking the token…'
     }
   };
   const t = (k) => (D[S.lang] && D[S.lang][k]) || D.ru[k] || k;
@@ -272,6 +276,12 @@
       '<div class="verdict ' + v.cls + '">' + v.label + '</div></div>';
   }
 
+  function verdictLabel(score) {
+    if (score >= 70) return { txt: t('vCan'), cls: 'good' };
+    if (score >= 40) return { txt: t('vRisk'), cls: 'mid' };
+    return { txt: t('vNo'), cls: 'bad' };
+  }
+
   /* ---------------- views ---------------- */
   function viewScan() {
     if (S.result) return viewResult();
@@ -281,7 +291,8 @@
       '<p class="lead">' + esc(t('pasteSub')) + '</p>' +
       '<div class="field"><input id="mint" placeholder="' + esc(t('ph')) + '" autocomplete="off" spellcheck="false"><button class="icon-pill" id="paste">' + esc(t('paste')) + '</button></div>' +
       '<div style="height:14px"></div>' +
-      '<button class="btn" id="go">' + (S.busy ? '<span class="spinner"></span>' : esc(t('check'))) + '</button>' +
+      '<button class="btn" id="go"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? '<span class="spinner"></span>' : esc(t('check'))) + '</button>' +
+      (S.busy ? '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>' : '') +
       (S.error ? '<p class="err">' + esc(S.error) + '</p>' : '') +
       '<div style="height:22px"></div>' +
       '<p class="eyebrow">' + esc(t('howTitle')) + '</p>' +
@@ -291,9 +302,9 @@
 
   function viewResult() {
     const r = S.result, tk = r.token;
-    const blocks = r.blocks.map((x) => {
+    const blocks = r.blocks.map((x, bi) => {
       const color = x.s >= 0.7 ? 'var(--green)' : x.s >= 0.4 ? 'var(--yellow)' : 'var(--red)';
-      return '<div class="block">' +
+      return '<div class="block" style="--i:' + bi + '">' +
         '<button class="block-head"><span class="dot" style="background:' + color + '"></span>' +
         '<span>' + esc(t(x.k)) + '</span>' +
         '<span class="val" style="color:' + color + '">' + Math.round(x.s * 100) + '</span>' + ICON_CHEV + '</button>' +
@@ -303,6 +314,7 @@
     return top(t('result')) +
       '<div class="page">' +
       dial(r.score) +
+      (function () { var v = verdictLabel(r.score); return '<div class="verdict-bar"><span class="k">' + esc(t('verdictK')) + '</span><b class="' + v.cls + '" style="color:var(--' + (v.cls === 'good' ? 'green' : v.cls === 'mid' ? 'yellow' : 'red') + ')">' + esc(v.txt) + '</b></div>'; })() +
       '<div class="token-line" style="text-align:center"><b>' + esc(tk.symbol) + '</b>' + (tk.name ? ' · ' + esc(tk.name) : '') + '</div>' +
       '<div class="metrics">' +
       '<div class="metric"><b>' + price(tk.price) + '</b><span>' + esc(t('priceL')) + '</span></div>' +
@@ -310,7 +322,7 @@
       '<div class="metric"><b>' + usd(tk.vol) + '</b><span>' + esc(t('volL')) + '</span></div>' +
       '</div>' +
       '<div style="height:22px"></div>' +
-      '<p class="eyebrow" style="margin-bottom:8px">' + esc(t('why')) + '</p>' +
+      '<p class="eyebrow" style="margin-bottom:8px">' + esc(t('checksK')) + '</p>' +
       r.reasons.map((x) => '<p class="small muted" style="margin:0 0 4px">— ' + esc(x) + '</p>').join('') +
       '<div class="blocks">' + blocks + '</div>' +
       '<div style="height:18px"></div>' +
@@ -394,6 +406,29 @@
     bind();
     const bar = $('.dial .bar');
     if (bar) requestAnimationFrame(() => { bar.style.strokeDashoffset = bar.dataset.to; });
+    decorate();
+  }
+
+  function decorate() {
+    const page = document.querySelector('.page');
+    if (page) Array.prototype.forEach.call(page.children, (ch, i) => ch.style.setProperty('--i', i));
+    const blocks = document.querySelectorAll('.block');
+    Array.prototype.forEach.call(blocks, (b, i) => b.style.setProperty('--i', i));
+    const items = document.querySelectorAll('.item');
+    Array.prototype.forEach.call(items, (it, i) => it.style.setProperty('--i', i));
+    const numEl = document.querySelector('.dial .mid b');
+    if (numEl) {
+      const target = parseInt(numEl.textContent, 10) || 0;
+      let cur = 0;
+      const step = Math.max(1, Math.round(target / 22));
+      numEl.textContent = '0';
+      const tick = () => {
+        cur = Math.min(target, cur + step);
+        numEl.textContent = String(cur);
+        if (cur < target) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
   }
 
   function syncDock() {
