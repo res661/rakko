@@ -1003,3 +1003,37 @@ html, body { background: #141416 !important; }
 .modal-card { background: #1f1f22 !important; }
 .field { background: #1f1f22 !important; }
 .icon-pill { background: #2a2a2e !important; }
+
+/* ===== vivid status colors ===== */
+:root {
+  --green: #2ee66b !important;
+  --yellow: #ffd21e !important;
+  --red: #ff3b30 !important;
+  --blue: #3b6ef5 !important;
+}
+
+/* bright category tiles with white text */
+.cat.green  { background: linear-gradient(160deg, #2fbf6a, #1d8a4a) !important; border-color: rgba(255,255,255,.18) !important; }
+.cat.yellow { background: linear-gradient(160deg, #f0c024, #b9860b) !important; border-color: rgba(255,255,255,.18) !important; }
+.cat.red    { background: linear-gradient(160deg, #e5484d, #a3282c) !important; border-color: rgba(255,255,255,.18) !important; }
+
+.cat.green .cat-t, .cat.yellow .cat-t, .cat.red .cat-t { color: #fff !important; }
+.cat.green .cat-s, .cat.yellow .cat-s, .cat.red .cat-s { color: rgba(255,255,255,.82) !important; }
+.cat.green .cat-ico, .cat.yellow .cat-ico, .cat.red .cat-ico {
+  background: rgba(255,255,255,.20) !important; color: #fff !important;
+}
+.cat.green .cat-v, .cat.yellow .cat-v, .cat.red .cat-v { color: #fff !important; }
+.cat.green .cat-pb, .cat.yellow .cat-pb, .cat.red .cat-pb { background: rgba(0,0,0,.28) !important; }
+.cat.green .cat-pb i, .cat.yellow .cat-pb i, .cat.red .cat-pb i { background: #fff !important; }
+.cat.green .cat-v i, .cat.yellow .cat-v i, .cat.red .cat-v i { color: rgba(255,255,255,.7) !important; }
+
+/* vivid verdict/score text everywhere */
+.gauge-mid em.good, .verdict.good, .vg-good { color: var(--green) !important; }
+.gauge-mid em.mid, .verdict.mid { color: var(--yellow) !important; }
+.gauge-mid em.bad, .verdict.bad { color: var(--red) !important; }
+.vio.good { color: var(--green) !important; background: rgba(46,230,107,.16) !important; }
+.vio.mid { color: var(--yellow) !important; background: rgba(255,210,30,.16) !important; }
+.vio.bad { color: var(--red) !important; background: rgba(255,59,48,.16) !important; }
+.sd.good { background: var(--green) !important; }
+.sd.mid { background: var(--yellow) !important; }
+.sd.bad { background: var(--red) !important; }
