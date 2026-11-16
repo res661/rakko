@@ -1320,3 +1320,5 @@ body { position: fixed; inset: 0; overflow: hidden; }
   color: #101014 !important;
 }
 .dscan svg { stroke-width: 2.4; }
+
+.tk-upd { margin-top: 12px; font-size: 11px; color: var(--text-3); letter-spacing: .01em; }
