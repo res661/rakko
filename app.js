@@ -702,7 +702,7 @@
 
   function viewSaved() {
     if (!S.saved.length) {
-      return top(t('savedTab')) + '<div class="page"><div class="empty"><div class="empty-row"><img class="empty-monkey" src="assets/monkey.webp" alt="" /><div><b>' + esc(t('emptyTitle')) + '</b><span>' + esc(t('emptyText')) + '</span></div></div></div></div>';
+      return top(t('savedTab')) + '<div class="page"><div class="empty"><b>' + esc(t('emptyTitle')) + '</b><span>' + esc(t('emptyText')) + '</span></div></div>';
     }
     const items = S.saved.map((s) => {
       const v = verdict(s.score);
