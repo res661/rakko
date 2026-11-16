@@ -140,7 +140,7 @@
     const dark = S.theme === 'auto' ? (!TG || TG.colorScheme !== 'light') : S.theme === 'dark';
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     document.querySelector('meta[name=theme-color]').setAttribute('content', dark ? '#000000' : '#f5f5f7');
-    if (TG && TG.setHeaderColor) { try { TG.setHeaderColor(dark ? '#000000' : '#f5f5f7'); } catch (e) {} }
+    if (TG && TG.setHeaderColor) { try { TG.setHeaderColor('#141416'); } catch (e) {} }
     if (TG && TG.setBackgroundColor) { try { TG.setBackgroundColor(dark ? '#000000' : '#f5f5f7'); } catch (e) {} }
   }
 
@@ -273,6 +273,20 @@
         mintAuth: !!rug.mintAuthority,
         freezeAuth: !!rug.freezeAuthority,
         creator: String(rug.creator || ''),
+        creatorBalance: (function () {
+          const cb = rug.creatorBalance;
+          const v = typeof cb === 'object' && cb !== null ? Number(cb.uiAmount || cb.amount || 0) : Number(cb || 0);
+          const supply = Number(rug.token && rug.token.supply) || 0;
+          return { amount: v, pct: supply > 0 ? (v / supply * 100) : 0 };
+        })(),
+        transferFee: (function () {
+          const ext = rug.token_extensions || {};
+          const fee = ext.transferFeeConfig || ext.transfer_fee_config;
+          if (!fee) return null;
+          const bps = Number(fee.transferFeeBasisPoints || fee.transfer_fee_basis_points || 0);
+          return bps > 0 ? bps / 100 : 0;
+        })(),
+        top1: (rug.topHolders && rug.topHolders[0]) ? Number(rug.topHolders[0].pct) || 0 : 0,
         socials: (info.socials || []).map((s) => ({ type: s.type, url: s.url })),
         sites: (info.websites || []).map((s) => s.url),
         url: (pair && pair.url) || '',
@@ -389,6 +403,11 @@
     if (tk.pump && tk.pump.complete) add('good', ru ? 'Прошла градацию Pump.fun — есть внешний пул.' : 'Graduated from Pump.fun — has an external pool.');
     if (!tk.socials.length && !tk.sites.length) add('warn', ru ? 'Нет ссылок на сайт и соцсети — красный флаг.' : 'No website or socials — red flag.');
     if (tk.risks.length) tk.risks.slice(0, 2).forEach((r) => add('warn', (ru ? 'Риск: ' : 'Risk: ') + r.name));
+    if (tk.creatorBalance && tk.creatorBalance.pct > 5) add('warn', ru ? 'У создателя ' + tk.creatorBalance.pct.toFixed(1) + '% supply — он может слить в любой момент.' : 'Creator holds ' + tk.creatorBalance.pct.toFixed(1) + '% of supply.');
+    if (tk.creatorBalance && tk.creatorBalance.pct > 0 && tk.creatorBalance.pct <= 5) add('good', ru ? 'У создателя всего ' + tk.creatorBalance.pct.toFixed(2) + '% supply.' : 'Creator holds only ' + tk.creatorBalance.pct.toFixed(2) + '% of supply.');
+    if (tk.transferFee !== null && tk.transferFee > 3) add('bad', ru ? 'Комиссия за перевод ' + tk.transferFee.toFixed(1) + '% — токен может съедать деньги при переводах.' : 'Transfer fee ' + tk.transferFee.toFixed(1) + '% — the token eats funds on transfers.');
+    if (tk.transferFee === 0) add('good', ru ? 'Комиссии за перевод нет.' : 'No transfer fee.');
+    if (tk.top1 > 15) add('warn', ru ? 'Один кошелёк держит ' + tk.top1.toFixed(1) + '% — это риск дампа.' : 'One wallet holds ' + tk.top1.toFixed(1) + '% — dump risk.');
     if (S.black.devs[tk.creator]) add('bad', ru ? 'Создатель в твоём чёрном списке — ты уже блокировал его.' : 'Creator is in your blacklist — you blocked them before.');
     if (S.black.tokens[tk.mint]) add('bad', ru ? 'Эта монета в твоём чёрном списке.' : 'This token is in your blacklist.');
     return out;
@@ -504,7 +523,11 @@
         ['Honeypot', tk.gp ? (tk.gp.honeypot ? 'да' : 'нет') : '—', ''],
         ['Mint / Freeze', tk.gp ? ((tk.gp.mintable ? 'open' : 'revoked') + ' / ' + (tk.gp.freezable ? 'open' : 'revoked')) : '—', ''],
         ['Buy / Sell tax', tk.gp ? ((tk.gp.buyTax || '0') + '% / ' + (tk.gp.sellTax || '0') + '%') : '—', ''],
-        ['Reserve (GT)', tk.gtReserve ? usd(tk.gtReserve) : '—', '']
+        ['Reserve (GT)', tk.gtReserve ? usd(tk.gtReserve) : '—', ''],
+        ['Creator %', tk.creatorBalance && tk.creatorBalance.pct ? tk.creatorBalance.pct.toFixed(2) + '%' : '—', ''],
+        ['Top-1 holder', tk.top1 ? tk.top1.toFixed(2) + '%' : '—', ''],
+        ['Transfer fee', tk.transferFee === null ? '—' : tk.transferFee.toFixed(1) + '%', ''],
+        ['LP locked', tk.lpLocked === null || tk.lpLocked === undefined ? '—' : Math.round(tk.lpLocked) + '%', '']
       ];
       const rowHtml = (r) => '<div class="info-row"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + (r[2] ? ' <i style="color:' + (String(r[2]).startsWith('-') ? 'var(--red)' : 'var(--green)') + '">' + esc(r[2]) + '</i>' : '') + '</b></div>';
       const primary = rows.slice(0, 4);
@@ -1058,6 +1081,26 @@
     if ($('#open')) $('#open').onclick = () => { const u = S.result && S.result.token.url; if (u) window.open(u, '_blank'); };
 
     document.querySelectorAll('.block-head').forEach((b) => b.onclick = () => b.parentElement.classList.toggle('open'));
+    document.querySelectorAll('.item').forEach(function (it) {
+      let timer = null;
+      const start = function () {
+        timer = setTimeout(function () {
+          timer = null;
+          const mint = it.dataset.mint;
+          const ask = S.lang === 'ru' ? 'Удалить монету из списка?' : 'Remove this token from the list?';
+          const doDel = function () {
+            S.saved = S.saved.filter(function (x) { return x.mint !== mint; });
+            write(K.saved, S.saved); haptic(); render();
+          };
+          if (TG && TG.showConfirm) TG.showConfirm(ask, doDel); else if (window.confirm(ask)) doDel();
+        }, 550);
+      };
+      const cancel = function () { if (timer) { clearTimeout(timer); timer = null; } };
+      it.addEventListener('pointerdown', start);
+      it.addEventListener('pointerup', cancel);
+      it.addEventListener('pointercancel', cancel);
+      it.addEventListener('pointermove', cancel);
+    });
     document.querySelectorAll('.item').forEach((it) => it.onclick = () => {
       S.tab = 'scan'; S.lastMint = it.dataset.mint; S.result = null; render(); setTimeout(runCheck, 80);
     });
@@ -1125,7 +1168,7 @@
         if (TG.lockOrientation) TG.lockOrientation();
         if (TG.disableVerticalSwipes) TG.disableVerticalSwipes();
       }
-      if (TG.setHeaderColor) TG.setHeaderColor('#000000');
+      if (TG.setHeaderColor) TG.setHeaderColor('#141416');
       if (TG.setBottomBarColor) TG.setBottomBarColor('#000000');
     } catch (e) {}
     try {
