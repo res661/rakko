@@ -693,7 +693,7 @@
 
   function viewSaved() {
     if (!S.saved.length) {
-      return top(t('savedTab')) + '<div class="page"><div class="empty"><div class="ring">' + ICON_EMPTY + '</div><b>' + esc(t('emptyTitle')) + '</b>' + esc(t('emptyText')) + '</div></div>';
+      return top(t('savedTab')) + '<div class="page"><div class="empty"><img class="empty-monkey" src="assets/monkey.webp" alt="" /><b>' + esc(t('emptyTitle')) + '</b>' + esc(t('emptyText')) + '</div></div>';
     }
     const items = S.saved.map((s) => {
       const v = verdict(s.score);
@@ -909,16 +909,31 @@
 
   function showBlock(i) { showHelp(i); }
 
-  const BASE_PER_DAY = 25;
   const PLANS = [
-    { days: 3, stars: 75, label: '3 дня', labelEn: '3 days', tag: '' },
-    { days: 7, stars: 150, label: '7 дней', labelEn: '7 days', tag: '' },
-    { days: 14, stars: 250, label: '14 дней', labelEn: '14 days', tag: '' },
-    { days: 30, stars: 400, label: '30 дней', labelEn: '30 days', tag: 'выгодно' }
+    { days: 3, stars: 75, label: '3 дня', labelEn: '3 days', tag: '', full: 0 },
+    { days: 7, stars: 180, label: '7 дней', labelEn: '7 days', tag: '', full: 0 },
+    { days: 14, stars: 320, label: '14 дней', labelEn: '14 days', tag: '', full: 337 },
+    { days: 30, stars: 490, label: '30 дней', labelEn: '30 days', tag: 'выгодно', full: 654 }
   ];
   function planDiscount(p) {
-    const full = p.days * BASE_PER_DAY;
-    return Math.round((1 - p.stars / full) * 100);
+    if (!p.full || p.full <= p.stars) return 0;
+    return Math.round((1 - p.stars / p.full) * 100);
+  }
+
+  function paySim(days, ru) {
+    const layer = document.createElement('div');
+    layer.className = 'payfx';
+    let stars = '';
+    for (let i = 0; i < 18; i++) {
+      stars += '<span class="pfx-star" style="--x:' + (Math.random() * 100).toFixed(0) + '%;--d:' + (Math.random() * 0.5).toFixed(2) + 's;--s:' + (0.7 + Math.random() * 0.9).toFixed(2) + '">' + (Math.random() > 0.35 ? '⭐' : '✨') + '</span>';
+    }
+    layer.innerHTML = stars + '<div class="pfx-card"><div class="pfx-badge">⭐</div><b>' + (ru ? 'Premium активирован' : 'Premium activated') + '</b><span>' + days + (ru ? ' дней' : ' days') + '</span></div>';
+    document.body.appendChild(layer);
+    haptic('ok');
+    setTimeout(function () {
+      layer.classList.add('out');
+      setTimeout(function () { layer.remove(); }, 400);
+    }, 1600);
   }
 
   function showPaywall() {
@@ -941,8 +956,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'modal';
     wrap.innerHTML = '<div class="modal-card paywall">' +
-      '<div class="pw-head"><button class="modal-x" id="px">✕</button><b>' + (ru ? 'Rakko Premium' : 'Rakko Premium') + '</b></div>' +
-      '<div class="pw-logo">R</div>' +
+      '<div class="pw-head"><button class="pw-x" id="px" aria-label="Close">✕</button></div>' +
       '<h2 class="pw-title">' + (ru ? 'Проверяй быстрее и глубже' : 'Check faster and deeper') + '</h2>' +
       '<p class="pw-sub">' + (ru ? 'Больше источников, все сети, без лимитов и с алертами.' : 'More sources, all chains, no limits, with alerts.') + '</p>' +
       '<div class="pw-perks">' + perks.map(function (p) { return '<div class="pw-perk"><i>✓</i><span>' + esc(p) + '</span></div>'; }).join('') + '</div>' +
@@ -965,10 +979,9 @@
     const syncSave = function () {
       const p = PLANS.find(function (x) { return x.days === chosen; }) || PLANS[3];
       const disc = planDiscount(p);
-      const full = p.days * BASE_PER_DAY;
       saveEl.innerHTML = disc > 0
-        ? (ru ? 'Скидка <b>' + disc + '%</b> · вместо ' + full + ' ⭐' : 'Save <b>' + disc + '%</b> · normally ' + full + ' ⭐')
-        : (ru ? 'Без скидки' : 'No discount');
+        ? (ru ? 'Скидка <b>' + disc + '%</b> · вместо ' + p.full + ' ⭐' : 'Save <b>' + disc + '%</b> · normally ' + p.full + ' ⭐')
+        : (ru ? 'Базовая цена · <b>' + Math.round(p.stars / p.days) + ' ⭐</b> в день' : 'Base price · <b>' + Math.round(p.stars / p.days) + ' ⭐</b> per day');
     };
     wrap.querySelectorAll('.pw-plan').forEach(function (b) {
       b.onclick = function () {
@@ -980,10 +993,7 @@
       };
     });
     syncSave();
-    wrap.querySelector('#pwbuy').onclick = function () {
-      if (TG && TG.showAlert) TG.showAlert(ru ? 'Оплата звёздами подключается вместе с ботом. Выбран тариф: ' + chosen + ' дней.' : 'Stars payment is being connected. Selected: ' + chosen + ' days.');
-      else toast(ru ? 'Скоро' : 'Soon');
-    };
+    wrap.querySelector('#pwbuy').onclick = function () { paySim(chosen, ru); };
   }
 
   function showHelp(focusIndex) {
