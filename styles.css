@@ -1464,26 +1464,3 @@ html, body { background: #1c1c1c !important; }
 /* chips/rows */
 .chip2 { background: #3a3a3c !important; border: 0 !important; color: #c7c7cc !important; }
 .qchip { background: #2c2c2e !important; border: 0 !important; }
-
-/* ===== rich home: hero, tiles, sections ===== */
-.hero { padding: 6px 2px 18px; }
-.hero-k { font-size: 11px; letter-spacing: .16em; font-weight: 700; color: #6169ee; text-transform: uppercase; }
-.hero-t { margin: 8px 0 4px; font-size: 40px; line-height: 1; letter-spacing: -.05em; font-weight: 750; color: #fff; }
-.hero-s { margin: 0; font-size: 14px; color: #8e8e93; }
-
-.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 6px; }
-.tile {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 14px 6px; border: 0; border-radius: 18px;
-  background: #2c2c2e; color: #fff; font: inherit; font-size: 11px; font-weight: 600;
-  transition: transform .14s, background .14s;
-}
-.tile:active { transform: scale(.96); background: #3a3a3c; }
-.tile-i { width: 26px; height: 26px; color: #6169ee; display: grid; place-items: center; }
-.tile-i svg { width: 24px; height: 24px; }
-
-.sec-t { margin: 22px 0 10px; font-size: 17px; font-weight: 650; letter-spacing: -.02em; color: #fff; }
-
-.check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; background: #2c2c2e; border-radius: 18px; padding: 14px 16px; }
-.check-item { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: #d1d1d6; padding: 5px 0; }
-.ci-dot { width: 6px; height: 6px; border-radius: 50%; background: #6169ee; flex: none; }
