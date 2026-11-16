@@ -961,3 +961,29 @@ html, body { background: #121016 !important; }
 /* banners inside help cards keep tone but darker */
 .hc { background: #1c1b22; }
 .modal-card { background: #1c1b22; }
+
+/* ===== palette v2: closer to reference ===== */
+:root {
+  --bg: #15121a !important;
+  --card: #211f28 !important;
+  --card-2: #2a2733 !important;
+  --blue: #3b6ef5 !important;
+  --line: rgba(255,255,255,.08) !important;
+}
+html, body { background: #15121a !important; }
+
+/* rectangular-ish controls like reference */
+.btn, .actions-main .btn { border-radius: 14px !important; }
+.field { border-radius: 14px !important; background: #211f28 !important; }
+.icon-pill { border-radius: 10px !important; background: #2a2733 !important; }
+.info, .ins, .risk-list, .tk-card, .list .item, .set-card, .hc, .modal-card { border-radius: 18px !important; }
+.dock { border-radius: 22px !important; }
+.dscan { border-radius: 14px !important; }
+
+/* blue score pill in lists */
+.item .num {
+  background: rgba(59,110,245,.16);
+  color: #9db8ff !important;
+  padding: 4px 9px; border-radius: 9px; font-size: 15px;
+}
+.item .ch { font-size: 12px; }
