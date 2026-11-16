@@ -1073,3 +1073,12 @@ body { position: fixed; inset: 0; overflow: hidden; }
 .hold-bar i { display: block; height: 100%; border-radius: 99px; }
 .hold-addr { font-size: 11px; color: var(--text-3); letter-spacing: .02em; }
 .hold-row b { font-variant-numeric: tabular-nums; font-weight: 650; }
+
+/* ===== score number colour strictly by verdict ===== */
+.item .num, .item .score {
+  color: var(--sc, var(--text)) !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font-weight: 750 !important;
+}
