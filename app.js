@@ -430,7 +430,7 @@
       out += '<div class="list recent-list">' + S.saved.slice(0, 10).map(function (s, i) {
         const vv = verdictLabel(s.score);
         const cc = vv.cls === 'good' ? 'var(--green)' : vv.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
-        return '<button class="item" style="--i:' + i + '" data-mint="' + esc(s.mint) + '"><span class="ava" style="background:' + (vv.cls === 'good' ? 'linear-gradient(160deg,#2b6b45,#1c4a30)' : vv.cls === 'mid' ? 'linear-gradient(160deg,#6b5518,#4a3c17)' : 'linear-gradient(160deg,#6b2a30,#4a2026)') + '">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(s.symbol.slice(0, 2))) + '</span><span class="meta"><b>' + esc(s.symbol) + '</b><span>' + usd(s.liq) + '</span></span><span class="num" style="color:' + cc + '">' + s.score + '</span></button>';
+        return '<button class="item" style="--i:' + i + '" data-mint="' + esc(s.mint) + '"><span class="ava" style="background:' + (vv.cls === 'good' ? 'linear-gradient(160deg,#2b6b45,#1c4a30)' : vv.cls === 'mid' ? 'linear-gradient(160deg,#6b5518,#4a3c17)' : 'linear-gradient(160deg,#6b2a30,#4a2026)') + '">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(s.symbol.slice(0, 2))) + '</span><span class="meta"><b>' + esc(s.symbol) + '</b><span>' + usd(s.liq) + '</span></span><span class="num" style="--sc:' + cc + '">' + s.score + '</span></button>';
       }).join('') + '</div>';
     }
     if (tk && S.result) {
