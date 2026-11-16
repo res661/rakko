@@ -864,7 +864,7 @@
 
   function showFatal(err) {
     try {
-      const msg = String(err && err.message || err);
+      const msg = String(err && err.message ? err.message : err);
       const where = String(err && err.stack || '').split('\n').slice(0, 3).join(' | ');
       app.innerHTML = '<div class="page"><div class="card" style="margin-top:20px">' +
         '<b style="font-size:17px">Ошибка отображения</b>' +
@@ -905,15 +905,18 @@
     const bar = $('.dial .bar');
     if (bar) requestAnimationFrame(() => { bar.style.strokeDashoffset = bar.dataset.to; });
     decorate();
-    countUp(document.querySelector('.tk-score b'), S.result ? S.result.score : 0, 600);
-    countUp(document.querySelector('.gauge-mid b'), S.result ? S.result.score : 0, 600);
+    try {
+      countUp(document.querySelector('.tk-score b'), S.result ? S.result.score : 0, 600);
+      countUp(document.querySelector('.gauge-mid b'), S.result ? S.result.score : 0, 600);
+    } catch (e) {}
     const en = document.getElementById('infoMore');
     if (en) en.addEventListener('click', function () { hang(); });
   }
 
   function hang() {}
 
-  function decorate() {
+  function decorate() { try { decorateInner(); } catch (e) {} }
+  function decorateInner() {
     const page = document.querySelector('.page');
     if (page) Array.prototype.forEach.call(page.children, (ch, i) => ch.style.setProperty('--i', i));
     const blocks = document.querySelectorAll('.block');
@@ -981,7 +984,8 @@
     if (l2) l2.textContent = t('profileTab');
   }
 
-  function bind() {
+  function bind() { try { bindInner(); } catch (e) { console.warn(e); } }
+  function bindInner() {
     if ($('#mint')) {
       const input = $('#mint');
       if (S.lastMint) input.value = S.lastMint;
@@ -1156,5 +1160,5 @@
   setInterval(refreshLive, 45000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshLive(); });
 
-  render();
+  try { render(); } catch (e) { showFatal(e); }
 })();
