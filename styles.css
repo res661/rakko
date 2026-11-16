@@ -1132,3 +1132,23 @@ body { position: fixed; inset: 0; overflow: hidden; }
   font: inherit; font-size: 14px; text-align: left;
 }
 .locked-row:active { background: rgba(255,255,255,.08); }
+
+/* ===== discount badges + premium chip ===== */
+.pw-plan { position: relative; }
+.pw-plan em {
+  position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+  font-style: normal; font-size: 10px; font-weight: 750;
+  background: #32d74b; color: #06260f; padding: 2px 7px; border-radius: 99px;
+  white-space: nowrap;
+}
+.pw-plan.active em { background: #32d74b; color: #06260f; }
+.pw-save { font-size: 13px; color: var(--text-2); margin: 4px 0 8px; }
+.pw-save b { color: #32d74b; }
+.prem-chip {
+  position: absolute; top: 12px; right: 14px;
+  font-size: 9px; font-weight: 800; letter-spacing: .12em;
+  color: #111; background: #ffd60a; padding: 3px 7px; border-radius: 6px;
+}
+.tk-card { position: relative; }
+.locked-row { color: rgba(240,240,245,.42); }
+.locked-row span:first-child { opacity: .55; }
