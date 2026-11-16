@@ -546,6 +546,24 @@
     const colorOf = (c) => c === 'good' ? 'var(--green)' : c === 'mid' ? 'var(--yellow)' : 'var(--red)';
 
     let out = top(t('checkTab')) + '<div class="page">';
+    const ru = S.lang === 'ru';
+    const banners = ru ? [
+      { id: 1, t: 'Проверка за 30 секунд', s: '8 блоков риска вместо 10 минут по пяти сайтам', cta: 'Проверить', k: 'a' },
+      { id: 2, t: 'Сторож для твоих монет', s: 'Следит за ликвидностью и девом — в Premium', cta: 'Подробнее', k: 'b' },
+      { id: 3, t: 'Чёрный список создателей', s: 'Заблокируй дева — и Rakko предупредит заранее', cta: 'Как это', k: 'c' }
+    ] : [
+      { id: 1, t: 'Check in 30 seconds', s: '8 risk blocks instead of 10 minutes across five sites', cta: 'Check', k: 'a' },
+      { id: 2, t: 'Watcher for your tokens', s: 'Tracks liquidity and dev moves — in Premium', cta: 'Learn more', k: 'b' },
+      { id: 3, t: 'Creator blacklist', s: 'Block a dev and Rakko warns you next time', cta: 'How it works', k: 'c' }
+    ];
+    out += '<div class="bnrs" id="bnrs">' + banners.map(function (b) {
+      return '<div class="bnr bnr-' + b.k + '">' +
+        '<img class="bnr-img" src="assets/banner-' + b.id + '.webp" alt="" onerror="this.remove()" />' +
+        '<div class="bnr-ov"><b>' + esc(b.t) + '</b><span>' + esc(b.s) + '</span>' +
+        '<button class="bnr-cta" data-bnr="' + b.id + '">' + esc(b.cta) + '</button></div>' +
+        '</div>';
+    }).join('') + '</div>' +
+    '<div class="bnr-dots" id="bnrDots">' + banners.map(function (_, i) { return '<i' + (i === 0 ? ' class="on"' : '') + '></i>'; }).join('') + '</div>';
     out += '<h1 class="display sm">' + esc(t('pasteTitle')) + '</h1>';
     out += '<div class="field"><input id="mint" placeholder="' + esc(t('ph')) + '" autocomplete="off" spellcheck="false"><button class="icon-pill" id="paste">' + esc(t('paste')) + '</button></div>';
     out += '<div style="height:12px"></div>';
@@ -1269,6 +1287,23 @@
 
   function bind() { try { bindInner(); } catch (e) { console.warn(e); } }
   function bindInner() {
+    const bnrs = $('#bnrs');
+    if (bnrs) {
+      const dots = document.querySelectorAll('#bnrDots i');
+      bnrs.addEventListener('scroll', function () {
+        const i = Math.round(bnrs.scrollLeft / bnrs.clientWidth);
+        dots.forEach(function (d, k) { d.classList.toggle('on', k === i); });
+      });
+      bnrs.querySelectorAll('.bnr-cta').forEach(function (btn) {
+        btn.onclick = function (e) {
+          e.stopPropagation();
+          const id = Number(btn.dataset.bnr);
+          if (id === 1) { const inp = $('#mint'); if (inp) inp.focus(); }
+          else if (id === 2) { if (typeof showPaywall === 'function') showPaywall(); }
+          else if (typeof showHelp === 'function') showHelp(2);
+        };
+      });
+    }
     if ($('#mint')) {
       const input = $('#mint');
       if (S.lastMint) input.value = S.lastMint;
