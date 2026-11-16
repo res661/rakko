@@ -1197,3 +1197,23 @@ body { position: fixed; inset: 0; overflow: hidden; }
   25% { opacity: 1; }
   100% { transform: translateY(-70vh) scale(1.1); opacity: 0; }
 }
+
+/* ===== empty state inline monkey ===== */
+.empty { padding: 46px 22px; text-align: left; }
+.empty-row { display: flex; align-items: center; gap: 14px; }
+.empty-monkey { width: 68px; height: 68px; flex: none; object-fit: contain; margin: 0; }
+.empty-row b { display: block; color: var(--text); font-size: 16px; font-weight: 650; margin-bottom: 4px; }
+.empty-row span { display: block; font-size: 13px; color: var(--text-3); line-height: 1.35; }
+
+/* ===== subscription states ===== */
+.set-row .val.prem {
+  color: #32d74b;
+  background: rgba(50,215,75,.12);
+  padding: 4px 10px; border-radius: 9px;
+  font-weight: 700; font-size: 13px;
+}
+.pw-buy.active {
+  background: rgba(50,215,75,.14) !important;
+  color: #32d74b !important;
+  border: .5px solid rgba(50,215,75,.35);
+}
