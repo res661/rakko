@@ -1082,3 +1082,17 @@ body { position: fixed; inset: 0; overflow: hidden; }
   border-radius: 0 !important;
   font-weight: 750 !important;
 }
+
+/* ===== exact green from reference (#32D74B) ===== */
+:root {
+  --green: #32d74b !important;
+  --yellow: #ffd60a !important;
+  --red: #ff453a !important;
+}
+.gauge-mid em.good, .verdict.good { color: #32d74b !important; }
+.vio.good { color: #32d74b !important; background: rgba(50,215,75,.16) !important; }
+.sd.good { background: #32d74b !important; }
+.cat.green { background: linear-gradient(160deg, #2bbf4a, #1c7d31) !important; }
+.cat.green .cat-pb i { background: #9ff5ae !important; }
+.actions-main .btn.saved { background: #32d74b !important; color: #06260f !important; }
+.item .num[data-v="good"] { color: #32d74b !important; }
