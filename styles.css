@@ -1307,3 +1307,16 @@ body { position: fixed; inset: 0; overflow: hidden; }
 .dscan svg { width: 28px; height: 28px; stroke-width: 2.6; }
 .dscan:active { transform: scale(.94); }
 .dbtn span, .dscan span { display: none !important; }
+
+/* ===== dock: scan button idle dark, active white ===== */
+.dscan {
+  background: #1c1c20 !important;
+  border: 1px solid #2c2c32 !important;
+  color: #8a8a93 !important;
+}
+.dscan.on {
+  background: #ffffff !important;
+  border-color: #ffffff !important;
+  color: #101014 !important;
+}
+.dscan svg { stroke-width: 2.4; }
