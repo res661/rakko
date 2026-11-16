@@ -987,3 +987,19 @@ html, body { background: #15121a !important; }
   padding: 4px 9px; border-radius: 9px; font-size: 15px;
 }
 .item .ch { font-size: 12px; }
+
+/* ===== neutral dark grey palette (no blue tint) ===== */
+:root {
+  --bg: #141416 !important;
+  --card: #1f1f22 !important;
+  --card-2: #2a2a2e !important;
+  --line: rgba(255,255,255,.08) !important;
+  --line-2: rgba(255,255,255,.14) !important;
+  --text-2: rgba(240,240,245,.62) !important;
+  --text-3: rgba(240,240,245,.38) !important;
+}
+html, body { background: #141416 !important; }
+.dock { background: rgba(31,31,34,.86) !important; }
+.modal-card { background: #1f1f22 !important; }
+.field { background: #1f1f22 !important; }
+.icon-pill { background: #2a2a2e !important; }
