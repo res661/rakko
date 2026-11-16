@@ -1096,3 +1096,5 @@ body { position: fixed; inset: 0; overflow: hidden; }
 .cat.green .cat-pb i { background: #9ff5ae !important; }
 .actions-main .btn.saved { background: #32d74b !important; color: #06260f !important; }
 .item .num[data-v="good"] { color: #32d74b !important; }
+
+.quota { margin: 10px 2px 0; font-size: 12px; color: var(--text-3); text-align: center; }
