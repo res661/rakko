@@ -21,6 +21,8 @@
     notify: read('tc.notify', true),
     autoUpd: read('tc.auto', true),
     hideMoney: read('tc.hide', false),
+    quota: read('tc.quota', { hour: [], day: [] }),
+    plan: read('tc.plan', 'free'),
     result: null,
     busy: false,
     error: '',
@@ -344,6 +346,33 @@
 
   function top() { return ''; }
 
+  const FREE_PER_HOUR = 10;
+  const FREE_PER_DAY = 30;
+
+  function quotaState() {
+    const now = Date.now();
+    const q = S.quota || { hour: [], day: [] };
+    q.hour = (q.hour || []).filter(function (t) { return now - t < 3600e3; });
+    q.day = (q.day || []).filter(function (t) { return now - t < 86400e3; });
+    return q;
+  }
+  function quotaLeft() {
+    const q = quotaState();
+    if (S.plan === 'premium') return { hour: 999, day: 999, resetMin: 0 };
+    const resetMin = q.hour.length ? Math.max(1, Math.ceil((3600e3 - (Date.now() - q.hour[0])) / 60000)) : 0;
+    return { hour: Math.max(0, FREE_PER_HOUR - q.hour.length), day: Math.max(0, FREE_PER_DAY - q.day.length), resetMin: resetMin };
+  }
+  function quotaConsume() {
+    const q = quotaState();
+    q.hour.push(Date.now()); q.day.push(Date.now());
+    S.quota = q;
+    write('tc.quota', q);
+  }
+  function quotaBlocked() {
+    const L = quotaLeft();
+    return L.hour <= 0 || L.day <= 0;
+  }
+
   function ago(ts) {
     const m = Math.max(1, Math.round((Date.now() - ts) / 60000));
     if (m < 60) return (S.lang === 'ru' ? m + ' мин назад' : m + 'm ago');
@@ -450,6 +479,12 @@
     out += '<div style="height:12px"></div>';
     out += '<button class="btn" id="go"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? '<span class="spinner"></span>' : esc(S.result ? t('again') : t('check'))) + '</button>';
     if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
+    if (!S.result) {
+      const L = quotaLeft();
+      out += '<p class="quota">' + esc(S.plan === 'premium'
+        ? (S.lang === 'ru' ? 'Premium · без лимита' : 'Premium · unlimited')
+        : (S.lang === 'ru' ? 'Бесплатно: ' + L.hour + ' из ' + FREE_PER_HOUR + ' проверок в час' : 'Free: ' + L.hour + ' of ' + FREE_PER_HOUR + ' checks this hour')) + '</p>';
+    }
     if (S.busy) out += '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
 
     if (!S.result && S.saved.length) {
@@ -680,6 +715,7 @@
       '<div style="height:22px"></div>' +
       '<div class="set-card">' +
       '<button class="set-row" id="lang">' + esc(t('langRow')) + '<span class="val">' + (S.lang === 'ru' ? 'Русский' : 'English') + '</span></button>' +
+      '<button class="set-row" id="plan">' + esc(S.lang === 'ru' ? 'Тариф' : 'Plan') + '<span class="val">' + (S.plan === 'premium' ? 'Premium' : 'Free') + '</span></button>' +
       '<button class="set-row" id="how">' + esc(S.lang === 'ru' ? 'Как это работает' : 'How it works') + '<span class="val">›</span></button>' +
       '<button class="set-row" id="notify">' + esc(S.lang === 'ru' ? 'Уведомления' : 'Notifications') + '<span class="val">' + (S.notify ? (S.lang === 'ru' ? 'вкл' : 'on') : (S.lang === 'ru' ? 'выкл' : 'off')) + '</span></button>' +
       '<button class="set-row" id="auto">' + esc(S.lang === 'ru' ? 'Автообновление раз в минуту' : 'Auto-refresh every minute') + '<span class="val">' + (S.autoUpd === false ? (S.lang === 'ru' ? 'выкл' : 'off') : (S.lang === 'ru' ? 'вкл' : 'on')) + '</span></button>' +
@@ -1114,6 +1150,9 @@
     document.querySelectorAll('.item').forEach((it) => it.onclick = () => {
       S.tab = 'scan'; S.lastMint = it.dataset.mint; S.result = null; render(); setTimeout(runCheck, 80);
     });
+    if ($('#plan')) $('#plan').onclick = function () {
+      TG && TG.showAlert ? TG.showAlert(S.lang === 'ru' ? 'Premium: другие сети (ETH, BSC, Base, Arbitrum, TON), без лимита проверок, алерты. Скоро.' : 'Premium: other chains, unlimited checks, alerts. Coming soon.') : toast('Premium soon');
+    };
     if ($('#notify')) $('#notify').onclick = function () { S.notify = !S.notify; write('tc.notify', S.notify); render(); };
     if ($('#auto')) $('#auto').onclick = function () { S.autoUpd = S.autoUpd === false; write('tc.auto', S.autoUpd); render(); };
     if ($('#hide')) $('#hide').onclick = function () { S.hideMoney = !S.hideMoney; write('tc.hide', S.hideMoney); render(); };
@@ -1149,7 +1188,20 @@
   async function runCheck() {
     const input = $('#mint');
     const mint = (input && input.value || '').trim();
+    if (/^0x[0-9a-fA-F]{40}$/.test(mint)) {
+      S.error = (S.lang === 'ru'
+        ? 'Это адрес EVM-сети (ETH/BSC/Base). Сейчас Rakko проверяет только Solana — другие сети будут в Premium.'
+        : 'This is an EVM address. Rakko checks Solana for now; other chains come with Premium.');
+      render(); haptic('err'); return;
+    }
     if (!isAddr(mint)) { S.error = t('errAddr'); render(); haptic('err'); return; }
+    if (quotaBlocked()) {
+      const L = quotaLeft();
+      S.error = (S.lang === 'ru'
+        ? 'Лимит бесплатных проверок исчерпан. Сброс через ' + L.resetMin + ' мин. Premium снимает лимит.'
+        : 'Free checks limit reached. Resets in ' + L.resetMin + ' min. Premium removes the limit.');
+      render(); haptic('err'); return;
+    }
     S.busy = true; S.error = ''; S.lastMint = mint; render();
     try {
       const raw = await loadRaw(mint);
@@ -1157,6 +1209,7 @@
       S.result = scoreToken(raw);
       if (S.result.blocks.length < 3) S.error = t('fewData');
       S.stats.scans = (S.stats.scans || 0) + 1; write(K.stats, S.stats);
+      quotaConsume();
       haptic('ok');
     } catch (e) {
       S.error = t('fail') + (e && e.message ? e.message : '');
