@@ -6,6 +6,8 @@
   const PLATFORM = (TG && TG.platform) || (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.platform) || 'web';
   const IS_DESKTOP = /tdesktop|macos|web|win/i.test(PLATFORM);
 
+  const APP_VER = 'bc';
+
   const K = {
     ob: 'tc.onboard.v1', saved: 'tc.saved.v1', stats: 'tc.stats.v1',
     theme: 'tc.theme.v1', lang: 'tc.lang.v1', black: 'tc.black.v1'
@@ -742,7 +744,7 @@
       '<button class="set-row" id="cache">' + esc(S.lang === 'ru' ? 'Очистить кэш' : 'Clear cache') + '<span class="val">›</span></button>' +
       '<button class="set-row" id="clear">' + esc(t('clear')) + '</button>' +
       '</div>' +
-      '<p class="tiny" style="margin-top:18px">' + esc(t('about')) + '</p>' +
+      '<p class="tiny" style="margin-top:18px">' + esc(t('about')) + ' · v' + APP_VER + '</p>' +
       '</div>';
   }
 
