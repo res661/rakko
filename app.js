@@ -630,7 +630,7 @@
         '<span class="ava">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(s.symbol.slice(0, 2))) + '</span>' +
         '<span class="meta"><b>' + esc(s.symbol) + '</b><span>' + usd(s.liq) + (s.at ? ' · ' + ago(s.at) : '') + '</span></span>' +
         '<span class="ch" style="color:' + chCol + '">' + (ch ? pct(ch) : '') + '</span>' +
-        '<span class="num" style="color:' + color + '">' + s.score + '</span></button>';
+        '<span class="num" style="--sc:' + color + '">' + s.score + '</span></button>';
     }).join('');
     return top(t('savedTab')) + '<div class="page"><div class="list">' + items + '</div><p class="tiny" style="text-align:center;margin-top:16px">' + esc(t('tapCoin')) + '</p></div>';
   }
