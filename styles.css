@@ -1098,3 +1098,37 @@ body { position: fixed; inset: 0; overflow: hidden; }
 .item .num[data-v="good"] { color: #32d74b !important; }
 
 .quota { margin: 10px 2px 0; font-size: 12px; color: var(--text-3); text-align: center; }
+
+/* ===== paywall ===== */
+.modal-card.paywall { border-radius: 26px 26px 0 0; padding: 14px 18px calc(18px + env(safe-area-inset-bottom)); max-height: 92vh; overflow-y: auto; text-align: center; }
+.pw-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.pw-head b { font-size: 17px; font-weight: 650; }
+.pw-logo {
+  width: 64px; height: 64px; margin: 10px auto 12px; border-radius: 50%;
+  background: #fff; color: #111; display: grid; place-items: center;
+  font-size: 26px; font-weight: 750;
+}
+.pw-title { font-size: 24px; letter-spacing: -.03em; margin: 0 0 6px; }
+.pw-sub { font-size: 14px; color: var(--text-2); margin: 0 0 16px; }
+.pw-perks { background: rgba(255,255,255,.05); border-radius: 18px; padding: 14px 16px; text-align: left; display: grid; gap: 12px; }
+.pw-perk { display: flex; gap: 10px; font-size: 14px; line-height: 1.35; }
+.pw-perk i { color: #32d74b; font-style: normal; font-weight: 700; }
+.pw-plans { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 16px 0; }
+.pw-plan {
+  border: .5px solid rgba(255,255,255,.14); background: transparent; color: #fff;
+  border-radius: 14px; padding: 10px 4px; display: grid; gap: 3px; font: inherit;
+}
+.pw-plan b { font-size: 13px; font-weight: 650; }
+.pw-plan span { font-size: 12px; color: var(--text-3); }
+.pw-plan.active { background: #fff; color: #111; border-color: #fff; }
+.pw-plan.active span { color: #444; }
+.pw-buy { width: 100%; height: 54px; border: 0; border-radius: 14px; background: #fff; color: #111; font: inherit; font-size: 17px; font-weight: 650; }
+.pw-note { font-size: 11px; color: var(--text-3); margin: 10px 0 0; }
+.locked-row {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; margin-top: 10px;
+  border-radius: 16px; border: .5px dashed rgba(255,255,255,.18);
+  background: rgba(255,255,255,.03); color: var(--text-2);
+  font: inherit; font-size: 14px; text-align: left;
+}
+.locked-row:active { background: rgba(255,255,255,.08); }
