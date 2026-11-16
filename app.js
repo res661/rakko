@@ -370,6 +370,7 @@
     return { cls: 'bad', label: t('bad') };
   }
   function buildInsights(tk) {
+    const prev = (S.saved || []).find(function (x) { return x.mint === tk.mint; }) || null;
     const ru = S.lang === 'ru';
     const out = [];
     const add = (tone, text) => out.push({ tone, text });
@@ -408,6 +409,13 @@
     if (tk.transferFee !== null && tk.transferFee > 3) add('bad', ru ? 'Комиссия за перевод ' + tk.transferFee.toFixed(1) + '% — токен может съедать деньги при переводах.' : 'Transfer fee ' + tk.transferFee.toFixed(1) + '% — the token eats funds on transfers.');
     if (tk.transferFee === 0) add('good', ru ? 'Комиссии за перевод нет.' : 'No transfer fee.');
     if (tk.top1 > 15) add('warn', ru ? 'Один кошелёк держит ' + tk.top1.toFixed(1) + '% — это риск дампа.' : 'One wallet holds ' + tk.top1.toFixed(1) + '% — dump risk.');
+    if (prev && prev.liq && tk.liq) {
+      const dLiq = (tk.liq - prev.liq) / prev.liq * 100;
+      if (dLiq <= -25) add('bad', ru ? 'Ликвидность упала на ' + Math.abs(Math.round(dLiq)) + '% с прошлой проверки — похоже на вывод пула.' : 'Liquidity dropped ' + Math.abs(Math.round(dLiq)) + '% since last check.');
+      if (dLiq >= 40) add('good', ru ? 'Ликвидность выросла на ' + Math.round(dLiq) + '% с прошлой проверки.' : 'Liquidity grew ' + Math.round(dLiq) + '% since last check.');
+    }
+    if (tk.vol && tk.liq && tk.vol / tk.liq > 5) add('warn', ru ? 'Оборот в ' + (tk.vol / tk.liq).toFixed(1) + '× ликвидности — возможна накрутка объёма.' : 'Volume is ' + (tk.vol / tk.liq).toFixed(1) + '× liquidity — possible volume farming.');
+    if (tk.ch24 && tk.ch24 < -60) add('bad', ru ? 'Монета потеряла ' + Math.abs(Math.round(tk.ch24)) + '% за сутки — идёт слив.' : 'Down ' + Math.abs(Math.round(tk.ch24)) + '% in 24h.');
     if (S.black.devs[tk.creator]) add('bad', ru ? 'Создатель в твоём чёрном списке — ты уже блокировал его.' : 'Creator is in your blacklist — you blocked them before.');
     if (S.black.tokens[tk.mint]) add('bad', ru ? 'Эта монета в твоём чёрном списке.' : 'This token is in your blacklist.');
     return out;
@@ -1086,6 +1094,7 @@
       const start = function () {
         timer = setTimeout(function () {
           timer = null;
+          it._lp = true;
           const mint = it.dataset.mint;
           const ask = S.lang === 'ru' ? 'Удалить монету из списка?' : 'Remove this token from the list?';
           const doDel = function () {
@@ -1096,6 +1105,7 @@
         }, 550);
       };
       const cancel = function () { if (timer) { clearTimeout(timer); timer = null; } };
+      it.addEventListener('click', function (e) { if (it._lp) { e.preventDefault(); e.stopPropagation(); it._lp = false; } }, true);
       it.addEventListener('pointerdown', start);
       it.addEventListener('pointerup', cancel);
       it.addEventListener('pointercancel', cancel);
@@ -1188,7 +1198,6 @@
     const btn = e.target.closest('[data-tab]');
     if (!btn) return;
     S.tab = btn.dataset.tab;
-    if (S.tab !== 'scan') S.result = null;
     haptic(); render();
   });
   // block pinch-zoom / double-tap zoom (make it feel native)
