@@ -915,3 +915,49 @@ input, textarea { -webkit-user-select: text; user-select: text; }
 .hc-p { margin-left: auto; font-size: 17px; font-weight: 750; font-variant-numeric: tabular-nums; }
 .hc-body p { margin: 0; font-size: 14px; line-height: 1.4; color: var(--text-2); }
 .hc-info { display: block; margin-top: 8px; font-size: 12px; color: var(--text-3); }
+
+/* ===== palette: like Portal Market reference ===== */
+:root {
+  --bg: #121016 !important;
+  --card: #1c1b22 !important;
+  --card-2: #27252e !important;
+  --text: #ffffff !important;
+  --text-2: rgba(235,232,240,.62) !important;
+  --text-3: rgba(235,232,240,.38) !important;
+  --line: rgba(255,255,255,.075) !important;
+  --line-2: rgba(255,255,255,.14) !important;
+  --blue: #3d7bff !important;
+  --green: #4cd964 !important;
+  --yellow: #ffcf3f !important;
+  --red: #ff5a5f !important;
+}
+html, body { background: #121016 !important; }
+
+/* colored category tiles (like marketplace cards) */
+.cat.green  { background: #1f4a33; border-color: rgba(76,217,100,.22); }
+.cat.yellow { background: #4a3c17; border-color: rgba(255,207,63,.22); }
+.cat.red    { background: #4a2026; border-color: rgba(255,90,95,.22); }
+.cat.green .cat-t, .cat.yellow .cat-t, .cat.red .cat-t { color: #fff; }
+.cat.green .cat-s, .cat.yellow .cat-s, .cat.red .cat-s { color: rgba(255,255,255,.62); }
+.cat.green .cat-pb, .cat.yellow .cat-pb, .cat.red .cat-pb { background: rgba(255,255,255,.16); }
+.cat.green .cat-ico { background: rgba(255,255,255,.12); color: #b6f5c4; }
+.cat.yellow .cat-ico { background: rgba(255,255,255,.12); color: #ffe89a; }
+.cat.red .cat-ico { background: rgba(255,255,255,.12); color: #ffc0c2; }
+.cat.green .cat-v { color: #b6f5c4; }
+.cat.yellow .cat-v { color: #ffe89a; }
+.cat.red .cat-v { color: #ffc0c2; }
+.cat.green .cat-pb i { background: #7ee89a; }
+.cat.yellow .cat-pb i { background: #ffd75e; }
+.cat.red .cat-pb i { background: #ff8f93; }
+
+/* blue primary buttons like reference */
+.actions-main .btn, .btn.blue { background: #3d7bff !important; color: #fff !important; }
+.actions-main .btn.saved { background: #2fbf58 !important; color: #fff !important; }
+.btn { background: #3d7bff; color: #fff; }
+.btn.secondary { background: #27252e; color: #fff; border: .5px solid rgba(255,255,255,.10); }
+.dscan { background: #fff; color: #121016; }
+.dock { background: rgba(28,27,34,.82) !important; border-color: rgba(255,255,255,.10) !important; }
+
+/* banners inside help cards keep tone but darker */
+.hc { background: #1c1b22; }
+.modal-card { background: #1c1b22; }
