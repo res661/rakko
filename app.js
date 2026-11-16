@@ -505,6 +505,7 @@
       })();
       const scCol = v.cls === 'good' ? 'var(--green)' : v.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
       out += '<div class="tk-card">' +
+        (S.plan === 'premium' ? '<span class="prem-chip">PREMIUM</span>' : '') +
         '<div class="tk-top">' +
         '<span class="tk-ava">' + (tk.image ? '<img src="' + esc(tk.image) + '" alt="">' : esc(tk.symbol.slice(0, 2))) + '</span>' +
         '<span class="tk-id"><b>' + esc(tk.symbol) + '</b><span>' + esc(tk.name || '') + '</span></span>' +
@@ -722,7 +723,7 @@
       '<div style="height:22px"></div>' +
       '<div class="set-card">' +
       '<button class="set-row" id="lang">' + esc(t('langRow')) + '<span class="val">' + (S.lang === 'ru' ? 'Русский' : 'English') + '</span></button>' +
-      '<button class="set-row" id="plan">' + esc(S.lang === 'ru' ? 'Тариф' : 'Plan') + '<span class="val">' + (S.plan === 'premium' ? 'Premium' : 'Free') + '</span></button>' +
+      '<button class="set-row" id="plan">' + esc(S.lang === 'ru' ? 'Тариф' : 'Plan') + '<span class="val">' + (S.plan === 'premium' ? '⭐ Premium' : 'Free · 10/час') + '</span></button>' +
       '<button class="set-row" id="how">' + esc(S.lang === 'ru' ? 'Как это работает' : 'How it works') + '<span class="val">›</span></button>' +
       '<button class="set-row" id="notify">' + esc(S.lang === 'ru' ? 'Уведомления' : 'Notifications') + '<span class="val">' + (S.notify ? (S.lang === 'ru' ? 'вкл' : 'on') : (S.lang === 'ru' ? 'выкл' : 'off')) + '</span></button>' +
       '<button class="set-row" id="auto">' + esc(S.lang === 'ru' ? 'Автообновление раз в минуту' : 'Auto-refresh every minute') + '<span class="val">' + (S.autoUpd === false ? (S.lang === 'ru' ? 'выкл' : 'off') : (S.lang === 'ru' ? 'вкл' : 'on')) + '</span></button>' +
@@ -908,12 +909,17 @@
 
   function showBlock(i) { showHelp(i); }
 
+  const BASE_PER_DAY = 25;
   const PLANS = [
-    { days: 3, stars: 75, label: '3 дня', labelEn: '3 days' },
-    { days: 7, stars: 150, label: '7 дней', labelEn: '7 days' },
-    { days: 14, stars: 250, label: '14 дней', labelEn: '14 days' },
-    { days: 30, stars: 400, label: '30 дней', labelEn: '30 days' }
+    { days: 3, stars: 75, label: '3 дня', labelEn: '3 days', tag: '' },
+    { days: 7, stars: 150, label: '7 дней', labelEn: '7 days', tag: '' },
+    { days: 14, stars: 250, label: '14 дней', labelEn: '14 days', tag: '' },
+    { days: 30, stars: 400, label: '30 дней', labelEn: '30 days', tag: 'выгодно' }
   ];
+  function planDiscount(p) {
+    const full = p.days * BASE_PER_DAY;
+    return Math.round((1 - p.stars / full) * 100);
+  }
 
   function showPaywall() {
     const ru = S.lang === 'ru';
@@ -941,9 +947,13 @@
       '<p class="pw-sub">' + (ru ? 'Больше источников, все сети, без лимитов и с алертами.' : 'More sources, all chains, no limits, with alerts.') + '</p>' +
       '<div class="pw-perks">' + perks.map(function (p) { return '<div class="pw-perk"><i>✓</i><span>' + esc(p) + '</span></div>'; }).join('') + '</div>' +
       '<div class="pw-plans">' + PLANS.map(function (p, i) {
-        return '<button class="pw-plan' + (i === 3 ? ' active' : '') + '" data-days="' + p.days + '"><b>' + esc(ru ? p.label : p.labelEn) + '</b><span>' + p.stars + ' ⭐</span></button>';
+        const disc = planDiscount(p);
+        return '<button class="pw-plan' + (i === 3 ? ' active' : '') + '" data-days="' + p.days + '">' +
+          (disc > 0 ? '<em>−' + disc + '%</em>' : '') +
+          '<b>' + esc(ru ? p.label : p.labelEn) + '</b><span>' + p.stars + ' ⭐</span></button>';
       }).join('') + '</div>' +
       '<button class="pw-buy" id="pwbuy">' + (ru ? 'Оплатить звёздами' : 'Pay with Stars') + '</button>' +
+      '<p class="pw-save" id="pwsave"></p>' +
       '<p class="pw-note">' + (ru ? 'Оплата через Telegram Stars. Подписка продлевается вручную — без автосписаний.' : 'Telegram Stars. Manual renewal, no auto-charge.') + '</p>' +
       '</div>';
     document.body.appendChild(wrap);
@@ -951,13 +961,25 @@
     wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
     wrap.querySelector('#px').onclick = close;
     let chosen = 30;
+    const saveEl = wrap.querySelector('#pwsave');
+    const syncSave = function () {
+      const p = PLANS.find(function (x) { return x.days === chosen; }) || PLANS[3];
+      const disc = planDiscount(p);
+      const full = p.days * BASE_PER_DAY;
+      saveEl.innerHTML = disc > 0
+        ? (ru ? 'Скидка <b>' + disc + '%</b> · вместо ' + full + ' ⭐' : 'Save <b>' + disc + '%</b> · normally ' + full + ' ⭐')
+        : (ru ? 'Без скидки' : 'No discount');
+    };
     wrap.querySelectorAll('.pw-plan').forEach(function (b) {
       b.onclick = function () {
         wrap.querySelectorAll('.pw-plan').forEach(function (x) { x.classList.remove('active'); });
         b.classList.add('active');
         chosen = Number(b.dataset.days);
+        syncSave();
+        haptic();
       };
     });
+    syncSave();
     wrap.querySelector('#pwbuy').onclick = function () {
       if (TG && TG.showAlert) TG.showAlert(ru ? 'Оплата звёздами подключается вместе с ботом. Выбран тариф: ' + chosen + ' дней.' : 'Stars payment is being connected. Selected: ' + chosen + ' days.');
       else toast(ru ? 'Скоро' : 'Soon');
