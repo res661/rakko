@@ -547,13 +547,7 @@
 
     let out = top(t('checkTab')) + '<div class="page">';
     const ru = S.lang === 'ru';
-    const chips = ru
-      ? ['Ликвидность', 'Распределение', 'Дев и бандлы', 'Контракт', 'Активность', 'Возраст']
-      : ['Liquidity', 'Distribution', 'Dev & bundles', 'Contract', 'Activity', 'Age'];
-    out += '<div class="quick-chips">' + chips.map(function (c, i) {
-      return '<button class="qchip" data-qc="' + i + '">' + esc(c) + '</button>';
-    }).join('') + '</div>';
-    out += '<h1 class="display sm">' + esc(t('pasteTitle')) + '</h1>';
+out += '<h1 class="display sm">' + esc(t('pasteTitle')) + '</h1>';
     out += '<div class="field"><input id="mint" placeholder="' + esc(t('ph')) + '" autocomplete="off" spellcheck="false"><button class="icon-pill" id="paste">' + esc(t('paste')) + '</button></div>';
     out += '<div style="height:12px"></div>';
     out += '<button class="btn" id="go"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? '<span class="spinner"></span>' : esc(S.result ? t('again') : t('check'))) + '</button>';
@@ -736,12 +730,6 @@
       '<button class="btn" id="go"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? '<span class="spinner"></span>' : esc(t('check'))) + '</button>' +
       (S.busy ? '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>' : '') +
       (S.error ? '<p class="err">' + esc(S.error) + '</p>' : '') +
-      '<div class="steps">' +
-      '<div class="step"><i>1</i><span>' + esc(S.lang === 'ru' ? 'Вставь адрес' : 'Paste address') + '</span></div>' +
-      '<div class="step"><i>2</i><span>' + esc(S.lang === 'ru' ? 'Нажми «Проверить»' : 'Tap Check') + '</span></div>' +
-      '<div class="step"><i>3</i><span>' + esc(S.lang === 'ru' ? 'Смотри риски' : 'See risks') + '</span></div>' +
-      '</div>' +
-      (S.stats.scans ? '<p class="tiny" style="text-align:center;margin-top:14px">' + esc(S.lang === 'ru' ? 'Ты проверил ' + S.stats.scans + ' монет' : S.stats.scans + ' tokens checked') + '</p>' : '')
       '<div style="height:22px"></div>' +
       '<p class="eyebrow">' + esc(t('howTitle')) + '</p>' +
       '<p class="tiny" style="margin-top:6px">' + esc(t('how')) + '</p>' +
@@ -1282,9 +1270,6 @@
 
   function bind() { try { bindInner(); } catch (e) { console.warn(e); } }
   function bindInner() {
-    document.querySelectorAll('.qchip').forEach(function (c) {
-      c.onclick = function () { if (typeof showHelp === 'function') showHelp(Number(c.dataset.qc)); };
-    });
     const bnrs = $('#bnrs');
     if (bnrs) {
       const dots = document.querySelectorAll('#bnrDots i');
