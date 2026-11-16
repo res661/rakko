@@ -1331,3 +1331,44 @@ body { position: fixed; inset: 0; overflow: hidden; }
   animation: spin .8s linear infinite; display: block;
 }
 .eta-line { margin: 8px 0 0; text-align: center; font-size: 12px; color: var(--text-3); }
+
+/* ===== banner carousel ===== */
+.bnrs {
+  display: flex; overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+  gap: 10px; margin: 4px 0 8px; scrollbar-width: none;
+}
+.bnrs::-webkit-scrollbar { display: none; }
+.bnr {
+  position: relative; min-width: 100%; scroll-snap-align: start;
+  aspect-ratio: 16 / 8.2;
+  border-radius: 20px; overflow: hidden;
+  border: .5px solid rgba(255,255,255,.10);
+  background: #1a1a20;
+  display: flex; align-items: flex-end;
+}
+.bnr-a { background: linear-gradient(135deg, #10305e 0%, #1a4fa8 55%, #2f6bff 100%); }
+.bnr-b { background: linear-gradient(135deg, #0f3b2a 0%, #1d6b45 60%, #2fbf6a 100%); }
+.bnr-c { background: linear-gradient(135deg, #3a1220 0%, #7a1f33 60%, #e5484d 100%); }
+.bnr-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.bnr-ov {
+  position: relative; z-index: 2; padding: 16px;
+  width: 100%;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.55) 100%);
+}
+.bnr-ov b { display: block; font-size: 20px; line-height: 1.12; letter-spacing: -.03em; font-weight: 750; color: #fff; }
+.bnr-ov span { display: block; margin-top: 5px; font-size: 12px; line-height: 1.35; color: rgba(255,255,255,.78); max-width: 82%; }
+.bnr-cta {
+  margin-top: 10px; height: 34px; padding: 0 16px;
+  border-radius: 999px; border: 0;
+  background: #fff; color: #111;
+  font: inherit; font-size: 13px; font-weight: 650;
+}
+.bnr-cta:active { transform: scale(.96); }
+.bnr-dots { display: flex; gap: 5px; justify-content: center; margin: 0 0 14px; }
+.bnr-dots i { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.20); }
+.bnr-dots i.on { width: 14px; border-radius: 99px; background: rgba(255,255,255,.75); }
+@media (min-width: 760px) {
+  .bnr { aspect-ratio: 16 / 5.2; }
+  .bnr-ov b { font-size: 24px; }
+}
