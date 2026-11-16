@@ -18,6 +18,9 @@
     theme: 'dark',
     lang: null,
     black: read(K.black, { devs: {}, tokens: {} }),
+    notify: read('tc.notify', true),
+    autoUpd: read('tc.auto', true),
+    hideMoney: read('tc.hide', false),
     result: null,
     busy: false,
     error: '',
@@ -342,7 +345,7 @@
     const tick = (now) => {
       const k = Math.min(1, (now - start) / dur);
       const eased = 1 - Math.pow(1 - k, 3);
-      el.textContent = String(Math.round(from + (to - from) * eased));
+      el.innerHTML = String(Math.round(from + (to - from) * eased)) + (arguments[3] || '');
       if (k < 1) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -424,7 +427,7 @@
 
     if (!S.result && S.saved.length) {
       out += '<p class="eyebrow" style="margin-top:24px">' + esc(S.lang === 'ru' ? 'НЕДАВНИЕ' : 'RECENT') + '</p>';
-      out += '<div class="list recent-list">' + S.saved.slice(0, 5).map(function (s, i) {
+      out += '<div class="list recent-list">' + S.saved.slice(0, 10).map(function (s, i) {
         const vv = verdictLabel(s.score);
         const cc = vv.cls === 'good' ? 'var(--green)' : vv.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
         return '<button class="item" style="--i:' + i + '" data-mint="' + esc(s.mint) + '"><span class="ava" style="background:' + (vv.cls === 'good' ? 'linear-gradient(160deg,#2b6b45,#1c4a30)' : vv.cls === 'mid' ? 'linear-gradient(160deg,#6b5518,#4a3c17)' : 'linear-gradient(160deg,#6b2a30,#4a2026)') + '">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(s.symbol.slice(0, 2))) + '</span><span class="meta"><b>' + esc(s.symbol) + '</b><span>' + usd(s.liq) + '</span></span><span class="num" style="color:' + cc + '">' + s.score + '</span></button>';
@@ -538,7 +541,15 @@
       out += '<div id="block-detail"></div>';
       // top holders
       if (tk.top && tk.top.length) {
-        out += '<details class="holders"><summary>' + esc(S.lang === 'ru' ? 'Топ держателей' : 'Top holders') + ' <i>' + tk.top.length + '</i></summary><div class="risk-list">' + tk.top.map((h) => '<div class="risk"><span class="dot" style="background:var(--text-3)"></span><span><b>' + esc(h.pct.toFixed(2)) + '%</b><span class="tiny">' + esc(h.addr ? h.addr.slice(0, 6) + '…' + h.addr.slice(-4) : '—') + '</span></span></div>').join('') + '</div></details>';
+        const maxPct = Math.max.apply(null, tk.top.map(function (h) { return h.pct; }).concat([1]));
+        out += '<details class="holders"><summary>' + esc(S.lang === 'ru' ? 'Топ держателей' : 'Top holders') + '<i>' + tk.top.length + '</i></summary><div class="hold-list">' + tk.top.map(function (h, hi) {
+          const w = Math.max(3, Math.round(h.pct / maxPct * 100));
+          const tone = h.pct > 20 ? 'var(--red)' : h.pct > 10 ? 'var(--yellow)' : 'var(--text-3)';
+          return '<div class="hold-row"><span class="hold-n">' + (hi + 1) + '</span>' +
+            '<span class="hold-mid"><span class="hold-bar"><i style="width:' + w + '%;background:' + tone + '"></i></span>' +
+            '<span class="hold-addr">' + esc(h.addr ? h.addr.slice(0, 5) + '…' + h.addr.slice(-4) : '—') + '</span></span>' +
+            '<b>' + esc(h.pct.toFixed(2)) + '%</b></div>';
+        }).join('') + '</div></details>';
       }
 
       // actions
@@ -639,6 +650,10 @@
       '<div class="set-card">' +
       '<button class="set-row" id="lang">' + esc(t('langRow')) + '<span class="val">' + (S.lang === 'ru' ? 'Русский' : 'English') + '</span></button>' +
       '<button class="set-row" id="how">' + esc(S.lang === 'ru' ? 'Как это работает' : 'How it works') + '<span class="val">›</span></button>' +
+      '<button class="set-row" id="notify">' + esc(S.lang === 'ru' ? 'Уведомления' : 'Notifications') + '<span class="val">' + (S.notify ? (S.lang === 'ru' ? 'вкл' : 'on') : (S.lang === 'ru' ? 'выкл' : 'off')) + '</span></button>' +
+      '<button class="set-row" id="auto">' + esc(S.lang === 'ru' ? 'Автообновление раз в минуту' : 'Auto-refresh every minute') + '<span class="val">' + (S.autoUpd === false ? (S.lang === 'ru' ? 'выкл' : 'off') : (S.lang === 'ru' ? 'вкл' : 'on')) + '</span></button>' +
+      '<button class="set-row" id="hide">' + esc(S.lang === 'ru' ? 'Скрывать суммы' : 'Hide amounts') + '<span class="val">' + (S.hideMoney ? (S.lang === 'ru' ? 'вкл' : 'on') : (S.lang === 'ru' ? 'выкл' : 'off')) + '</span></button>' +
+      '<button class="set-row" id="cache">' + esc(S.lang === 'ru' ? 'Очистить кэш' : 'Clear cache') + '<span class="val">›</span></button>' +
       '<button class="set-row" id="clear">' + esc(t('clear')) + '</button>' +
       '</div>' +
       '<p class="tiny" style="margin-top:18px">' + esc(t('about')) + '</p>' +
@@ -906,6 +921,11 @@
     if (bar) requestAnimationFrame(() => { bar.style.strokeDashoffset = bar.dataset.to; });
     decorate();
     try {
+      document.querySelectorAll('.cat-v').forEach(function (el) {
+        const to = parseInt(el.textContent, 10) || 0;
+        const suffix = '<i>%</i>';
+        countUp(el, to, 500, suffix);
+      });
       countUp(document.querySelector('.tk-score b'), S.result ? S.result.score : 0, 600);
       countUp(document.querySelector('.gauge-mid b'), S.result ? S.result.score : 0, 600);
     } catch (e) {}
@@ -940,7 +960,7 @@
 
   async function refreshLive() {
     try {
-      if (S.tab === 'saved' && S.saved.length) {
+      if (S.saved.length) {
         const mints = S.saved.slice(0, 25).map(function (s) { return s.mint; }).join(',');
         const res = await getJson('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(mints), 6000);
         const pairs = (res && res.pairs) || [];
@@ -1041,6 +1061,10 @@
     document.querySelectorAll('.item').forEach((it) => it.onclick = () => {
       S.tab = 'scan'; S.lastMint = it.dataset.mint; S.result = null; render(); setTimeout(runCheck, 80);
     });
+    if ($('#notify')) $('#notify').onclick = function () { S.notify = !S.notify; write('tc.notify', S.notify); render(); };
+    if ($('#auto')) $('#auto').onclick = function () { S.autoUpd = S.autoUpd === false; write('tc.auto', S.autoUpd); render(); };
+    if ($('#hide')) $('#hide').onclick = function () { S.hideMoney = !S.hideMoney; write('tc.hide', S.hideMoney); render(); };
+    if ($('#cache')) $('#cache').onclick = function () { try { localStorage.clear(); } catch (e) {} toast(S.lang === 'ru' ? 'Кэш очищен' : 'Cache cleared'); };
     if ($('#lang')) $('#lang').onclick = () => { S.lang = S.lang === 'ru' ? 'en' : 'ru'; write(K.lang, S.lang); render(); };
     if ($('#clear')) $('#clear').onclick = () => { S.saved = []; write(K.saved, []); render(); toast(t('cleared')); };
     const more = $('#infoMore');
