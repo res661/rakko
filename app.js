@@ -1182,7 +1182,7 @@
   }
 
   function syncDock() {
-    document.querySelectorAll('.dbtn').forEach((b) => b.classList.toggle('on', b.dataset.tab === S.tab));
+    document.querySelectorAll('.dbtn, .dscan').forEach((b) => b.classList.toggle('on', b.dataset.tab === S.tab));
     const l1 = document.querySelector('[data-label="saved"]');
     const l2 = document.querySelector('[data-label="profile"]');
     if (l1) l1.textContent = t('savedTab');
@@ -1219,6 +1219,12 @@
       };
       $('#paste').onclick = async () => {
         if (await tryPaste()) return;
+        // fallback: native paste via execCommand into focused field
+        try {
+          input.focus();
+          const ok = document.execCommand && document.execCommand('paste');
+          if (ok) { haptic(); return; }
+        } catch (e) {}
         input.focus();
         const oldHint = document.querySelector('.paste-hint');
         if (oldHint) oldHint.remove();
