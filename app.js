@@ -677,7 +677,7 @@
           '<span class="cat-t">' + esc(t(x.k)) + '</span>' +
           '<span class="cat-pb"><i style="width:' + p + '%"></i></span>' +
           '<span class="cat-s">' + esc(x.info) + '</span></button>';
-      }).join('') + '</div>';
+      }).join('') + (S.result.partial ? pendingBlocks(S.result.blocks.map(function (x) { return x.k; }), S.lang) : '') + '</div>';
       out += '<div id="block-detail"></div>';
       // top holders
       if (tk.top && tk.top.length) {
@@ -747,6 +747,7 @@
       '<div class="page">' +
       gauge(r.score) +
       (function () { var v = verdictLabel(r.score); return '<div class="verdict-bar"><span class="k">' + esc(t('verdictK')) + '</span><b class="' + v.cls + '" style="color:var(--' + (v.cls === 'good' ? 'green' : v.cls === 'mid' ? 'yellow' : 'red') + ')">' + esc(v.txt) + '</b></div>'; })() +
+      (S.result.partial ? '<p class="eta-line">' + esc(S.lang === 'ru' ? 'Оценка уточняется · ещё ≈2 сек' : 'Refining · ≈2s left') + '</p>' : '') +
       '<div class="token-line" style="text-align:center"><b>' + esc(tk.symbol) + '</b>' + (tk.name ? ' · ' + esc(tk.name) : '') + '</div>' +
 
       '<div style="height:22px"></div>' +
@@ -894,6 +895,21 @@
     const close = function () { wrap.remove(); };
     wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
     wrap.querySelector('#mx').onclick = close;
+  }
+
+  const ETA = { liq: 0.8, holders: 2.5, dev: 3, contract: 2, activity: 1.2, age: 0.8, price: 0.8, links: 1.5 };
+
+  function pendingBlocks(haveKeys, lang) {
+    const all = ['liq', 'holders', 'dev', 'contract', 'activity', 'age', 'price', 'links'];
+    const missing = all.filter(function (k) { return haveKeys.indexOf(k) === -1; });
+    if (!missing.length) return '';
+    return missing.map(function (k) {
+      return '<div class="cat loading"><div class="cat-top"><span class="cat-ico"><span class="mini-spin"></span></span>' +
+        '<span class="cat-v" style="color:var(--text-3)">—</span></div>' +
+        '<span class="cat-t">' + esc(t(k)) + '</span>' +
+        '<span class="cat-pb"><i style="width:0%"></i></span>' +
+        '<span class="cat-s">' + esc((lang === 'ru' ? 'загружаю · ≈' : 'loading · ≈') + ETA[k] + (lang === 'ru' ? ' с' : 's')) + '</span></div>';
+    }).join('');
   }
 
   function blockArt(k, c) {
