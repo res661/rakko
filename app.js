@@ -817,48 +817,49 @@
     haptic();
   }
 
-  function showBlock(i) {
-    showExplainer(i);
-  }
+  function showBlock(i) { showHelp(i); }
 
-  function showHelp() {
-    const rows = (HELP[S.lang] || HELP.ru).map(function (r) {
-      return '<div class="help-row"><b>' + esc(r[0]) + '</b><span>' + esc(r[1]) + '</span></div>';
+  function showHelp(focusIndex) {
+    const ru = S.lang === 'ru';
+    const helpList = HELP[S.lang] || HELP.ru;
+    const blocks = (S.result && S.result.blocks) || [];
+    const keys = ['liq', 'holders', 'dev', 'contract', 'activity', 'age', 'price', 'links'];
+    const titles = ru
+      ? { liq: 'Ликвидность', holders: 'Распределение', dev: 'Дев и бандлы', contract: 'Контракт', activity: 'Активность', age: 'Возраст', price: 'Цена за сутки', links: 'Ссылки' }
+      : { liq: 'Liquidity', holders: 'Distribution', dev: 'Dev & bundles', contract: 'Contract', activity: 'Activity', age: 'Age', price: '24h price', links: 'Links' };
+
+    const cards = keys.map(function (k) {
+      const b = blocks.find(function (x) { return x.k === k; });
+      const help = helpList.find(function (h) { return h[0] === t(k); }) || ['', ''];
+      const c = b ? (b.s >= 0.7 ? 'var(--green)' : b.s >= 0.4 ? 'var(--yellow)' : 'var(--red)') : 'var(--text-3)';
+      const p = b ? Math.round(b.s * 100) : null;
+      return '<div class="hc" id="hc-' + k + '">' +
+        '<div class="hc-art" style="--ac:' + c + '"><div class="hc-glow"></div>' + blockArt(k, c) + '</div>' +
+        '<div class="hc-body"><div class="hc-top"><b>' + esc(titles[k]) + '</b>' +
+        (p !== null ? '<span class="hc-p" style="color:' + c + '">' + p + '%</span>' : '') + '</div>' +
+        '<p>' + esc(help[1]) + '</p>' +
+        (b ? '<span class="hc-info">' + esc(b.info) + '</span>' : '') +
+        '</div></div>';
     }).join('');
+
     const wrap = document.createElement('div');
     wrap.className = 'modal';
-    wrap.innerHTML = '<div class="modal-card"><div class="modal-head"><b>' + esc(S.lang === 'ru' ? 'Что значит каждый блок' : 'What each block means') + '</b><button class="modal-x" id="mx">✕</button></div><div class="modal-body">' + rows + '</div></div>';
+    wrap.innerHTML = '<div class="modal-card sheet-help">' +
+      '<div class="modal-head"><b>' + (ru ? 'Что значит каждый блок' : 'What each block means') + '</b><button class="modal-x" id="mx">✕</button></div>' +
+      '<div class="help-list" id="hl">' + cards + '</div>' +
+      '</div>';
     document.body.appendChild(wrap);
     const close = function () { wrap.remove(); };
     wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
     wrap.querySelector('#mx').onclick = close;
-    haptic();
-  }
 
-  async function loadSimilar(tk) {
-    const slot = document.getElementById('similar');
-    if (!slot || !tk || !tk.symbol) return;
-    try {
-      const res = await getJson('https://api.dexscreener.com/latest/dex/search?q=' + encodeURIComponent(tk.symbol), 6000);
-      const pairs = (res && res.pairs) || [];
-      const seen = {};
-      const list = pairs
-        .filter((p) => p.baseToken && String(p.baseToken.symbol || '').toUpperCase() === tk.symbol.toUpperCase())
-        .filter((p) => {
-          const id = p.baseToken.address;
-          if (!id || id === tk.mint || seen[id]) return false;
-          seen[id] = 1; return true;
-        })
-        .sort((x, y) => (Number(y.liquidity && y.liquidity.usd) || 0) - (Number(x.liquidity && x.liquidity.usd) || 0))
-        .slice(0, 4);
-      if (!list.length) return;
-      slot.innerHTML = '<p class="eyebrow" style="margin-top:18px">' + esc(S.lang === 'ru' ? 'Похожие тикеры' : 'Similar tickers') + '</p><div class="list">' + list.map(function (p, i) {
-        return '<button class="item" style="--i:' + i + '" data-mint="' + esc(p.baseToken.address) + '"><span class="ava">' + esc(String(p.baseToken.symbol || '').slice(0, 2)) + '</span><span class="meta"><b>' + esc(p.baseToken.symbol) + '</b><span>' + usd(p.liquidity && p.liquidity.usd) + ' · ' + esc(p.dexId || '') + '</span></span></button>';
-      }).join('') + '</div>';
-      slot.querySelectorAll('.item').forEach(function (it) {
-        it.onclick = function () { S.lastMint = it.dataset.mint; S.result = null; render(); setTimeout(runCheck, 80); };
-      });
-    } catch (e) {}
+    if (typeof focusIndex === 'number' && keys[focusIndex]) {
+      setTimeout(function () {
+        const el2 = wrap.querySelector('#hc-' + keys[focusIndex]);
+        if (el2) el2.scrollIntoView({ block: 'center' });
+      }, 60);
+    }
+    haptic();
   }
 
   function showFatal(err) {
