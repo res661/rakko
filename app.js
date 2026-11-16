@@ -547,18 +547,7 @@
 
     let out = top(t('checkTab')) + '<div class="page">';
     const ru = S.lang === 'ru';
-    out += '<div class="hero">' +
-      '<span class="hero-k">' + esc(ru ? 'ПРОВЕРКА МОНЕТЫ' : 'TOKEN CHECK') + '</span>' +
-      '<h1 class="hero-t">Rakko</h1>' +
-      '<p class="hero-s">' + esc(ru ? 'Оценка риска за 30 секунд · Solana' : 'Risk score in 30 seconds · Solana') + '</p>' +
-      '</div>';
-    out += '<div class="tiles">' +
-      '<button class="tile" id="tPaste2"><span class="tile-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="4" width="10" height="16" rx="2"/><path d="M9 4V3h6v1"/></svg></span><span>' + esc(ru ? 'Вставить' : 'Paste') + '</span></button>' +
-      '<button class="tile" id="tCheck2"><span class="tile-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.4"/><path d="M15.4 15.4 21 21"/></svg></span><span>' + esc(ru ? 'Проверить' : 'Check') + '</span></button>' +
-      '<button class="tile" id="tList2"><span class="tile-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4.6h12a.4.4 0 0 1 .4.4v15L12 16.2 5.6 20V5a.4.4 0 0 1 .4-.4z"/></svg></span><span>' + esc(ru ? 'Список' : 'Saved') + '</span></button>' +
-      '<button class="tile" id="tPrem2"><span class="tile-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-3-5.3 3 1.1-6L3.4 9.4l6-.8z"/></svg></span><span>Premium</span></button>' +
-      '</div>';
-    out += '<h2 class="sec-t">' + esc(ru ? 'Проверь монету' : 'Check a token') + '</h2>';
+out += '<h1 class="display sm">' + esc(t('pasteTitle')) + '</h1>';
     out += '<div class="field"><input id="mint" placeholder="' + esc(t('ph')) + '" autocomplete="off" spellcheck="false"><button class="icon-pill" id="paste">' + esc(t('paste')) + '</button></div>';
     out += '<div style="height:12px"></div>';
     out += '<button class="btn" id="go"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? '<span class="spinner"></span>' : esc(S.result ? t('again') : t('check'))) + '</button>';
@@ -568,15 +557,6 @@
       out += '<p class="quota">' + esc(S.plan === 'premium'
         ? (S.lang === 'ru' ? 'Premium · без лимита' : 'Premium · unlimited')
         : (S.lang === 'ru' ? 'Бесплатно: ' + L.hour + ' из ' + FREE_PER_HOUR + ' проверок в час' : 'Free: ' + L.hour + ' of ' + FREE_PER_HOUR + ' checks this hour')) + '</p>';
-    }
-    if (!S.result) {
-      const checks = ru
-        ? ['Ликвидность', 'Распределение', 'Дев и бандлы', 'Контракт', 'Активность', 'Возраст', 'Цена', 'Ссылки']
-        : ['Liquidity', 'Distribution', 'Dev & bundles', 'Contract', 'Activity', 'Age', 'Price', 'Links'];
-      out += '<h2 class="sec-t">' + esc(ru ? 'Что проверяем' : 'What we check') + '</h2>';
-      out += '<div class="check-grid">' + checks.map(function (c) {
-        return '<div class="check-item"><span class="ci-dot"></span>' + esc(c) + '</div>';
-      }).join('') + '</div>';
     }
     if (S.busy) out += '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
 
