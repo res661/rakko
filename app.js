@@ -160,6 +160,55 @@
       return await r.json();
     } finally { clearTimeout(id); }
   }
+  const SRC_TTL = { dex: 30000, rug: 600000, gp: 3600000, gt: 600000, pump: 1800000 };
+  const rawCache = read('tc.rawcache', {});
+
+  function cacheGet(mint, src) {
+    const c = rawCache[mint] && rawCache[mint][src];
+    if (!c) return null;
+    if (Date.now() - c.at > (SRC_TTL[src] || 60000)) return null;
+    return c.data;
+  }
+  function cachePut(mint, src, data) {
+    rawCache[mint] = rawCache[mint] || {};
+    rawCache[mint][src] = { at: Date.now(), data: data };
+    try { write('tc.rawcache', rawCache); } catch (e) {}
+  }
+
+  async function loadFast(mint) {
+    const out = { mint: mint, dex: cacheGet(mint, 'dex'), rug: null, gt: null, gp: null, pump: null };
+    if (!out.dex) {
+      out.dex = await getJson('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(mint), 5000).catch(() => null);
+      if (out.dex) cachePut(mint, 'dex', out.dex);
+    }
+    return out;
+  }
+
+  async function loadSlow(mint, into) {
+    const jobs = [];
+    if (!into.rag) {}
+    if (!into.rug) {
+      const c = cacheGet(mint, 'rug');
+      if (c) into.rug = c;
+      else jobs.push(getJson('https://api.rugcheck.xyz/v1/tokens/' + encodeURIComponent(mint) + '/report', 3500)
+        .then((d) => { into.rug = d; cachePut(mint, 'rug', d); }).catch(() => {}));
+    }
+    if (!into.gp) {
+      const c = cacheGet(mint, 'gp');
+      if (c) into.gp = c;
+      else jobs.push(getJson('https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=' + encodeURIComponent(mint), 3500)
+        .then((d) => { into.gp = d; cachePut(mint, 'gp', d); }).catch(() => {}));
+    }
+    if (!into.gt) {
+      const c = cacheGet(mint, 'gt');
+      if (c) into.gt = c;
+      else jobs.push(getJson('https://api.geckoterminal.com/api/v2/networks/solana/tokens/' + encodeURIComponent(mint), 2500)
+        .then((d) => { into.gt = d; cachePut(mint, 'gt', d); }).catch(() => {}));
+    }
+    await Promise.all(jobs);
+    return into;
+  }
+
   async function loadRaw(mint) {
     const out = { mint: mint, dex: null, rug: null, gt: null, gp: null, pump: null };
     await Promise.all([
@@ -351,6 +400,14 @@
 
   const FREE_PER_HOUR = 10;
   const FREE_PER_DAY = 30;
+  const PREMIUM_DAY_CAP = 1000;      // internal only, never shown
+  const MIN_INTERVAL_FREE = 3000;    // ms between checks
+  const MIN_INTERVAL_PREM = 1500;
+  const BURST_WINDOW = 60000;        // 1 min
+  const BURST_LIMIT = 15;            // more than 15 checks/min = script
+  const CACHE_TTL = 30000;           // per-mint result cache
+
+  const abuse = { stamps: [], cooldownUntil: 0, cache: {} };
 
   function quotaState() {
     const now = Date.now();
@@ -362,6 +419,7 @@
   function quotaLeft() {
     const q = quotaState();
     if (S.plan === 'premium' && (!S.planUntil || S.planUntil > Date.now())) return { hour: 999, day: 999, resetMin: 0 };
+    if (S.plan === 'premium' && q.day.length >= PREMIUM_DAY_CAP) return { hour: 0, day: 0, resetMin: 60 };
     const resetMin = q.hour.length ? Math.max(1, Math.ceil((3600e3 - (Date.now() - q.hour[0])) / 60000)) : 0;
     return { hour: Math.max(0, FREE_PER_HOUR - q.hour.length), day: Math.max(0, FREE_PER_DAY - q.day.length), resetMin: resetMin };
   }
@@ -531,6 +589,7 @@
         '<div><span>' + esc(S.lang === 'ru' ? 'Объём' : 'Vol') + '</span><b>' + usd(tk.vol) + '</b></div>' +
         '<div><span>' + esc(S.lang === 'ru' ? 'Возраст' : 'Age') + '</span><b>' + esc(ageTxt) + '</b></div>' +
         '</div>' +
+        '<div class="tk-upd">' + esc((S.lang === 'ru' ? 'обновлено ' : 'updated ') + ago(S.updatedAt || Date.now())) + (S.result.partial ? ' · ' + (S.lang === 'ru' ? 'догружаю…' : 'loading…') : '') + '</div>' +
         '<div class="tk-links">' +
         (tk.url ? '<a class="tkl" href="' + esc(tk.url) + '" target="_blank" rel="noopener" aria-label="DEX"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18l6-6 4 3 6-8"/><path d="M16 7h4v4"/></svg></a>' : '') +
         (tk.socials || []).map(function (s) {
@@ -1318,6 +1377,36 @@
       render(); haptic('err'); return;
     }
     if (!isAddr(mint)) { S.error = t('errAddr'); render(); haptic('err'); return; }
+    // anti-script: burst detection
+    const nowTs = Date.now();
+    if (nowTs < abuse.cooldownUntil) {
+      const left = Math.ceil((abuse.cooldownUntil - nowTs) / 1000);
+      S.error = S.lang === 'ru' ? 'Слишком часто. Подожди ' + left + ' с.' : 'Too fast. Wait ' + left + 's.';
+      render(); haptic('err'); return;
+    }
+    abuse.stamps = abuse.stamps.filter(function (t) { return nowTs - t < BURST_WINDOW; });
+    abuse.stamps.push(nowTs);
+    if (abuse.stamps.length > BURST_LIMIT) {
+      abuse.cooldownUntil = nowTs + 60000;
+      S.error = S.lang === 'ru' ? 'Похоже на автоматические запросы. Пауза 60 секунд.' : 'Automated requests detected. 60s cooldown.';
+      render(); haptic('err'); return;
+    }
+    // min interval between checks
+    const lastCheck = (S.stats.lastCheckAt || 0);
+    const minGap = S.plan === 'premium' ? MIN_INTERVAL_PREM : MIN_INTERVAL_FREE;
+    if (nowTs - lastCheck < minGap) {
+      const left = Math.ceil((minGap - (nowTs - lastCheck)) / 1000);
+      S.error = S.lang === 'ru' ? 'Подожди ' + left + ' с перед следующей проверкой.' : 'Wait ' + left + 's before the next check.';
+      render(); haptic('err'); return;
+    }
+    // per-mint cache
+    const cached = abuse.cache[mint];
+    if (cached && nowTs - cached.at < CACHE_TTL) {
+      S.result = cached.result;
+      S.stats.lastCheckAt = nowTs;
+      render();
+      return;
+    }
     if (quotaBlocked()) {
       const L = quotaLeft();
       S.error = (S.lang === 'ru'
@@ -1327,12 +1416,23 @@
     }
     S.busy = true; S.error = ''; S.lastMint = mint; render();
     try {
-      const raw = await loadRaw(mint);
+      const fast = await loadFast(mint);
+      if (fast.dex) {
+        S.result = scoreToken(fast);
+        S.result.partial = true;
+        S.updatedAt = Date.now();
+        render();
+      }
+      const raw = await loadSlow(mint, fast);
       if (!bestPair(raw.dex) && !raw.rug) throw new Error(t('notFound'));
       S.result = scoreToken(raw);
+      S.updatedAt = Date.now();
       if (S.result.blocks.length < 3) S.error = t('fewData');
       S.stats.scans = (S.stats.scans || 0) + 1; write(K.stats, S.stats);
       quotaConsume();
+      S.stats.lastCheckAt = Date.now();
+      abuse.cache[mint] = { at: Date.now(), result: S.result };
+      write(K.stats, S.stats);
       haptic('ok');
     } catch (e) {
       S.error = t('fail') + (e && e.message ? e.message : '');
@@ -1410,6 +1510,7 @@
   }, 400);
 
   setInterval(refreshLive, 45000);
+  setInterval(function () { if (S.tab === 'scan' && S.result && !S.busy) refreshLive(); }, 25000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshLive(); });
 
   try { render(); } catch (e) { showFatal(e); }
