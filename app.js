@@ -545,6 +545,9 @@
           const c = x.tone === 'bad' ? 'var(--red)' : x.tone === 'warn' ? 'var(--yellow)' : x.tone === 'good' ? 'var(--green)' : 'var(--text-3)';
           return '<div class="ins-row" style="--i:' + i + '"><span class="ins-dot" style="background:' + c + '"></span><span>' + esc(x.text) + '</span></div>';
         }).join('') + '</div>';
+        if (S.plan !== 'premium' && insights.length > 3) {
+          out += '<button class="locked-row" id="lockIns"><span>🔒</span><span>' + esc(S.lang === 'ru' ? 'Ещё ' + (insights.length - 3) + ' инсайтов — в Premium' : (insights.length - 3) + ' more insights in Premium') + '</span></button>';
+        }
       }
 
       // info grid
@@ -608,6 +611,9 @@
       // top holders
       if (tk.top && tk.top.length) {
         const maxPct = Math.max.apply(null, tk.top.map(function (h) { return h.pct; }).concat([1]));
+        if (S.plan !== 'premium') {
+          out += '<button class="locked-row" id="lockHold"><span>🔒</span><span>' + esc(S.lang === 'ru' ? 'Топ держателей — в Premium' : 'Top holders in Premium') + '</span></button>';
+        } else {
         out += '<details class="holders"><summary>' + esc(S.lang === 'ru' ? 'Топ держателей' : 'Top holders') + '<i>' + tk.top.length + '</i></summary><div class="hold-list">' + tk.top.map(function (h, hi) {
           const w = Math.max(3, Math.round(h.pct / maxPct * 100));
           const tone = h.pct > 20 ? 'var(--red)' : h.pct > 10 ? 'var(--yellow)' : 'var(--text-3)';
@@ -616,6 +622,7 @@
             '<span class="hold-addr">' + esc(h.addr ? h.addr.slice(0, 5) + '…' + h.addr.slice(-4) : '—') + '</span></span>' +
             '<b>' + esc(h.pct.toFixed(2)) + '%</b></div>';
         }).join('') + '</div></details>';
+        }
       }
 
       // actions
@@ -901,6 +908,62 @@
 
   function showBlock(i) { showHelp(i); }
 
+  const PLANS = [
+    { days: 3, stars: 75, label: '3 дня', labelEn: '3 days' },
+    { days: 7, stars: 150, label: '7 дней', labelEn: '7 days' },
+    { days: 14, stars: 250, label: '14 дней', labelEn: '14 days' },
+    { days: 30, stars: 400, label: '30 дней', labelEn: '30 days' }
+  ];
+
+  function showPaywall() {
+    const ru = S.lang === 'ru';
+    const perks = ru ? [
+      'Все сети: Solana, Ethereum, BSC, Base, Arbitrum, TON',
+      'Без лимита проверок',
+      'Топ держателей и похожие тикеры',
+      'Полная таблица метрик и все инсайты',
+      'Сторож: алерты, когда монета ломается',
+      'История создателя: сколько монет запускал'
+    ] : [
+      'All chains: Solana, Ethereum, BSC, Base, Arbitrum, TON',
+      'Unlimited checks',
+      'Top holders and similar tickers',
+      'Full metrics table and every insight',
+      'Watcher: alerts when a token breaks',
+      'Creator history: how many tokens launched'
+    ];
+    const wrap = document.createElement('div');
+    wrap.className = 'modal';
+    wrap.innerHTML = '<div class="modal-card paywall">' +
+      '<div class="pw-head"><button class="modal-x" id="px">✕</button><b>' + (ru ? 'Rakko Premium' : 'Rakko Premium') + '</b></div>' +
+      '<div class="pw-logo">R</div>' +
+      '<h2 class="pw-title">' + (ru ? 'Проверяй быстрее и глубже' : 'Check faster and deeper') + '</h2>' +
+      '<p class="pw-sub">' + (ru ? 'Больше источников, все сети, без лимитов и с алертами.' : 'More sources, all chains, no limits, with alerts.') + '</p>' +
+      '<div class="pw-perks">' + perks.map(function (p) { return '<div class="pw-perk"><i>✓</i><span>' + esc(p) + '</span></div>'; }).join('') + '</div>' +
+      '<div class="pw-plans">' + PLANS.map(function (p, i) {
+        return '<button class="pw-plan' + (i === 3 ? ' active' : '') + '" data-days="' + p.days + '"><b>' + esc(ru ? p.label : p.labelEn) + '</b><span>' + p.stars + ' ⭐</span></button>';
+      }).join('') + '</div>' +
+      '<button class="pw-buy" id="pwbuy">' + (ru ? 'Оплатить звёздами' : 'Pay with Stars') + '</button>' +
+      '<p class="pw-note">' + (ru ? 'Оплата через Telegram Stars. Подписка продлевается вручную — без автосписаний.' : 'Telegram Stars. Manual renewal, no auto-charge.') + '</p>' +
+      '</div>';
+    document.body.appendChild(wrap);
+    const close = function () { wrap.remove(); };
+    wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
+    wrap.querySelector('#px').onclick = close;
+    let chosen = 30;
+    wrap.querySelectorAll('.pw-plan').forEach(function (b) {
+      b.onclick = function () {
+        wrap.querySelectorAll('.pw-plan').forEach(function (x) { x.classList.remove('active'); });
+        b.classList.add('active');
+        chosen = Number(b.dataset.days);
+      };
+    });
+    wrap.querySelector('#pwbuy').onclick = function () {
+      if (TG && TG.showAlert) TG.showAlert(ru ? 'Оплата звёздами подключается вместе с ботом. Выбран тариф: ' + chosen + ' дней.' : 'Stars payment is being connected. Selected: ' + chosen + ' days.');
+      else toast(ru ? 'Скоро' : 'Soon');
+    };
+  }
+
   function showHelp(focusIndex) {
     const ru = S.lang === 'ru';
     const helpList = HELP[S.lang] || HELP.ru;
@@ -1150,9 +1213,8 @@
     document.querySelectorAll('.item').forEach((it) => it.onclick = () => {
       S.tab = 'scan'; S.lastMint = it.dataset.mint; S.result = null; render(); setTimeout(runCheck, 80);
     });
-    if ($('#plan')) $('#plan').onclick = function () {
-      TG && TG.showAlert ? TG.showAlert(S.lang === 'ru' ? 'Premium: другие сети (ETH, BSC, Base, Arbitrum, TON), без лимита проверок, алерты. Скоро.' : 'Premium: other chains, unlimited checks, alerts. Coming soon.') : toast('Premium soon');
-    };
+    if ($('#plan')) $('#plan').onclick = showPaywall;
+    document.querySelectorAll('#lockIns, #lockHold').forEach(function (b) { b.onclick = showPaywall; });
     if ($('#notify')) $('#notify').onclick = function () { S.notify = !S.notify; write('tc.notify', S.notify); render(); };
     if ($('#auto')) $('#auto').onclick = function () { S.autoUpd = S.autoUpd === false; write('tc.auto', S.autoUpd); render(); };
     if ($('#hide')) $('#hide').onclick = function () { S.hideMoney = !S.hideMoney; write('tc.hide', S.hideMoney); render(); };
