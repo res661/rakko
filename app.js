@@ -23,6 +23,7 @@
     hideMoney: read('tc.hide', false),
     quota: read('tc.quota', { hour: [], day: [] }),
     plan: read('tc.plan', 'free'),
+    planUntil: read('tc.planUntil', 0),
     result: null,
     busy: false,
     error: '',
@@ -358,7 +359,7 @@
   }
   function quotaLeft() {
     const q = quotaState();
-    if (S.plan === 'premium') return { hour: 999, day: 999, resetMin: 0 };
+    if (S.plan === 'premium' && (!S.planUntil || S.planUntil > Date.now())) return { hour: 999, day: 999, resetMin: 0 };
     const resetMin = q.hour.length ? Math.max(1, Math.ceil((3600e3 - (Date.now() - q.hour[0])) / 60000)) : 0;
     return { hour: Math.max(0, FREE_PER_HOUR - q.hour.length), day: Math.max(0, FREE_PER_DAY - q.day.length), resetMin: resetMin };
   }
@@ -371,6 +372,14 @@
   function quotaBlocked() {
     const L = quotaLeft();
     return L.hour <= 0 || L.day <= 0;
+  }
+
+  function fmtDate(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return dd + '.' + mm + '.' + d.getFullYear();
   }
 
   function ago(ts) {
@@ -693,7 +702,7 @@
 
   function viewSaved() {
     if (!S.saved.length) {
-      return top(t('savedTab')) + '<div class="page"><div class="empty"><img class="empty-monkey" src="assets/monkey.webp" alt="" /><b>' + esc(t('emptyTitle')) + '</b>' + esc(t('emptyText')) + '</div></div>';
+      return top(t('savedTab')) + '<div class="page"><div class="empty"><div class="empty-row"><img class="empty-monkey" src="assets/monkey.webp" alt="" /><div><b>' + esc(t('emptyTitle')) + '</b><span>' + esc(t('emptyText')) + '</span></div></div></div></div>';
     }
     const items = S.saved.map((s) => {
       const v = verdict(s.score);
@@ -723,7 +732,9 @@
       '<div style="height:22px"></div>' +
       '<div class="set-card">' +
       '<button class="set-row" id="lang">' + esc(t('langRow')) + '<span class="val">' + (S.lang === 'ru' ? 'Русский' : 'English') + '</span></button>' +
-      '<button class="set-row" id="plan">' + esc(S.lang === 'ru' ? 'Тариф' : 'Plan') + '<span class="val">' + (S.plan === 'premium' ? '⭐ Premium' : 'Free · 10/час') + '</span></button>' +
+      '<button class="set-row" id="plan">' + esc(S.lang === 'ru' ? 'Тариф' : 'Plan') + '<span class="val ' + (S.plan === 'premium' && (!S.planUntil || S.planUntil > Date.now()) ? 'prem' : '') + '">' + (S.plan === 'premium' && (!S.planUntil || S.planUntil > Date.now())
+        ? (S.lang === 'ru' ? 'Premium · ' + Math.max(1, Math.ceil((S.planUntil - Date.now()) / 864e5)) + ' дн.' : 'Premium · ' + Math.max(1, Math.ceil((S.planUntil - Date.now()) / 864e5)) + 'd')
+        : (S.lang === 'ru' ? 'Free · 10/час' : 'Free · 10/h')) + '</span></button>' +
       '<button class="set-row" id="how">' + esc(S.lang === 'ru' ? 'Как это работает' : 'How it works') + '<span class="val">›</span></button>' +
       '<button class="set-row" id="notify">' + esc(S.lang === 'ru' ? 'Уведомления' : 'Notifications') + '<span class="val">' + (S.notify ? (S.lang === 'ru' ? 'вкл' : 'on') : (S.lang === 'ru' ? 'выкл' : 'off')) + '</span></button>' +
       '<button class="set-row" id="auto">' + esc(S.lang === 'ru' ? 'Автообновление раз в минуту' : 'Auto-refresh every minute') + '<span class="val">' + (S.autoUpd === false ? (S.lang === 'ru' ? 'выкл' : 'off') : (S.lang === 'ru' ? 'вкл' : 'on')) + '</span></button>' +
@@ -930,14 +941,19 @@
     layer.innerHTML = stars + '<div class="pfx-card"><div class="pfx-badge">⭐</div><b>' + (ru ? 'Premium активирован' : 'Premium activated') + '</b><span>' + days + (ru ? ' дней' : ' days') + '</span></div>';
     document.body.appendChild(layer);
     haptic('ok');
+    S.plan = 'premium';
+    S.planUntil = Date.now() + days * 864e5;
+    write('tc.plan', 'premium');
+    write('tc.planUntil', S.planUntil);
     setTimeout(function () {
       layer.classList.add('out');
-      setTimeout(function () { layer.remove(); }, 400);
+      setTimeout(function () { layer.remove(); render(); }, 380);
     }, 1600);
   }
 
   function showPaywall() {
     const ru = S.lang === 'ru';
+    const isPrem = S.plan === 'premium' && (!S.planUntil || S.planUntil > Date.now());
     const perks = ru ? [
       'Все сети: Solana, Ethereum, BSC, Base, Arbitrum, TON',
       'Без лимита проверок',
@@ -966,7 +982,9 @@
           (disc > 0 ? '<em>−' + disc + '%</em>' : '') +
           '<b>' + esc(ru ? p.label : p.labelEn) + '</b><span>' + p.stars + ' ⭐</span></button>';
       }).join('') + '</div>' +
-      '<button class="pw-buy" id="pwbuy">' + (ru ? 'Оплатить звёздами' : 'Pay with Stars') + '</button>' +
+      '<button class="pw-buy' + (isPrem ? ' active' : '') + '" id="pwbuy">' + (isPrem
+        ? (ru ? 'Подписка активна до ' + fmtDate(S.planUntil) : 'Active until ' + fmtDate(S.planUntil))
+        : (ru ? 'Подписка' : 'Subscribe')) + '</button>' +
       '<p class="pw-save" id="pwsave"></p>' +
       '<p class="pw-note">' + (ru ? 'Оплата через Telegram Stars. Подписка продлевается вручную — без автосписаний.' : 'Telegram Stars. Manual renewal, no auto-charge.') + '</p>' +
       '</div>';
@@ -993,7 +1011,10 @@
       };
     });
     syncSave();
-    wrap.querySelector('#pwbuy').onclick = function () { paySim(chosen, ru); };
+    wrap.querySelector('#pwbuy').onclick = function () {
+      if (isPrem) { toast(ru ? 'Подписка активна до ' + fmtDate(S.planUntil) : 'Active until ' + fmtDate(S.planUntil)); return; }
+      paySim(chosen, ru);
+    };
   }
 
   function showHelp(focusIndex) {
