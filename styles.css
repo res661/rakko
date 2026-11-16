@@ -1152,3 +1152,48 @@ body { position: fixed; inset: 0; overflow: hidden; }
 .tk-card { position: relative; }
 .locked-row { color: rgba(240,240,245,.42); }
 .locked-row span:first-child { opacity: .55; }
+
+/* ===== paywall polish ===== */
+.pw-head { display: flex; justify-content: flex-end; padding: 2px 0 6px; margin: 0; }
+.pw-x {
+  width: 40px; height: 40px; border-radius: 50%; border: .5px solid rgba(255,255,255,.16);
+  background: rgba(255,255,255,.08); color: #fff;
+  font-size: 20px; font-weight: 700; line-height: 1; padding: 0;
+  display: grid; place-items: center;
+}
+.pw-x:active { background: rgba(255,255,255,.18); transform: scale(.94); }
+.modal-card.paywall { animation: pwIn .28s cubic-bezier(.22,1,.36,1) both; }
+@keyframes pwIn { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
+.modal-card.paywall.closing { animation: pwOut .22s ease both; }
+@keyframes pwOut { from { transform: none; opacity: 1; } to { transform: translateY(40px); opacity: 0; } }
+.modal { animation: fadeIn .2s ease both; }
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+/* ===== empty state monkey ===== */
+.empty-monkey { width: 168px; height: 168px; display: block; margin: 0 auto 14px; object-fit: contain; }
+.empty .ring { display: none; }
+
+/* ===== payment success fx ===== */
+.payfx { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); animation: fadeIn .2s ease both; }
+.payfx.out { animation: fadeOut .35s ease both; }
+@keyframes fadeOut { to { opacity: 0 } }
+.pfx-card {
+  background: #1f1f22; border: .5px solid rgba(255,255,255,.14); border-radius: 24px;
+  padding: 26px 30px; text-align: center; animation: pfxPop .4s cubic-bezier(.22,1.4,.36,1) both;
+  min-width: 220px;
+}
+@keyframes pfxPop { from { transform: scale(.85); opacity: 0 } to { transform: none; opacity: 1 } }
+.pfx-badge { font-size: 40px; margin-bottom: 8px; animation: pfxSpin 1.2s ease both; }
+@keyframes pfxSpin { from { transform: rotate(-30deg) scale(.6) } to { transform: none } }
+.pfx-card b { display: block; font-size: 17px; font-weight: 700; }
+.pfx-card span { display: block; margin-top: 4px; font-size: 14px; color: var(--text-3); }
+.pfx-star {
+  position: absolute; left: var(--x); bottom: -30px;
+  font-size: calc(16px * var(--s)); opacity: 0;
+  animation: pfxFly 1.4s ease-out var(--d) both;
+}
+@keyframes pfxFly {
+  0% { transform: translateY(0) scale(.6); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateY(-70vh) scale(1.1); opacity: 0; }
+}
