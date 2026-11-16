@@ -199,14 +199,17 @@
       else jobs.push(getJson('https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=' + encodeURIComponent(mint), 3500)
         .then((d) => { into.gp = d; cachePut(mint, 'gp', d); }).catch(() => {}));
     }
-    if (!into.gt) {
-      const c = cacheGet(mint, 'gt');
-      if (c) into.gt = c;
-      else jobs.push(getJson('https://api.geckoterminal.com/api/v2/networks/solana/tokens/' + encodeURIComponent(mint), 2500)
-        .then((d) => { into.gt = d; cachePut(mint, 'gt', d); }).catch(() => {}));
-    }
+    // GeckoTerminal is lazy-loaded on demand (see loadGecko)
     await Promise.all(jobs);
     return into;
+  }
+
+  async function loadGecko(mint) {
+    const c = cacheGet(mint, 'gt');
+    if (c) return c;
+    const d = await getJson('https://api.geckoterminal.com/api/v2/networks/solana/tokens/' + encodeURIComponent(mint), 3000).catch(() => null);
+    if (d) cachePut(mint, 'gt', d);
+    return d;
   }
 
   async function loadRaw(mint) {
@@ -1363,6 +1366,22 @@
       const open = box.classList.toggle('open');
       more.classList.toggle('open', open);
       haptic();
+      if (open && S.result && !S.result.token.gtReserve) {
+        loadGecko(S.result.token.mint).then(function (d) {
+          if (!d || !S.result) return;
+          const at = d.data && d.data.attributes ? d.data.attributes : {};
+          S.result.token.gtReserve = Number(at.total_reserve_in_usd) || 0;
+          S.result.token.gtVol = Number(at.volume_usd && at.volume_usd.h24) || 0;
+          if (S.result.token.gtReserve) {
+            const rows = document.querySelectorAll('.info-extra .info-row b');
+            for (let i = 0; i < rows.length; i++) {
+              if (rows[i].previousElementSibling && rows[i].previousElementSibling.textContent.indexOf('Reserve') > -1) {
+                rows[i].textContent = usd(S.result.token.gtReserve);
+              }
+            }
+          }
+        });
+      }
     };
     if ($('#help')) $('#help').onclick = showHelp;
     if ($('#how')) $('#how').onclick = showHow;
