@@ -588,7 +588,7 @@
 
     let out = top(t('checkTab')) + '<div class="page">';
     const ru = S.lang === 'ru';
-    if (!S.result) {
+    {
       out += '<div class="trend" id="trend">' +
         '<div class="trend-head"><span class="trend-k">' + esc(ru ? 'РЫНОК SOLANA' : 'SOLANA MARKET') + '</span>' +
         '<span class="trend-h">' + esc(ru ? 'тап — проверить' : 'tap to check') + '</span></div>' +
@@ -1328,7 +1328,9 @@
         trendRow.innerHTML = items.map(function (x) {
           const up = x.ch >= 0;
           const c = up ? 'var(--green)' : 'var(--red)';
-          return '<button class="tr-chip" data-mint="' + esc(x.mint) + '"><b>' + esc(x.symbol) + '</b><span style="color:' + c + '">' + (up ? '+' : '') + x.ch.toFixed(1) + '%</span></button>';
+          return '<button class="tr-chip ' + (up ? 'up' : 'down') + '" data-mint="' + esc(x.mint) + '">' +
+            '<span class="tr-sym">' + esc(x.symbol) + '</span>' +
+            '<span class="tr-pct">' + (up ? '▲' : '▼') + ' ' + Math.abs(x.ch).toFixed(1) + '%</span></button>';
         }).join('');
         trendRow.querySelectorAll('.tr-chip').forEach(function (b) {
           b.onclick = function () {
