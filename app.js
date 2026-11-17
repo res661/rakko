@@ -583,7 +583,6 @@
       })();
       const scCol = v.cls === 'good' ? 'var(--green)' : v.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
       out += '<div class="tk-card">' +
-        (S.plan === 'premium' ? '<span class="prem-chip">PREMIUM</span>' : '') +
         '<div class="tk-top">' +
         '<span class="tk-ava">' + (tk.image ? '<img src="' + esc(tk.image) + '" alt="">' : esc(tk.symbol.slice(0, 2))) + '</span>' +
         '<span class="tk-id"><b>' + esc(tk.symbol) + '</b><span>' + esc(tk.name || '') + '</span></span>' +
