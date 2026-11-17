@@ -226,7 +226,23 @@
       }).filter(function (x) { return x.mint && x.symbol; }).slice(0, 5);
       if (items.length) write('tc.trending', { at: Date.now(), items: items });
       return items;
-    } catch (e) { return []; }
+    } catch (e) {}
+    // fallback: top volume Solana pairs from DexScreener search
+    try {
+      const d2 = await getJson('https://api.dexscreener.com/latest/dex/search?q=SOL', 5000);
+      const pairs = (d2 && d2.pairs) || [];
+      const seen = {};
+      const items = pairs
+        .filter(function (p) { return p.chainId === 'solana' && p.baseToken && p.liquidity && p.liquidity.usd > 200000; })
+        .sort(function (x, y) { return (Number(y.volume && y.volume.h24) || 0) - (Number(x.volume && x.volume.h24) || 0); })
+        .filter(function (p) { if (seen[p.baseToken.address]) return false; seen[p.baseToken.address] = 1; return true; })
+        .slice(0, 5)
+        .map(function (p) {
+          return { mint: p.baseToken.address, symbol: p.baseToken.symbol, ch: Number(p.priceChange && p.priceChange.h24) || 0 };
+        });
+      if (items.length) write('tc.trending', { at: Date.now(), items: items });
+      return items;
+    } catch (e2) { return []; }
   }
 
   async function loadGecko(mint) {
@@ -573,7 +589,10 @@
     let out = top(t('checkTab')) + '<div class="page">';
     const ru = S.lang === 'ru';
     if (!S.result) {
-      out += '<div class="trend" id="trend"><span class="trend-k">' + esc(ru ? 'В ТРЕНДЕ СЕЙЧАС' : 'TRENDING NOW') + '</span><div class="trend-row" id="trendRow"><span class="trend-skel"></span><span class="trend-skel"></span><span class="trend-skel"></span></div></div>';
+      out += '<div class="trend" id="trend">' +
+        '<div class="trend-head"><span class="trend-k">' + esc(ru ? 'РЫНОК SOLANA' : 'SOLANA MARKET') + '</span>' +
+        '<span class="trend-h">' + esc(ru ? 'тап — проверить' : 'tap to check') + '</span></div>' +
+        '<div class="trend-row" id="trendRow"><span class="trend-skel"></span><span class="trend-skel"></span><span class="trend-skel"></span></div></div>';
     }
     out += '<h1 class="big-t">' + esc(ru ? 'Проверь монету' : 'Check a token') + '</h1>';
     out += '<p class="big-s">' + esc(ru ? 'Оценка риска за 30 секунд. Solana.' : 'Risk score in 30 seconds. Solana.') + '</p>';
