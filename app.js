@@ -595,7 +595,6 @@
         '<span class="trend-h">' + esc(ru ? 'тап — проверить' : 'tap to check') + '</span></div>' +
         '<div class="trend-row" id="trendRow"><span class="trend-skel"></span><span class="trend-skel"></span><span class="trend-skel"></span></div></div>';
     }
-    out += '<div class="row-top"><button class="gear" id="uiSet" aria-label="Настройки экрана"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg></button></div>';
     out += '<h1 class="big-t' + (S.ui.big === false ? ' compact' : '') + '">' + esc(ru ? 'Проверь монету' : 'Check a token') + '</h1>';
     out += '<p class="big-s">' + esc(ru ? 'Оценка риска за 30 секунд. Solana.' : 'Risk score in 30 seconds. Solana.') + '</p>';
     out += '<div class="panel">' +
@@ -1358,7 +1357,6 @@
 
   function bind() { try { bindInner(); } catch (e) { console.warn(e); } }
   function bindInner() {
-    if ($('#uiSet')) $('#uiSet').onclick = function () { if (typeof showScreenSettings === 'function') showScreenSettings(); };
     const trendRow = $('#trendRow');
     if (trendRow) {
       loadTrending().then(function (items) {
