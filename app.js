@@ -824,7 +824,10 @@
       // actions
       if (S.result.blocks.length < 8) out += '<p class="tiny" style="margin-top:16px">' + esc(S.lang === 'ru' ? 'Часть данных недоступна — оценка по ' + S.result.blocks.length + ' из 8 блоков.' : 'Some data unavailable — scored on ' + S.result.blocks.length + ' of 8 blocks.') + '</p>';
       out += '<div id="similar"></div>';
-      out += '<div class="actions-main"><button class="btn" id="save">' + esc(t('save')) + '</button></div>';
+      const inList = (S.saved || []).some(function (x) { return x.mint === tk.mint; });
+      out += '<div class="actions-main"><button class="btn' + (inList ? ' saved' : '') + '" id="save">' +
+        (inList ? '<svg class="ok-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4.5 4.5L19 7"/></svg><span>' + esc(S.lang === 'ru' ? 'В списке' : 'Saved') + '</span>' : esc(t('save'))) +
+        '</button></div>';
       if (tk.creator) {
         const blocked = !!S.black.devs[tk.creator];
         out += '<button class="ghost-action' + (blocked ? ' on' : '') + '" id="blkDev">' +
@@ -1519,19 +1522,22 @@
     if ($('#go')) $('#go').onclick = runCheck;
     if ($('#save')) $('#save').onclick = () => {
       const btn = $('#save');
-      if (btn) {
-        btn.classList.add('saved');
-        btn.innerHTML = '<svg class="ok-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4.5 4.5L19 7"/></svg>' +
-          '<span>' + (S.lang === 'ru' ? 'В списке' : 'Saved') + '</span>';
-        setTimeout(function () {
-          btn.classList.remove('saved');
-          btn.textContent = (S.lang === 'ru' ? 'В список' : 'Save');
-        }, 1600);
-      }
       const r = S.result; if (!r) return;
+      const mint = r.token.mint;
+      const exists = (S.saved || []).some(function (x) { return x.mint === mint; });
+      if (exists) {
+        S.saved = S.saved.filter(function (x) { return x.mint !== mint; });
+        write(K.saved, S.saved); haptic(); render();
+        return;
+      }
       const item = { mint: r.token.mint, symbol: r.token.symbol, image: r.token.image, liq: r.token.liq, price: r.token.price, ch24: r.token.ch24, score: r.score, at: Date.now() };
       S.saved = [item].concat(S.saved.filter((x) => x.mint !== item.mint)).slice(0, 60);
-      write(K.saved, S.saved); haptic('ok'); toast(t('savedToast'));
+      write(K.saved, S.saved); haptic('ok');
+      const btn2 = document.getElementById('save');
+      if (btn2) {
+        btn2.classList.add('saved');
+        btn2.innerHTML = '<svg class="ok-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4.5 4.5L19 7"/></svg><span>' + (S.lang === 'ru' ? 'В списке' : 'Saved') + '</span>';
+      }
     };
     if ($('#copyMint') && S.result) $('#copyMint').onclick = function () {
       const mint = S.result.token.mint;
@@ -1621,17 +1627,8 @@
     if ($('#blkDev') && S.result) $('#blkDev').onclick = function () {
       const d = S.result.token.creator;
       if (!d) return;
-      const blocking = !S.black.devs[d];
-      if (blocking) S.black.devs[d] = Date.now(); else delete S.black.devs[d];
-      write(K.black, S.black); haptic();
-      if (blocking) {
-        const stamp = document.createElement('div');
-        stamp.className = 'stamp';
-        stamp.innerHTML = '<span>' + (S.lang === 'ru' ? 'ЗАБЛОКИРОВАН' : 'BLOCKED') + '</span>';
-        document.body.appendChild(stamp);
-        setTimeout(function () { stamp.classList.add('out'); }, 1200);
-        setTimeout(function () { stamp.remove(); render(); }, 1600);
-      } else render();
+      if (S.black.devs[d]) delete S.black.devs[d]; else S.black.devs[d] = Date.now();
+      write(K.black, S.black); haptic(); render();
     };
     if (S.result) loadSimilar(S.result.token);
   }
