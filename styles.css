@@ -1660,3 +1660,65 @@ html, body { background: #1c1c1c !important; }
 
 /* ===== brand wordmark ===== */
 .brand-l { font-size: 11px; letter-spacing: .22em; font-weight: 800; color: #6169ee; margin: 0 0 6px 2px; text-transform: uppercase; }
+
+/* ===== radar empty state ===== */
+.empty { padding: 48px 24px 64px; text-align: center; }
+.radar { position: relative; width: 120px; height: 120px; margin: 0 auto 18px; }
+.radar .r-dot {
+  position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border-radius: 50%; background: #6169ee; box-shadow: 0 0 14px rgba(97,105,238,.8);
+}
+.radar .r {
+  position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; margin: -60px 0 0 -60px;
+  border-radius: 50%; border: 1px solid rgba(97,105,238,.5);
+  animation: radarPulse 3s ease-out infinite;
+}
+.radar .r2 { animation-delay: 1s; }
+.radar .r3 { animation-delay: 2s; }
+@keyframes radarPulse {
+  0% { transform: scale(.18); opacity: 0; }
+  25% { opacity: .9; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+/* ===== success mark ===== */
+.btn.saved { background: #30d158 !important; color: #06260f !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; }
+.ok-mark { width: 20px; height: 20px; animation: okPop .45s cubic-bezier(.22,1.6,.36,1) both; }
+@keyframes okPop { 0% { transform: scale(.2) rotate(-25deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+
+/* ===== copy chip ===== */
+.copy-a { cursor: pointer; }
+.copy-a .cp { color: #6169ee; }
+.copy-chip {
+  position: fixed; left: 50%; bottom: 120px; transform: translate(-50%, 10px) scale(.96);
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 10px 16px; border-radius: 999px;
+  background: #30d158; color: #06260f; font-size: 14px; font-weight: 650;
+  opacity: 0; z-index: 100; transition: opacity .2s, transform .2s cubic-bezier(.22,1.4,.36,1);
+}
+.copy-chip svg { width: 16px; height: 16px; }
+.copy-chip.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+
+/* ===== dev block stamp ===== */
+.stamp {
+  position: fixed; inset: 0; z-index: 110;
+  display: grid; place-items: center;
+  pointer-events: none;
+  animation: fadeIn .15s ease both;
+}
+.stamp.out { animation: fadeOut .35s ease both; }
+.stamp span {
+  padding: 14px 26px; border-radius: 14px;
+  border: 3px solid #ff453a; color: #ff453a;
+  font-size: 22px; font-weight: 800; letter-spacing: .12em;
+  transform: rotate(-9deg);
+  background: rgba(255,69,58,.08);
+  animation: stampIn .45s cubic-bezier(.22,1.6,.36,1) both;
+}
+@keyframes stampIn {
+  0% { transform: rotate(-9deg) scale(2.2); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: rotate(-9deg) scale(1); opacity: 1; }
+}
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes fadeOut { to { opacity: 0 } }
