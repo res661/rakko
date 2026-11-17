@@ -1797,3 +1797,8 @@ body::before {
 @media (max-width: 759px) {
   .page { padding-top: calc(86px + env(safe-area-inset-top, 0px)) !important; }
 }
+
+/* ===== nudge higher (last override) ===== */
+@media (max-width: 759px) {
+  .page { padding-top: calc(72px + env(safe-area-inset-top, 0px)) !important; }
+}
