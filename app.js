@@ -664,6 +664,7 @@
         '<span class="trend-h">' + esc(ru ? 'тап — проверить' : 'tap to check') + '</span></div>' +
         '<div class="trend-row" id="trendRow"><span class="trend-skel"></span><span class="trend-skel"></span><span class="trend-skel"></span></div></div>';
     }
+    out += '<div class="brand-l">REACTIVE</div>';
     out += '<h1 class="big-t' + (S.ui.big === false ? ' compact' : '') + '">' + esc(ru ? 'Проверь монету' : 'Check a token') + '</h1>';
     out += '<p class="big-s">' + esc(ru ? 'Оценка риска за 30 секунд. Solana.' : 'Risk score in 30 seconds. Solana.') + '</p>';
     out += '<div class="panel">' +
