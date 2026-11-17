@@ -1751,3 +1751,9 @@ html, body { background: #1c1c1c !important; }
   opacity: .9;
 }
 .cat.loading .cat-s { color: #6f6f75; }
+
+/* ===== shimmer for list rows ===== */
+.skel-item { display: flex; align-items: center; gap: 14px; padding: 13px 15px; background: #2c2c2e; border-radius: 16px; }
+.skel-ava { width: 42px; height: 42px; border-radius: 13px; flex: none; background: linear-gradient(90deg,#232326,#313135,#232326); background-size: 220% 100%; animation: shimmer 1.25s linear infinite; }
+.skel-lines { flex: 1; display: grid; gap: 8px; }
+.skel-lines .skel-line { margin: 0; height: 11px; }
