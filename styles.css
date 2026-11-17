@@ -1520,3 +1520,39 @@ html, body { background: #1c1c1c !important; }
 .dscan svg { width: 26px !important; height: 26px !important; stroke-width: 2.4 !important; }
 .dscan:active { transform: scale(.94) !important; background: #0066cc !important; }
 .dscan.on { background: #0a84ff !important; color: #fff !important; }
+
+/* ===== apple-like home panel ===== */
+.big-t { margin: 6px 2px 4px; font-size: 34px; line-height: 1.05; letter-spacing: -.045em; font-weight: 750; color: #fff; }
+.big-s { margin: 0 2px 18px; font-size: 14px; color: #8e8e93; }
+
+.panel {
+  background: #2c2c2e;
+  border-radius: 22px;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.28);
+}
+.panel-k { display: block; font-size: 11px; letter-spacing: .12em; font-weight: 700; color: #8e8e93; margin-bottom: 8px; }
+.panel-in {
+  display: flex; align-items: center; gap: 8px;
+  background: #3a3a3c; border-radius: 14px; padding: 4px 4px 4px 14px;
+}
+.panel-in input {
+  flex: 1; min-width: 0; height: 46px; border: 0; background: transparent;
+  color: #fff; font: inherit; font-size: 16px; outline: none;
+}
+.panel-in input::placeholder { color: #7c7c81; }
+.paste-b {
+  height: 36px; padding: 0 14px; border: 0; border-radius: 11px;
+  background: #48484a; color: #fff; font: inherit; font-size: 13px; font-weight: 600;
+}
+.paste-b:active { background: #5a5a5c; transform: scale(.97); }
+.panel-go {
+  margin-top: 12px; width: 100%; height: 52px;
+  border: 0; border-radius: 14px;
+  background: #0a84ff; color: #fff;
+  font: inherit; font-size: 17px; font-weight: 650;
+  display: grid; place-items: center;
+  transition: transform .14s, background .14s;
+}
+.panel-go:active { transform: scale(.98); background: #0066cc; }
+.panel-f { margin: 10px 2px 0; font-size: 12px; color: #8e8e93; text-align: center; }
