@@ -1556,3 +1556,11 @@ html, body { background: #1c1c1c !important; }
 }
 .panel-go:active { transform: scale(.98); background: #0066cc; }
 .panel-f { margin: 10px 2px 0; font-size: 12px; color: #8e8e93; text-align: center; }
+
+/* ===== breathing room under Telegram header ===== */
+@media (max-width: 759px) {
+  .page { padding-top: 96px !important; }
+  #app { padding-top: 0 !important; }
+  .big-t { margin-top: 0; }
+}
+.top { display: none !important; }
