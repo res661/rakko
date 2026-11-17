@@ -564,6 +564,75 @@
     return out;
   }
 
+  function blockHints(k, tk, b) {
+    const ru = S.lang === 'ru';
+    const out = [];
+    const p = b ? b.s : 1;
+    const liq = tk.liq || 0;
+    const ch = tk.ch24 || 0;
+    const turn = (tk.vol && liq) ? tk.vol / liq : 0;
+    const top10 = (tk.top || []).slice(0, 10).reduce(function (s, h) { return s + (h.pct || 0); }, 0);
+    const ageH = tk.created ? (Date.now() - tk.created) / 36e5 : 0;
+
+    if (k === 'liq') {
+      if (liq && liq < 3000) out.push(ru ? 'Ликвидности почти нет: продать даже небольшую сумму не получится — цена рухнет от твоей же продажи.' : 'Almost no liquidity: your own sell would crash the price.');
+      else if (liq && liq < 15000) out.push(ru ? 'Ликвидность ниже $15K. Это «микро-пул»: одна крупная продажа обнулит цену.' : 'Liquidity under $15K: one big sell wipes the price.');
+      else if (liq && liq < 60000) out.push(ru ? 'Ликвидность средняя: выйти можно, но при панике проскальзывание будет заметным.' : 'Mid liquidity: you can exit, but slippage hurts in a panic.');
+      else if (liq > 1000000) out.push(ru ? 'Глубокий пул: цена устойчива, крупные сделки почти не двигают график.' : 'Deep pool: price is stable to large trades.');
+      if (tk.fdv && liq && liq / tk.fdv < 0.015) out.push(ru ? 'Ликвидность — меньше 1.5% от FDV. Такой пул не выдержит массового выхода.' : 'Liquidity is under 1.5% of FDV — cannot absorb a mass exit.');
+      if (tk.lpLocked !== null && tk.lpLocked < 30) out.push(ru ? 'LP почти не заблокирован: разработчик может забрать ликвидность в любой момент.' : 'LP barely locked: the dev can pull liquidity anytime.');
+    }
+
+    if (k === 'holders') {
+      if (tk.holders && tk.holders < 100) out.push(ru ? 'Меньше 100 холдеров: рынок состоит из нескольких людей, цену двигает один кошелёк.' : 'Under 100 holders: a handful of wallets move the price.');
+      if (top10 > 60) out.push(ru ? 'Топ-10 держат ' + Math.round(top10) + '% — фактически это закрытый клуб, они решают судьбу цены.' : 'Top-10 hold ' + Math.round(top10) + '% — they decide the price.');
+      if (tk.top1 > 20) out.push(ru ? 'Один кошелёк держит ' + tk.top1.toFixed(1) + '%. Одна продажа — и минус треть капитализации.' : 'One wallet holds ' + tk.top1.toFixed(1) + '% — one sell kills a third of the cap.');
+      if (tk.holders > 5000) out.push(ru ? 'Больше 5 000 холдеров — распределение здоровое, манипулировать сложно.' : 'Over 5,000 holders — healthy distribution.');
+    }
+
+    if (k === 'dev') {
+      if (tk.gp && tk.gp.honeypot) out.push(ru ? 'Honeypot подтверждён: покупка проходит, продажа — нет. Это 100% потеря.' : 'Confirmed honeypot: buys pass, sells do not.');
+      if (tk.creatorBalance && tk.creatorBalance.pct > 10) out.push(ru ? 'У создателя ' + tk.creatorBalance.pct.toFixed(1) + '% supply — он может слить в стакан в любой момент.' : 'Creator holds ' + tk.creatorBalance.pct.toFixed(1) + '% — can dump anytime.');
+      if (tk.risks.length === 0 && p > 0.7) out.push(ru ? 'Rugcheck не нашёл критичных рисков: нет бандлов, подозрительных кошельков и сливов.' : 'Rugcheck found no critical risks.');
+      if (tk.risks.length > 2) out.push(ru ? 'Найдено несколько рисков — посмотри их в блоке RISKS выше, там конкретика.' : 'Multiple risks found — see the RISKS block above.');
+    }
+
+    if (k === 'contract') {
+      if (tk.mintAuth) out.push(ru ? 'Минт открыт: создатель может напечатать сколько угодно токенов и обесценить твои.' : 'Mint open: the dev can print tokens and dilute you.');
+      if (tk.freezeAuth) out.push(ru ? 'Заморозка открыта: твой кошелёк могут заморозить и ты не продашь.' : 'Freeze open: your wallet can be frozen.');
+      if (!tk.mintAuth && !tk.freezeAuth && tk.gp) out.push(ru ? 'Права отозваны — печатать и замораживать токены больше нельзя. Это хороший знак.' : 'Authorities revoked — a good sign.');
+      if (tk.gp && (Number(tk.gp.buyTax) > 5 || Number(tk.gp.sellTax) > 5)) out.push(ru ? 'Налог выше 5%: каждый вход и выход съедает десятую часть.' : 'Tax above 5% eats a tenth on every trade.');
+      if (tk.transferFee > 3) out.push(ru ? 'Комиссия за перевод ' + tk.transferFee.toFixed(1) + '% — токен теряет стоимость при каждом переводе.' : 'Transfer fee ' + tk.transferFee.toFixed(1) + '% on every transfer.');
+    }
+
+    if (k === 'activity') {
+      if (turn && turn > 6) out.push(ru ? 'Оборот в ' + turn.toFixed(1) + '× ликвидности — похоже на накрутку объёма ботами.' : 'Turnover ' + turn.toFixed(1) + '× liquidity — looks like wash trading.');
+      if (turn && turn < 0.1) out.push(ru ? 'Почти нет торгов: монета «мертвая», выйти будет некому.' : 'Almost no trading: a dead token.');
+      if (tk.buys && tk.sells && tk.sells > tk.buys * 1.5) out.push(ru ? 'Продажи перевешивают покупки — держатели выходят, давление вниз.' : 'Sells dominate — holders are exiting.');
+      if (tk.buys && tk.sells && tk.buys > tk.sells * 1.5) out.push(ru ? 'Покупок больше продаж — интерес растёт, но проверь, не один ли это кошелёк.' : 'Buy pressure dominates — check if it is one wallet.');
+    }
+
+    if (k === 'age') {
+      if (ageH && ageH < 1) out.push(ru ? 'Монете меньше часа. 9 из 10 таких умирают в первые сутки — это лотерея, не инвестиция.' : 'Under an hour old — 9 of 10 die within a day.');
+      if (ageH && ageH > 24 * 30) out.push(ru ? 'Монета живёт больше месяца — прошла первичный отбор, но не гарантирует рост.' : 'Alive over a month — passed the first filter.');
+      if (ageH && ageH > 24 * 180) out.push(ru ? 'Полгода на рынке — таких мало; риск рага ниже, но и иксов обычно уже нет.' : 'Over six months old — rare, lower rug risk.');
+    }
+
+    if (k === 'price') {
+      if (ch <= -60) out.push(ru ? 'Минус ' + Math.abs(Math.round(ch)) + '% за сутки: идёт слив. Вход — ловля ножа.' : 'Down ' + Math.abs(Math.round(ch)) + '% — catching a falling knife.');
+      if (ch >= 200) out.push(ru ? 'Плюс ' + Math.round(ch) + '% за сутки: ты видишь уже состоявшийся памп. Риск купить на пике.' : 'Up ' + Math.round(ch) + '% — you are buying after the pump.');
+      if (ch > -10 && ch < 10) out.push(ru ? 'Цена стабильна за сутки — без резких движений, но и без интереса.' : 'Price is flat — no momentum.');
+    }
+
+    if (k === 'links') {
+      if (!tk.socials.length && !tk.sites.length) out.push(ru ? 'Нет ни сайта, ни соцсетей. У нормального проекта они есть всегда.' : 'No site or socials — a red flag.');
+      if (tk.socials.length >= 2) out.push(ru ? 'Есть несколько соцсетей — проверь, живые ли там посты, а не купленные подписчики.' : 'Several socials — check if posts are real.');
+    }
+
+    if (!out.length) out.push(ru ? 'По этому блоку всё в пределах нормы — явных красных флагов нет.' : 'Nothing alarming in this block.');
+    return out.slice(0, 3);
+  }
+
   function verdictLabel(score) {
     if (score >= 70) return { txt: t('vCan'), cls: 'good' };
     if (score >= 40) return { txt: t('vRisk'), cls: 'mid' };
@@ -1205,6 +1274,9 @@
         (p !== null ? '<span class="hc-p" style="color:' + c + '">' + p + '%</span>' : '') + '</div>' +
         '<p>' + esc(help[1]) + '</p>' +
         (b ? '<span class="hc-info">' + esc(b.info) + '</span>' : '') +
+        (b && S.result ? '<div class="hc-hints">' + blockHints(k, S.result.token, b).map(function (h) {
+          return '<div class="hc-hint"><span>›</span>' + esc(h) + '</div>';
+        }).join('') + '</div>' : '') +
         '</div></div>';
     }).join('');
 
