@@ -1586,3 +1586,25 @@ html, body { background: #1c1c1c !important; }
 .trend-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
 .trend-head .trend-k { margin: 0; }
 .trend-h { margin-left: auto; font-size: 10px; color: #6f6f75; letter-spacing: .02em; }
+
+/* ===== trend v2: prettier cards, colored ===== */
+.trend { margin: 0 0 14px; }
+.tr-chip {
+  flex: none; display: flex; align-items: center; gap: 8px;
+  height: 42px; padding: 0 12px 0 14px;
+  border: 0; border-radius: 14px;
+  background: #232326;
+  color: #fff; font: inherit;
+  box-shadow: inset 0 0 0 .5px rgba(255,255,255,.06);
+}
+.tr-chip .tr-sym { font-size: 13.5px; font-weight: 700; letter-spacing: -.01em; }
+.tr-chip .tr-pct {
+  font-size: 11.5px; font-weight: 700;
+  padding: 3px 7px; border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.tr-chip.up { background: linear-gradient(160deg, #1e3b2a, #232326 60%); }
+.tr-chip.up .tr-pct { color: #4ade80; background: rgba(74,222,128,.14); }
+.tr-chip.down { background: linear-gradient(160deg, #3b2124, #232326 60%); }
+.tr-chip.down .tr-pct { color: #ff6b6b; background: rgba(255,107,107,.14); }
+.tr-chip:active { transform: scale(.96); }
