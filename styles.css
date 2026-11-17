@@ -1722,3 +1722,32 @@ html, body { background: #1c1c1c !important; }
 }
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
 @keyframes fadeOut { to { opacity: 0 } }
+
+/* ===== shimmer skeletons ===== */
+@keyframes shimmer {
+  0% { background-position: -180% 0; }
+  100% { background-position: 180% 0; }
+}
+.skel, .trend-skel, .skel-line {
+  background: linear-gradient(90deg, #232326 0%, #313135 38%, #232326 76%) !important;
+  background-size: 220% 100% !important;
+  animation: shimmer 1.25s linear infinite !important;
+  opacity: 1 !important;
+}
+.skel { border-radius: 16px; }
+.skel-wrap { display: grid; gap: 10px; margin-top: 16px; }
+.skel-line { display: block; height: 12px; border-radius: 8px; margin-top: 8px; }
+.skel-line.short { width: 55%; }
+
+/* pending block cards shimmer instead of spinner */
+.cat.loading .cat-ico { background: linear-gradient(90deg,#232326,#313135,#232326) !important; background-size: 220% 100% !important; animation: shimmer 1.25s linear infinite !important; }
+.cat.loading .mini-spin { display: none; }
+.cat.loading .cat-pb { background: #232326 !important; }
+.cat.loading .cat-pb i {
+  width: 100% !important;
+  background: linear-gradient(90deg,#2a2a2e,#3a3a3f,#2a2a2e) !important;
+  background-size: 220% 100% !important;
+  animation: shimmer 1.25s linear infinite !important;
+  opacity: .9;
+}
+.cat.loading .cat-s { color: #6f6f75; }
