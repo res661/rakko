@@ -1757,3 +1757,29 @@ html, body { background: #1c1c1c !important; }
 .skel-ava { width: 42px; height: 42px; border-radius: 13px; flex: none; background: linear-gradient(90deg,#232326,#313135,#232326); background-size: 220% 100%; animation: shimmer 1.25s linear infinite; }
 .skel-lines { flex: 1; display: grid; gap: 8px; }
 .skel-lines .skel-line { margin: 0; height: 11px; }
+
+/* ===== 1. top glow ===== */
+body::before {
+  content: '';
+  position: fixed; left: 0; right: 0; top: 0; height: 340px;
+  pointer-events: none; z-index: 0;
+  background: radial-gradient(120% 100% at 50% 0%, rgba(97,105,238,.16) 0%, rgba(97,105,238,.07) 38%, rgba(97,105,238,0) 72%);
+}
+#app { position: relative; z-index: 1; }
+
+/* ===== 6. spacing scale: 16 / 20 / 24 ===== */
+:root { --s1: 16px; --s2: 20px; --s3: 24px; }
+.page { padding: var(--s2) var(--s1) 12px !important; }
+.panel { padding: var(--s2) !important; border-radius: 20px !important; }
+.card { padding: var(--s2) !important; }
+.tk-card { padding: var(--s1) !important; }
+.info, .ins, .risk-list, .hold-list, .set-card, .hc { border-radius: 18px !important; }
+.info-row, .risk, .set-row { padding: 14px var(--s1) !important; }
+.item { padding: 14px var(--s1) !important; border-radius: 18px !important; }
+.list, .blocks, .cats, .ins { gap: 12px !important; }
+.sec-t { margin: var(--s3) 0 12px !important; }
+.eyebrow { margin: var(--s3) 0 10px !important; }
+.big-t { margin: 4px 0 4px !important; }
+.big-s { margin: 0 2px var(--s2) !important; }
+.trend { margin: 0 0 var(--s2) !important; }
+.actions-main { margin-top: var(--s3) !important; }
