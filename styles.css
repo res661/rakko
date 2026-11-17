@@ -1644,3 +1644,16 @@ html, body { background: #1c1c1c !important; }
 .ui-sw.on { background: #0a84ff; }
 .ui-sw.on i { transform: translateX(20px); }
 .big-t.compact { font-size: 26px; }
+
+/* ===== block hints inside sheet ===== */
+.hc-hints { margin-top: 12px; display: grid; gap: 8px; }
+.hc-hint {
+  display: flex; gap: 8px; align-items: flex-start;
+  font-size: 13px; line-height: 1.4; color: #d1d1d6;
+  background: rgba(255,255,255,.05); border-radius: 12px; padding: 10px 12px;
+}
+.hc-hint span { color: #6169ee; font-weight: 700; line-height: 1.2; }
+
+/* check cards: slightly more air */
+.cat { padding: 14px 14px 12px !important; }
+.cat-t { font-size: 14px !important; }
