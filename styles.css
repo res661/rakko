@@ -1579,3 +1579,10 @@ html, body { background: #1c1c1c !important; }
 .tr-chip span { font-size: 12px; font-weight: 600; }
 .tr-chip:active { background: #3a3a3c; transform: scale(.97); }
 .trend-skel { display: block; width: 92px; height: 38px; border-radius: 12px; background: #2c2c2e; opacity: .5; animation: pulse 1.2s ease-in-out infinite; }
+
+/* ===== centered hero + trend header ===== */
+.big-t { text-align: center; }
+.big-s { text-align: center; }
+.trend-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.trend-head .trend-k { margin: 0; }
+.trend-h { margin-left: auto; font-size: 10px; color: #6f6f75; letter-spacing: .02em; }
