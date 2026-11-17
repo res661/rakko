@@ -684,7 +684,11 @@
 
     if (S.ui.recent !== false && !S.result && S.saved.length) {
       out += '<p class="eyebrow" style="margin-top:24px">' + esc(S.lang === 'ru' ? 'НЕДАВНИЕ' : 'RECENT') + '</p>';
-      out += '<div class="list recent-list">' + S.saved.slice(0, 10).map(function (s, i) {
+      if (S.recentLoading) {
+        out += '<div class="list recent-list">' + [0, 1, 2].map(function () {
+          return '<div class="item skel-item"><span class="skel-ava"></span><span class="skel-lines"><span class="skel-line"></span><span class="skel-line short"></span></span></div>';
+        }).join('') + '</div>';
+      } else out += '<div class="list recent-list">' + S.saved.slice(0, 10).map(function (s, i) {
         const vv = verdictLabel(s.score);
         const cc = vv.cls === 'good' ? 'var(--green)' : vv.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
         return '<button class="item" style="--i:' + i + '" data-mint="' + esc(s.mint) + '"><span class="ava" style="background:' + (vv.cls === 'good' ? 'linear-gradient(160deg,#2b6b45,#1c4a30)' : vv.cls === 'mid' ? 'linear-gradient(160deg,#6b5518,#4a3c17)' : 'linear-gradient(160deg,#6b2a30,#4a2026)') + '">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(s.symbol.slice(0, 2))) + '</span><span class="meta"><b>' + esc(s.symbol) + '</b><span>' + usd(s.liq) + '</span></span><span class="num" style="--sc:' + cc + '">' + s.score + '</span></button>';
@@ -765,7 +769,7 @@
         ['Honeypot', tk.gp ? (tk.gp.honeypot ? 'да' : 'нет') : '—', ''],
         ['Mint / Freeze', tk.gp ? ((tk.gp.mintable ? 'open' : 'revoked') + ' / ' + (tk.gp.freezable ? 'open' : 'revoked')) : '—', ''],
         ['Buy / Sell tax', tk.gp ? ((tk.gp.buyTax || '0') + '% / ' + (tk.gp.sellTax || '0') + '%') : '—', ''],
-        ['Reserve (GT)', tk.gtReserve ? usd(tk.gtReserve) : '—', ''],
+        ['Reserve (GT)', tk.gtReserve ? usd(tk.gtReserve) : (S.gtLoading ? '…' : '—'), ''],
         ['Creator %', tk.creatorBalance && tk.creatorBalance.pct ? tk.creatorBalance.pct.toFixed(2) + '%' : '—', ''],
         ['Top-1 holder', tk.top1 ? tk.top1.toFixed(2) + '%' : '—', ''],
         ['Transfer fee', tk.transferFee === null ? '—' : tk.transferFee.toFixed(1) + '%', ''],
@@ -1598,7 +1602,9 @@
       more.classList.toggle('open', open);
       haptic();
       if (open && S.result && !S.result.token.gtReserve) {
+        S.gtLoading = true;
         loadGecko(S.result.token.mint).then(function (d) {
+          S.gtLoading = false;
           if (!d || !S.result) return;
           const at = d.data && d.data.attributes ? d.data.attributes : {};
           S.result.token.gtReserve = Number(at.total_reserve_in_usd) || 0;
@@ -1779,5 +1785,18 @@
   setInterval(function () { if (S.tab === 'scan' && S.result && !S.busy) refreshLive(); }, 25000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshLive(); });
 
-  try { render(); } catch (e) { showFatal(e); }
+  try {
+    if (S.saved && S.saved.length) {
+      S.recentLoading = true;
+      render();
+      setTimeout(function () {
+        refreshLive().finally(function () {
+          S.recentLoading = false;
+          try { render(); } catch (e) {}
+        });
+      }, 120);
+    } else {
+      render();
+    }
+  } catch (e) { showFatal(e); }
 })();
