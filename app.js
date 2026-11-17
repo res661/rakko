@@ -999,21 +999,21 @@
   function showHow() {
     const ru = S.lang === 'ru';
     const steps = ru ? [
-      ['Проверка', 'Вставь адрес монеты. Rakko опрашивает DexScreener, Rugcheck, GoPlus, GeckoTerminal и Pump.fun — параллельно, за 1–2 секунды.'],
+      ['Проверка', 'Вставь адрес монеты. Reactive опрашивает DexScreener, Rugcheck, GoPlus, GeckoTerminal и Pump.fun — параллельно, за 1–2 секунды.'],
       ['Оценка', 'Каждый блок получает 0–100%. Из них собирается общий балл. Цвет: зелёный — чисто, жёлтый — рискованно, красный — опасно.'],
       ['Инсайты', 'Правила находят конкретику: открыт минт, LP не заблокирован, продаж больше покупок, создатель уже запускал монеты.'],
-      ['Чёрный список', 'Блокируй монету или создателя. При следующей проверке Rakko сразу предупредит.'],
+      ['Чёрный список', 'Блокируй монету или создателя. При следующей проверке Reactive сразу предупредит.'],
       ['Точность', 'Оценка — не гарантия. Rag бывает и у чистых монет. Задача — сэкономить время и показать риски, а не решать за тебя.']
     ] : [
-      ['Check', 'Paste the address. Rakko queries DexScreener, Rugcheck, GoPlus, GeckoTerminal and Pump.fun in parallel — 1–2 seconds.'],
+      ['Check', 'Paste the address. Reactive queries DexScreener, Rugcheck, GoPlus, GeckoTerminal and Pump.fun in parallel — 1–2 seconds.'],
       ['Score', 'Each block scores 0–100%. They combine into one number. Green — clean, yellow — risky, red — dangerous.'],
       ['Insights', 'Rules surface concrete facts: mint open, LP unlocked, more sells than buys, creator launched tokens before.'],
-      ['Blacklist', 'Block a token or a creator. Next check Rakko warns you instantly.'],
+      ['Blacklist', 'Block a token or a creator. Next check Reactive warns you instantly.'],
       ['Accuracy', 'A score is not a guarantee. Rugs happen to clean tokens too. The goal is to save time and show risks, not decide for you.']
     ];
     const wrap = document.createElement('div');
     wrap.className = 'modal';
-    wrap.innerHTML = '<div class="modal-card"><div class="modal-head"><b>' + (ru ? 'Как работает Rakko' : 'How Rakko works') + '</b><button class="modal-x" id="mx">✕</button></div><div class="modal-body">' +
+    wrap.innerHTML = '<div class="modal-card"><div class="modal-head"><b>' + (ru ? 'Как работает Reactive' : 'How Reactive works') + '</b><button class="modal-x" id="mx">✕</button></div><div class="modal-body">' +
       steps.map(function (s, i) { return '<div class="how-step"><span class="how-n">' + (i + 1) + '</span><div><b>' + esc(s[0]) + '</b><span>' + esc(s[1]) + '</span></div></div>'; }).join('') +
       '</div></div>';
     document.body.appendChild(wrap);
@@ -1606,8 +1606,8 @@
     const mint = (input && input.value || '').trim();
     if (/^0x[0-9a-fA-F]{40}$/.test(mint)) {
       S.error = (S.lang === 'ru'
-        ? 'Это адрес EVM-сети (ETH/BSC/Base). Сейчас Rakko проверяет только Solana — другие сети будут в Premium.'
-        : 'This is an EVM address. Rakko checks Solana for now; other chains come with Premium.');
+        ? 'Это адрес EVM-сети (ETH/BSC/Base). Сейчас Reactive проверяет только Solana — другие сети будут в Premium.'
+        : 'This is an EVM address. Reactive checks Solana for now; other chains come with Premium.');
       render(); haptic('err'); return;
     }
     if (!isAddr(mint)) { S.error = t('errAddr'); render(); haptic('err'); return; }
