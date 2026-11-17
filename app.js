@@ -833,7 +833,7 @@
           '</button>';
       }
       if (S.black.tokens[tk.mint]) out += '<p class="tiny" style="margin-top:10px;color:var(--red)">' + esc(S.lang === 'ru' ? 'Монета в чёрном списке' : 'Token is blacklisted') + '</p>';
-      out += '<p class="tiny" style="margin-top:14px">' + esc(tk.mint) + '</p>';
+      out += '<p class="tiny copy-a" id="copyMint" style="margin-top:14px">' + esc(tk.mint) + ' <span class="cp">' + (S.lang === 'ru' ? 'копировать' : 'copy') + '</span></p>';
       out += '<p class="tiny">' + esc(t('about')) + '</p></div>';
     }
     out += '</div>';
@@ -889,7 +889,9 @@
 
   function viewSaved() {
     if (!S.saved.length) {
-      return top(t('savedTab')) + '<div class="page"><div class="empty"><b>' + esc(t('emptyTitle')) + '</b><span>' + esc(t('emptyText')) + '</span></div></div>';
+      return top(t('savedTab')) + '<div class="page"><div class="empty">' +
+        '<div class="radar"><span class="r-dot"></span><i class="r r1"></i><i class="r r2"></i><i class="r r3"></i></div>' +
+        '<b>' + esc(t('emptyTitle')) + '</b><span>' + esc(t('emptyText')) + '</span></div></div>';
     }
     const items = S.saved.map((s) => {
       const v = verdict(s.score);
@@ -1517,11 +1519,35 @@
     if ($('#go')) $('#go').onclick = runCheck;
     if ($('#save')) $('#save').onclick = () => {
       const btn = $('#save');
-      if (btn) { btn.classList.add('saved'); btn.textContent = (S.lang === 'ru' ? 'Сохранено' : 'Saved'); }
+      if (btn) {
+        btn.classList.add('saved');
+        btn.innerHTML = '<svg class="ok-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4.5 4.5L19 7"/></svg>' +
+          '<span>' + (S.lang === 'ru' ? 'В списке' : 'Saved') + '</span>';
+        setTimeout(function () {
+          btn.classList.remove('saved');
+          btn.textContent = (S.lang === 'ru' ? 'В список' : 'Save');
+        }, 1600);
+      }
       const r = S.result; if (!r) return;
       const item = { mint: r.token.mint, symbol: r.token.symbol, image: r.token.image, liq: r.token.liq, price: r.token.price, ch24: r.token.ch24, score: r.score, at: Date.now() };
       S.saved = [item].concat(S.saved.filter((x) => x.mint !== item.mint)).slice(0, 60);
       write(K.saved, S.saved); haptic('ok'); toast(t('savedToast'));
+    };
+    if ($('#copyMint') && S.result) $('#copyMint').onclick = function () {
+      const mint = S.result.token.mint;
+      const done = function () {
+        haptic('ok');
+        const el = document.createElement('div');
+        el.className = 'copy-chip';
+        el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4.5 4.5L19 7"/></svg>' + (S.lang === 'ru' ? 'Скопировано' : 'Copied');
+        document.body.appendChild(el);
+        requestAnimationFrame(function () { el.classList.add('show'); });
+        setTimeout(function () { el.classList.remove('show'); setTimeout(function () { el.remove(); }, 250); }, 1400);
+      };
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(mint).then(done).catch(done);
+        else done();
+      } catch (e) { done(); }
     };
     if ($('#open')) $('#open').onclick = () => { const u = S.result && S.result.token.url; if (u) window.open(u, '_blank'); };
 
@@ -1595,8 +1621,17 @@
     if ($('#blkDev') && S.result) $('#blkDev').onclick = function () {
       const d = S.result.token.creator;
       if (!d) return;
-      if (S.black.devs[d]) delete S.black.devs[d]; else S.black.devs[d] = Date.now();
-      write(K.black, S.black); haptic(); render();
+      const blocking = !S.black.devs[d];
+      if (blocking) S.black.devs[d] = Date.now(); else delete S.black.devs[d];
+      write(K.black, S.black); haptic();
+      if (blocking) {
+        const stamp = document.createElement('div');
+        stamp.className = 'stamp';
+        stamp.innerHTML = '<span>' + (S.lang === 'ru' ? 'ЗАБЛОКИРОВАН' : 'BLOCKED') + '</span>';
+        document.body.appendChild(stamp);
+        setTimeout(function () { stamp.classList.add('out'); }, 1200);
+        setTimeout(function () { stamp.remove(); render(); }, 1600);
+      } else render();
     };
     if (S.result) loadSimilar(S.result.token);
   }
