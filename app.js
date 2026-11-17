@@ -547,17 +547,22 @@
 
     let out = top(t('checkTab')) + '<div class="page">';
     const ru = S.lang === 'ru';
-out += '<h1 class="display sm">' + esc(t('pasteTitle')) + '</h1>';
-    out += '<div class="field"><input id="mint" placeholder="' + esc(t('ph')) + '" autocomplete="off" spellcheck="false"><button class="icon-pill" id="paste">' + esc(t('paste')) + '</button></div>';
-    out += '<div style="height:12px"></div>';
-    out += '<button class="btn" id="go"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? '<span class="spinner"></span>' : esc(S.result ? t('again') : t('check'))) + '</button>';
-    if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
-    if (!S.result) {
-      const L = quotaLeft();
-      out += '<p class="quota">' + esc(S.plan === 'premium'
-        ? (S.lang === 'ru' ? 'Premium · без лимита' : 'Premium · unlimited')
-        : (S.lang === 'ru' ? 'Бесплатно: ' + L.hour + ' из ' + FREE_PER_HOUR + ' проверок в час' : 'Free: ' + L.hour + ' of ' + FREE_PER_HOUR + ' checks this hour')) + '</p>';
-    }
+    out += '<h1 class="big-t">' + esc(ru ? 'Проверь монету' : 'Check a token') + '</h1>';
+    out += '<p class="big-s">' + esc(ru ? 'Оценка риска за 30 секунд. Solana.' : 'Risk score in 30 seconds. Solana.') + '</p>';
+    out += '<div class="panel">' +
+      '<span class="panel-k">' + esc(ru ? 'АДРЕС КОНТРАКТА' : 'CONTRACT ADDRESS') + '</span>' +
+      '<div class="panel-in"><input id="mint" placeholder="' + esc(t('ph')) + '" autocomplete="off" spellcheck="false">' +
+      '<button class="paste-b" id="paste">' + esc(ru ? 'Вставить' : 'Paste') + '</button></div>' +
+      '<button class="panel-go" id="go"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? '<span class="spinner"></span>' : esc(S.result ? t('again') : t('check'))) + '</button>' +
+      (S.error ? '<p class="err" style="margin:10px 2px 0">' + esc(S.error) + '</p>' : '') +
+      (function () {
+        if (S.result) return '';
+        const L = quotaLeft();
+        return '<p class="panel-f">' + esc(S.plan === 'premium'
+          ? (ru ? 'Premium · без лимита' : 'Premium · unlimited')
+          : (ru ? 'Осталось ' + L.hour + ' из ' + FREE_PER_HOUR + ' проверок в час' : L.hour + ' of ' + FREE_PER_HOUR + ' checks left')) + '</p>';
+      })() +
+      '</div>';
     if (S.busy) out += '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
 
     if (!S.result && S.saved.length) {
