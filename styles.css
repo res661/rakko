@@ -1564,3 +1564,18 @@ html, body { background: #1c1c1c !important; }
   .big-t { margin-top: 0; }
 }
 .top { display: none !important; }
+
+/* ===== trending strip ===== */
+.trend { margin: 0 0 18px; }
+.trend-k { display: block; font-size: 10px; letter-spacing: .14em; font-weight: 700; color: #8e8e93; margin-bottom: 8px; }
+.trend-row { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.trend-row::-webkit-scrollbar { display: none; }
+.tr-chip {
+  flex: none; display: flex; align-items: center; gap: 7px;
+  height: 38px; padding: 0 14px; border: 0; border-radius: 12px;
+  background: #2c2c2e; color: #fff; font: inherit;
+}
+.tr-chip b { font-size: 13px; font-weight: 650; }
+.tr-chip span { font-size: 12px; font-weight: 600; }
+.tr-chip:active { background: #3a3a3c; transform: scale(.97); }
+.trend-skel { display: block; width: 92px; height: 38px; border-radius: 12px; background: #2c2c2e; opacity: .5; animation: pulse 1.2s ease-in-out infinite; }
