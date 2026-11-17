@@ -204,6 +204,31 @@
     return into;
   }
 
+  function trendingCached() {
+    const c = read('tc.trending', null);
+    if (!c || !c.at || Date.now() - c.at > 15 * 60000) return null;
+    return c.items;
+  }
+
+  async function loadTrending() {
+    const cached = trendingCached();
+    if (cached) return cached;
+    try {
+      const d = await getJson('https://api.geckoterminal.com/api/v2/networks/solana/trending_pools?page=1', 4000);
+      const pools = (d && d.data) || [];
+      const items = pools.map(function (p) {
+        const at = p.attributes || {};
+        const rel = (p.relationships && p.relationships.base_token && p.relationships.base_token.data) || {};
+        const id = String(rel.id || '');
+        const addr = id.indexOf('_') > -1 ? id.split('_')[1] : '';
+        const ch = at.price_change_percentage && at.price_change_percentage.h24;
+        return { mint: addr, symbol: String(at.name || '').split(' / ')[0], ch: Number(ch) || 0 };
+      }).filter(function (x) { return x.mint && x.symbol; }).slice(0, 5);
+      if (items.length) write('tc.trending', { at: Date.now(), items: items });
+      return items;
+    } catch (e) { return []; }
+  }
+
   async function loadGecko(mint) {
     const c = cacheGet(mint, 'gt');
     if (c) return c;
@@ -547,6 +572,9 @@
 
     let out = top(t('checkTab')) + '<div class="page">';
     const ru = S.lang === 'ru';
+    if (!S.result) {
+      out += '<div class="trend" id="trend"><span class="trend-k">' + esc(ru ? 'В ТРЕНДЕ СЕЙЧАС' : 'TRENDING NOW') + '</span><div class="trend-row" id="trendRow"><span class="trend-skel"></span><span class="trend-skel"></span><span class="trend-skel"></span></div></div>';
+    }
     out += '<h1 class="big-t">' + esc(ru ? 'Проверь монету' : 'Check a token') + '</h1>';
     out += '<p class="big-s">' + esc(ru ? 'Оценка риска за 30 секунд. Solana.' : 'Risk score in 30 seconds. Solana.') + '</p>';
     out += '<div class="panel">' +
@@ -1274,6 +1302,26 @@
 
   function bind() { try { bindInner(); } catch (e) { console.warn(e); } }
   function bindInner() {
+    const trendRow = $('#trendRow');
+    if (trendRow) {
+      loadTrending().then(function (items) {
+        if (!items || !items.length) { const t = $('#trend'); if (t) t.remove(); return; }
+        trendRow.innerHTML = items.map(function (x) {
+          const up = x.ch >= 0;
+          const c = up ? 'var(--green)' : 'var(--red)';
+          return '<button class="tr-chip" data-mint="' + esc(x.mint) + '"><b>' + esc(x.symbol) + '</b><span style="color:' + c + '">' + (up ? '+' : '') + x.ch.toFixed(1) + '%</span></button>';
+        }).join('');
+        trendRow.querySelectorAll('.tr-chip').forEach(function (b) {
+          b.onclick = function () {
+            const inp = $('#mint');
+            if (inp) inp.value = b.dataset.mint;
+            S.lastMint = b.dataset.mint;
+            const go = $('#go');
+            if (go) go.click(); else runCheck();
+          };
+        });
+      });
+    }
     const bnrs = $('#bnrs');
     if (bnrs) {
       const dots = document.querySelectorAll('#bnrDots i');
