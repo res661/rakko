@@ -25,6 +25,7 @@
     hideMoney: read('tc.hide', false),
     quota: read('tc.quota', { hour: [], day: [] }),
     plan: read('tc.plan', 'free'),
+    ui: read('tc.ui', { trend: true, recent: true, quota: true, anim: true, big: true }),
     planUntil: read('tc.planUntil', 0),
     result: null,
     busy: false,
@@ -588,13 +589,14 @@
 
     let out = top(t('checkTab')) + '<div class="page">';
     const ru = S.lang === 'ru';
-    {
+    if (S.ui.trend !== false) {
       out += '<div class="trend" id="trend">' +
         '<div class="trend-head"><span class="trend-k">' + esc(ru ? 'РЫНОК SOLANA' : 'SOLANA MARKET') + '</span>' +
         '<span class="trend-h">' + esc(ru ? 'тап — проверить' : 'tap to check') + '</span></div>' +
         '<div class="trend-row" id="trendRow"><span class="trend-skel"></span><span class="trend-skel"></span><span class="trend-skel"></span></div></div>';
     }
-    out += '<h1 class="big-t">' + esc(ru ? 'Проверь монету' : 'Check a token') + '</h1>';
+    out += '<div class="row-top"><button class="gear" id="uiSet" aria-label="Настройки экрана"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg></button></div>';
+    out += '<h1 class="big-t' + (S.ui.big === false ? ' compact' : '') + '">' + esc(ru ? 'Проверь монету' : 'Check a token') + '</h1>';
     out += '<p class="big-s">' + esc(ru ? 'Оценка риска за 30 секунд. Solana.' : 'Risk score in 30 seconds. Solana.') + '</p>';
     out += '<div class="panel">' +
       '<span class="panel-k">' + esc(ru ? 'АДРЕС КОНТРАКТА' : 'CONTRACT ADDRESS') + '</span>' +
@@ -603,7 +605,7 @@
       '<button class="panel-go" id="go"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? '<span class="spinner"></span>' : esc(S.result ? t('again') : t('check'))) + '</button>' +
       (S.error ? '<p class="err" style="margin:10px 2px 0">' + esc(S.error) + '</p>' : '') +
       (function () {
-        if (S.result) return '';
+        if (S.result || S.ui.quota === false) return '';
         const L = quotaLeft();
         return '<p class="panel-f">' + esc(S.plan === 'premium'
           ? (ru ? 'Premium · без лимита' : 'Premium · unlimited')
@@ -612,7 +614,7 @@
       '</div>';
     if (S.busy) out += '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
 
-    if (!S.result && S.saved.length) {
+    if (S.ui.recent !== false && !S.result && S.saved.length) {
       out += '<p class="eyebrow" style="margin-top:24px">' + esc(S.lang === 'ru' ? 'НЕДАВНИЕ' : 'RECENT') + '</p>';
       out += '<div class="list recent-list">' + S.saved.slice(0, 10).map(function (s, i) {
         const vv = verdictLabel(s.score);
@@ -1083,6 +1085,41 @@
     }, 1600);
   }
 
+  function showScreenSettings() {
+    const ru = S.lang === 'ru';
+    const rows = [
+      ['trend', ru ? 'Рынок Solana' : 'Solana market', ru ? 'Топ монет сверху' : 'Top coins on top'],
+      ['recent', ru ? 'Недавние проверки' : 'Recent checks', ru ? 'Список под панелью' : 'List under the panel'],
+      ['quota', ru ? 'Счётчик лимита' : 'Quota counter', ru ? 'Сколько проверок осталось' : 'Checks left'],
+      ['anim', ru ? 'Анимации цифр' : 'Number animations', ru ? 'Скор набегает' : 'Score counts up'],
+      ['big', ru ? 'Крупный заголовок' : 'Large title', ru ? 'Большой «Проверь монету»' : 'Big heading']
+    ];
+    const wrap = document.createElement('div');
+    wrap.className = 'modal';
+    wrap.innerHTML = '<div class="modal-card sheet-help" style="max-height:80vh">' +
+      '<div class="modal-head"><b>' + (ru ? 'Настройки экрана' : 'Screen settings') + '</b><button class="modal-x" id="mx">✕</button></div>' +
+      '<div class="help-list">' + rows.map(function (r) {
+        const on = S.ui[r[0]] !== false;
+        return '<button class="ui-row" data-k="' + r[0] + '"><span class="ui-txt"><b>' + esc(r[1]) + '</b><i>' + esc(r[2]) + '</i></span>' +
+          '<span class="ui-sw' + (on ? ' on' : '') + '"><i></i></span></button>';
+      }).join('') + '</div></div>';
+    document.body.appendChild(wrap);
+    const close = function () { wrap.remove(); };
+    wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
+    wrap.querySelector('#mx').onclick = close;
+    wrap.querySelectorAll('.ui-row').forEach(function (b) {
+      b.onclick = function () {
+        const k = b.dataset.k;
+        S.ui[k] = S.ui[k] === false;
+        write('tc.ui', S.ui);
+        b.querySelector('.ui-sw').classList.toggle('on', S.ui[k] !== false);
+        haptic();
+        render();
+      };
+    });
+    haptic();
+  }
+
   function showPaywall() {
     const ru = S.lang === 'ru';
     const isPrem = S.plan === 'premium' && (!S.planUntil || S.planUntil > Date.now());
@@ -1321,6 +1358,7 @@
 
   function bind() { try { bindInner(); } catch (e) { console.warn(e); } }
   function bindInner() {
+    if ($('#uiSet')) $('#uiSet').onclick = function () { if (typeof showScreenSettings === 'function') showScreenSettings(); };
     const trendRow = $('#trendRow');
     if (trendRow) {
       loadTrending().then(function (items) {
