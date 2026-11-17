@@ -1783,3 +1783,12 @@ body::before {
 .big-s { margin: 0 2px var(--s2) !important; }
 .trend { margin: 0 0 var(--s2) !important; }
 .actions-main { margin-top: var(--s3) !important; }
+
+/* ===== keep content below Telegram header (must stay last) ===== */
+@media (max-width: 759px) {
+  .page { padding-top: calc(104px + env(safe-area-inset-top, 0px)) !important; }
+  #app { padding-top: 0 !important; }
+}
+@media (min-width: 760px) {
+  .page { padding-top: 24px !important; }
+}
