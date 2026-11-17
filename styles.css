@@ -1657,3 +1657,6 @@ html, body { background: #1c1c1c !important; }
 /* check cards: slightly more air */
 .cat { padding: 14px 14px 12px !important; }
 .cat-t { font-size: 14px !important; }
+
+/* ===== brand wordmark ===== */
+.brand-l { font-size: 11px; letter-spacing: .22em; font-weight: 800; color: #6169ee; margin: 0 0 6px 2px; text-transform: uppercase; }
