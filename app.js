@@ -895,23 +895,48 @@
   }
 
   function viewSaved() {
+    const ru = S.lang === 'ru';
     if (!S.saved.length) {
       return top(t('savedTab')) + '<div class="page"><div class="empty">' +
         '<div class="radar"><span class="r-dot"></span><i class="r r1"></i><i class="r r2"></i><i class="r r3"></i></div>' +
         '<b>' + esc(t('emptyTitle')) + '</b><span>' + esc(t('emptyText')) + '</span></div></div>';
     }
-    const items = S.saved.map((s) => {
+    const avg = Math.round(S.saved.reduce(function (x, s) { return x + (s.score || 0); }, 0) / S.saved.length);
+    const risky = S.saved.filter(function (s) { return (s.score || 0) < 40; }).length;
+    const clean = S.saved.filter(function (s) { return (s.score || 0) >= 70; }).length;
+    const filter = S.listFilter || 'all';
+    const shown = S.saved.filter(function (s) {
+      if (filter === 'clean') return (s.score || 0) >= 70;
+      if (filter === 'risky') return (s.score || 0) < 40;
+      return true;
+    });
+    const items = shown.map((s) => {
       const v = verdict(s.score);
       const color = v.cls === 'good' ? 'var(--green)' : v.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
       const ch = Number(s.ch24) || 0;
       const chCol = ch >= 0 ? 'var(--green)' : 'var(--red)';
+      const d = (typeof s.prevScore === 'number') ? (s.score - s.prevScore) : 0;
+      const delta = d ? (d > 0 ? '<em class="up">▲' + d + '</em>' : '<em class="down">▼' + Math.abs(d) + '</em>') : '';
       return '<button class="item" data-mint="' + esc(s.mint) + '">' +
         '<span class="ava">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(s.symbol.slice(0, 2))) + '</span>' +
-        '<span class="meta"><b>' + esc(s.symbol) + '</b><span>' + usd(s.liq) + (s.at ? ' · ' + ago(s.at) : '') + '</span></span>' +
+        '<span class="meta"><b>' + esc(s.symbol) + delta + '</b><span>' + usd(s.liq) + (s.at ? ' · ' + ago(s.at) : '') + '</span></span>' +
         '<span class="ch" style="color:' + chCol + '">' + (ch ? pct(ch) : '') + '</span>' +
         '<span class="num" style="--sc:' + color + '">' + s.score + '</span></button>';
     }).join('');
-    return top(t('savedTab')) + '<div class="page"><div class="list">' + items + '</div><p class="tiny" style="text-align:center;margin-top:16px">' + esc(t('tapCoin')) + '</p></div>';
+    const head =
+      '<div class="saved-stats">' +
+      '<div class="ss"><b>' + S.saved.length + '</b><span>' + (ru ? 'монет' : 'tokens') + '</span></div>' +
+      '<div class="ss"><b>' + avg + '</b><span>' + (ru ? 'средний скор' : 'avg score') + '</span></div>' +
+      '<div class="ss"><b style="color:var(--green)">' + clean + '</b><span>' + (ru ? 'чистых' : 'clean') + '</span></div>' +
+      '<div class="ss"><b style="color:var(--red)">' + risky + '</b><span>' + (ru ? 'опасных' : 'risky') + '</span></div>' +
+      '</div>' +
+      '<div class="list-filters">' +
+      '<button class="lf' + (filter === 'all' ? ' on' : '') + '" data-f="all">' + (ru ? 'Все' : 'All') + '</button>' +
+      '<button class="lf' + (filter === 'clean' ? ' on' : '') + '" data-f="clean">' + (ru ? 'Чистые' : 'Clean') + '</button>' +
+      '<button class="lf' + (filter === 'risky' ? ' on' : '') + '" data-f="risky">' + (ru ? 'Опасные' : 'Risky') + '</button>' +
+      '<button class="lf refresh" id="refreshAll">' + (ru ? 'Обновить всё' : 'Refresh') + '</button>' +
+      '</div>';
+    return top(t('savedTab')) + '<div class="page">' + head + '<div class="list">' + items + '</div><p class="tiny" style="text-align:center;margin-top:16px">' + esc(t('tapCoin')) + '</p></div>';
   }
 
   function viewProfile() {
@@ -1390,7 +1415,7 @@
     }
   }
 
-  async function refreshLive() {
+  async function refreshLive(force) {
     try {
       if (S.saved.length) {
         const mints = S.saved.slice(0, 25).map(function (s) { return s.mint; }).join(',');
@@ -1562,6 +1587,10 @@
     if ($('#open')) $('#open').onclick = () => { const u = S.result && S.result.token.url; if (u) window.open(u, '_blank'); };
 
     document.querySelectorAll('.block-head').forEach((b) => b.onclick = () => b.parentElement.classList.toggle('open'));
+    document.querySelectorAll('.lf[data-f]').forEach(function (b) {
+      b.onclick = function () { S.listFilter = b.dataset.f; render(); haptic(); };
+    });
+    if ($('#refreshAll')) $('#refreshAll').onclick = function () { haptic(); refreshLive(true); };
     document.querySelectorAll('.item').forEach(function (it) {
       let timer = null;
       const start = function () {
