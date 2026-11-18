@@ -262,6 +262,11 @@
   }
 
   /* ---------------- scoring ---------------- */
+  function txWin(pair, key) {
+    const t = pair && pair.txns && pair.txns[key];
+    if (!t) return null;
+    return { b: Number(t.buys) || 0, s: Number(t.sells) || 0 };
+  }
   function readLpLocked(rug) {
     const NULL_MINT = '11111111111111111111111111111111';
     const markets = (rug && rug.markets) || [];
@@ -386,17 +391,31 @@
         ch24: Number(pair && pair.priceChange && pair.priceChange.h24) || 0,
         ch6: Number(pair && pair.priceChange && pair.priceChange.h6) || 0,
         ch1: Number(pair && pair.priceChange && pair.priceChange.h1) || 0,
+        ch5: Number(pair && pair.priceChange && pair.priceChange.m5) || 0,
         buys: Number(pair && pair.txns && pair.txns.h24 && pair.txns.h24.buys) || 0,
         sells: Number(pair && pair.txns && pair.txns.h24 && pair.txns.h24.sells) || 0,
+        tx24: txWin(pair, 'h24'),
+        tx6: txWin(pair, 'h6'),
+        tx1: txWin(pair, 'h1'),
+        tx5: txWin(pair, 'm5'),
         dex: (pair && pair.dexId) || '',
         pairAddr: (pair && pair.pairAddress) || '',
         created: Number(pair && pair.pairCreatedAt) || 0,
         holders: Number(rug.totalHolders) || 0,
         top: (rug.topHolders || []).slice(0, 5).map((h) => ({ addr: String(h.address || h.owner || ''), pct: Number(h.pct) || 0 })),
         risks: (rug.risks || []).slice(0, 6).map((r) => ({ name: String(r.name || ''), level: String(r.level || ''), desc: String(r.description || '') })),
+        mutable: rug.risks ? (rug.risks || []).some(function (r) { return /mutable|metadata/i.test(String(r.name || '') + ' ' + String(r.description || '')); }) : null,
+        holderPrev: (function () {
+          const prev = (S.checks || []).find(function (x) { return x.mint === raw.mint; });
+          return prev && prev.holders ? prev.holders : null;
+        })(),
+        devPrev: (function () {
+          const prev = (S.checks || []).find(function (x) { return x.mint === raw.mint; });
+          return prev && prev.dev != null ? prev.dev : null;
+        })(),
         rugScore: Number(rug.score_normalised),
-        mintAuth: !!rug.mintAuthority,
-        freezeAuth: !!rug.freezeAuthority,
+        mintAuth: rug.mintAuthority === undefined ? null : !!rug.mintAuthority,
+        freezeAuth: rug.freezeAuthority === undefined ? null : !!rug.freezeAuthority,
         creator: String(rug.creator || ''),
         creatorBalance: (function () {
           const cb = rug.creatorBalance;
@@ -883,7 +902,7 @@
     const picks = [{ id: 'reactive', name: ru ? 'Reactive (общий)' : 'Reactive (general)' }].concat((c.items || []).map(function (x) { return { id: x.id, name: x.name }; }));
     const hints = ru ? ['Ликвидность', 'Холдеры', 'Дев', 'Минт', 'Объём', 'Возраст'] : ['Liquidity', 'Holders', 'Dev', 'Mint', 'Volume', 'Age'];
     let out = '<div class="page home">';
-    out += '<div class="hero-row"><img class="hero-logo" src="assets/reactive-icon-512.png?v=20261118ios8" alt="">';
+    out += '<div class="hero-row"><img class="hero-logo" src="assets/reactive-icon-512.png?v=20261118ios9" alt="">';
     out += '<div class="hero-tx"><h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '">' + esc(t('checkTab')) + '</h1>';
     out += '<p class="sub">' + esc(ru ? 'Оценка риска монеты Solana за 30 секунд' : 'Solana token risk score in 30 seconds') + '</p></div>';
     out += '<button type="button" class="gear" id="myChecks" aria-label="' + esc(ru ? 'Мои проверки' : 'My checks') + '"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6.1 6.1l1.6 1.6M16.3 16.3l1.6 1.6M17.9 6.1l-1.6 1.6M7.7 16.3l-1.6 1.6"/></svg><span class="pro-badge">PRO</span></button></div>';
@@ -923,6 +942,121 @@
     }
     out += '</div>';
     return out;
+  }
+
+  function numLabel(n, ru, d) {
+    if (n == null || !isFinite(Number(n))) return '';
+    const x = Number(n);
+    const s = Math.abs(x) >= 100 || d === 0 ? String(Math.round(x)) : x.toFixed(d == null ? 1 : d);
+    return ru ? s.replace('.', ',') : s;
+  }
+  function ageLabel(created, ru) {
+    if (!created) return '';
+    const mins = (Date.now() - created) / 60000;
+    if (mins < 90) return Math.max(1, Math.round(mins)) + (ru ? ' мин' : ' min');
+    const hrs = mins / 60;
+    if (hrs < 36) return Math.round(hrs) + (ru ? ' ч' : ' h');
+    const days = hrs / 24;
+    if (days < 60) return Math.round(days) + (ru ? ' дн' : ' d');
+    const years = days / 365;
+    if (years >= 1) {
+      const n = Math.round(years * 10) / 10;
+      const num = (ru ? n.toFixed(1).replace('.', ',') : n.toFixed(1)).replace(/[,.]0$/, '');
+      return num + (ru ? ' г' : ' yr');
+    }
+    return Math.round(days / 30) + (ru ? ' мес' : ' mo');
+  }
+  function bsRatio(tx) {
+    if (!tx || (!tx.b && !tx.s)) return null;
+    if (!tx.s) return tx.b ? 99 : null;
+    return tx.b / tx.s;
+  }
+  function explainRaw(tk) {
+    const liq = Number(tk.liq) || 0;
+    const mc = Number(tk.mc) || 0;
+    const fdv = Number(tk.fdv) || 0;
+    const vol = Number(tk.vol) || 0;
+    const devKnown = !!(tk.creator || (tk.creatorBalance && tk.creatorBalance.amount));
+    const dev = devKnown && tk.creatorBalance ? Number(tk.creatorBalance.pct) : null;
+    const top1 = Number(tk.top1) || 0;
+    let impact = null;
+    if (liq > 0 && mc > 0 && top1 > 0) impact = Math.min(90, top1 * mc / liq);
+    else if (top1 > 0) impact = Math.min(90, top1);
+    const gp = tk.gp;
+    return {
+      liq: liq || null, mc: mc || null, fdv: fdv || null, vol: vol || null,
+      liqMc: mc > 0 ? liq / mc * 100 : null,
+      liqFdv: fdv > 0 ? liq / fdv * 100 : null,
+      volMc: mc > 0 ? vol / mc * 100 : null,
+      fdvMc: mc > 0 && fdv > 0 ? fdv / mc : null,
+      top10: Number(tk.top10) > 0 ? Number(tk.top10) : null,
+      top1: top1 > 0 ? top1 : null,
+      holders: Number(tk.holders) > 0 ? Number(tk.holders) : null,
+      dev: dev,
+      devDelta: tk.devPrev != null && dev != null ? dev - Number(tk.devPrev) : null,
+      holderDelta: tk.holderPrev > 0 && tk.holders ? (tk.holders - tk.holderPrev) / tk.holderPrev * 100 : null,
+      ageMin: tk.created ? (Date.now() - tk.created) / 60000 : null,
+      ch24: isFinite(Number(tk.ch24)) ? Number(tk.ch24) : null,
+      ch6: isFinite(Number(tk.ch6)) ? Number(tk.ch6) : null,
+      ch1: isFinite(Number(tk.ch1)) ? Number(tk.ch1) : null,
+      ch5: isFinite(Number(tk.ch5)) ? Number(tk.ch5) : null,
+      bs24: bsRatio(tk.tx24), bs6: bsRatio(tk.tx6), bs1: bsRatio(tk.tx1), bs5: bsRatio(tk.tx5),
+      lp: tk.lpLocked == null ? null : Number(tk.lpLocked),
+      buyTax: gp ? Number(gp.buyTax) || 0 : null,
+      sellTax: gp ? Number(gp.sellTax) || 0 : null,
+      fee: tk.transferFee == null ? null : Number(tk.transferFee),
+      mintOpen: tk.mintAuth == null ? null : !!tk.mintAuth,
+      freezeOpen: tk.freezeAuth == null ? null : !!tk.freezeAuth,
+      honeypot: gp ? !!gp.honeypot : null,
+      mutable: tk.mutable == null ? null : !!tk.mutable,
+      socials: (tk.socials || []).length + (tk.sites || []).length,
+      pump: tk.pump ? (tk.pump.complete ? 'grad' : 'curve') : 'no',
+      impact: impact
+    };
+  }
+  function explainLabels(tk, ru) {
+    const raw = explainRaw(tk);
+    const pct = function (n) { return numLabel(n, ru, 1); };
+    return {
+      liq: usd(tk.liq), mc: usd(tk.mc), fdv: usd(tk.fdv), vol: usd(tk.vol),
+      liqMc: pct(raw.liqMc), liqFdv: pct(raw.liqFdv), volMc: pct(raw.volMc), fdvMc: pct(raw.fdvMc),
+      top10: pct(raw.top10), top1: pct(raw.top1), holders: raw.holders ? num(raw.holders) : '',
+      dev: pct(raw.dev), devDelta: pct(raw.devDelta), holderDelta: pct(raw.holderDelta),
+      age: ageLabel(tk.created, ru),
+      ch24: pct(raw.ch24), ch6: pct(raw.ch6), ch1: pct(raw.ch1), ch5: pct(raw.ch5),
+      bs24: pct(raw.bs24), bs6: pct(raw.bs6), bs1: pct(raw.bs1), bs5: pct(raw.bs5),
+      lp: pct(raw.lp), buyTax: pct(raw.buyTax), sellTax: pct(raw.sellTax), fee: pct(raw.fee),
+      impact: pct(raw.impact), socials: raw.socials ? String(raw.socials) : ''
+    };
+  }
+  function ensureExplain() {
+    if (window.REACTIVE_EXPLAIN || S._explainLoading) return;
+    S._explainLoading = true;
+    const s = document.createElement('script');
+    s.src = 'explain.js?v=20261118ios9';
+    s.async = true;
+    s.onload = function () { S._explainLoading = false; render(); };
+    s.onerror = function () { S._explainLoading = false; };
+    document.head.appendChild(s);
+  }
+  function explainSection(tk, ru) {
+    if (!window.REACTIVE_EXPLAIN) {
+      ensureExplain();
+      return '<div class="sh"><b>' + esc(ru ? 'Разбор' : 'Read') + '</b></div><div class="card"><p class="tiny" style="padding:14px 16px">' + esc(ru ? 'Собираю разбор…' : 'Preparing the read…') + '</p></div>';
+    }
+    const built = window.REACTIVE_EXPLAIN.run(explainRaw(tk), explainLabels(tk, ru), ru ? 'ru' : 'en', tk.mint);
+    if (!built.rows.length) return '';
+    const rowHtml = function (r) {
+      const col = r.sev === 'bad' ? 'var(--red)' : r.sev === 'warn' ? 'var(--orange)' : r.sev === 'good' ? 'var(--green)' : 'var(--blue)';
+      return '<details class="read-row"><summary><i class="read-dot" style="background:' + col + '"></i><b>' + esc(r.h) + '</b></summary><div class="read-body"><p>' + esc(r.why) + '</p><p class="tiny">' + esc(r.watch) + '</p></div></details>';
+    };
+    const openRows = isPrem() ? built.rows : built.rows.filter(function (r) { return r.crit; });
+    const locked = isPrem() ? [] : built.rows.filter(function (r) { return !r.crit; });
+    let html = '<div class="sh"><b>' + esc(ru ? 'Разбор' : 'Read') + '</b><span class="muted">' + built.rows.length + '</span></div>';
+    html += '<div class="card"><p class="read-sum">' + esc(built.summary) + '</p></div>';
+    if (openRows.length) html += '<div class="card read-list">' + openRows.map(rowHtml).join('') + '</div>';
+    if (locked.length) html += premLock('lockRead', '<div class="card read-list">' + locked.map(rowHtml).join('') + '</div>');
+    return html;
   }
 
   function viewResultPage() {
@@ -983,6 +1117,7 @@
         '</div>';
     }
     if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
+    out += explainSection(tk, ru);
 
     const insights = buildInsights(tk);
     const tiered = (function () {
@@ -1381,7 +1516,7 @@
         (val != null ? '<span class="val' + (id === 'plan' && prem ? ' prem' : '') + '">' + val + '</span>' : '') + CHEV + '</button>';
     };
     return '<div class="page">' +
-      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png?v=20261118ios8" alt="">' + esc(t('profileTab')) + '</h1>' +
+      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png?v=20261118ios9" alt="">' + esc(t('profileTab')) + '</h1>' +
       '<div class="card phead"><span class="pfp">' + pfp + '</span><span><b>' + esc(name) + '</b><span>' + esc(handle) + '</span></span></div>' +
       '<div class="stats"><div class="stat"><b>' + (S.stats.scans || 0) + '</b><span>' + esc(t('scanned')) + '</span></div>' +
       '<div class="stat"><b>' + S.saved.length + '</b><span>' + esc(t('savedN')) + '</span></div></div>' +
@@ -1482,7 +1617,7 @@
   function bannerSlides() {
     const ru = S.lang === 'ru';
     const welcome = '<div class="bn-ill" style="background:#1E2622">' +
-      '<img class="bn-logo" src="assets/reactive-icon-512.png?v=20261118ios8" alt="">' +
+      '<img class="bn-logo" src="assets/reactive-icon-512.png?v=20261118ios9" alt="">' +
       '<div class="bn-fl bn-tk" style="left:18px;top:16px;width:188px;transform:rotate(-5deg)">' +
       '<div class="bn-top"><span class="bn-ava">MO</span><span class="bn-id"><b>MOODENG</b><span>Moo Deng</span></span><span class="bn-score" style="color:var(--green)"><b>81</b><i>/100</i></span></div>' +
       '<div class="bn-pl"><b>$0.2134</b><span style="color:var(--green)">+4.8%</span></div><div class="bn-bar"><i style="width:81%;background:var(--green)"></i></div>' +
@@ -1499,7 +1634,7 @@
       '<div class="bn-rw"><span class="bn-ava">GR</span><span class="bn-id"><b>GRASS</b><span>$312.7K</span></span><svg width="40" height="16"><polyline points="1,8 14,7 26,9 39,8" fill="none" stroke="#30D158" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">57</b></div>' +
       '<div class="bn-rw"><span class="bn-ava">WI</span><span class="bn-id"><b>WIFX</b><span>$198.5K</span></span><svg width="40" height="16"><polyline points="1,4 14,7 26,11 39,14" fill="none" stroke="#FF453A" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">52</b></div></div>' +
       '<div class="bn-fl bn-limit" style="right:12px;top:18px;transform:rotate(4deg)"><div style="color:var(--blue);font-size:22px;line-height:1">∞</div><b>' + (ru ? 'Без лимита' : 'Unlimited') + '</b><span>' + (ru ? 'проверок в час' : 'checks per hour') + '</span></div>' +
-      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png?v=20261118ios8" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
+      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png?v=20261118ios9" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
     const wallets = '<div class="bn-ill" style="background:#1D222B">' +
       '<div class="bn-fl" style="left:12px;top:28px;width:176px;padding:4px 0;transform:rotate(-3deg)">' +
       '<div class="bn-rw"><span class="bn-ava" style="color:var(--green)">7x</span><span class="bn-id"><b>7xKX…9fPq</b><span>' + (ru ? 'купил ' : 'bought ') + '<em style="color:var(--green);font-style:normal">$1.2K</em></span></span></div>' +
@@ -1584,7 +1719,7 @@
         '<div class="sa-line"><span class="ava a-bad">PX</span><span><b>PEPEX</b><i>' + (ru ? '2 кошелька в монете' : '2 wallets in this coin') + '</i></span><em style="color:var(--red)">34</em></div></div>',
       prem: '<div class="sa-stack"><div class="sa-line sa-blur"><span class="ava">H1</span><span><b>9AhK…sbkw</b><i>12.4%</i></span></div><div class="sa-line sa-blur"><span class="ava">H2</span><span><b>3kLm…91Qa</b><i>8.1%</i></span></div><div class="sa-lock">' + LOCK_SVG + ' Premium</div></div>',
       custom: '<div class="sa-stack"><div class="sa-line"><span class="ic b-n">≡</span><span><b>' + (ru ? 'Снайпер' : 'Sniper') + '</b><i>' + (ru ? 'давление 22 · возраст 4' : 'pressure 22 · age 4') + '</i></span><em style="color:var(--blue)">72</em></div><div class="sa-line"><span class="ic b-r">!</span><span><b>' + (ru ? 'Дев больше 3%' : 'Dev above 3%') + '</b><i>' + (ru ? 'красный флаг' : 'red flag') + '</i></span></div><div class="sa-line"><span class="ic b-g">R</span><span><b>Reactive</b><i>' + (ru ? 'общий скор рядом' : 'general score stays') + '</i></span><em style="color:var(--green)">81</em></div></div>',
-      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png?v=20261118ios8" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
+      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png?v=20261118ios9" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
     };
     return [
       { art: art.check, t: ru ? 'Проверка за 30 секунд' : 'A check in 30 seconds', p: ru ? 'Вставь адрес — Reactive покажет скор, риски простыми словами и сколько потеряешь на входе.' : 'Paste an address — Reactive shows the score, the risks in plain words, and what you lose on entry.' },
@@ -1965,7 +2100,7 @@
     canvasRound(ctx, 48, foot, W - 96, 128, 24);
     ctx.fillStyle = '#000';
     ctx.fill();
-    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png?v=20261118ios8', location.href).href);
+    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png?v=20261118ios9', location.href).href);
     if (logo) {
       canvasRound(ctx, 72, foot + 18, 44, 44, 12);
       ctx.save();
@@ -3206,9 +3341,9 @@
       if (S.result.blocks.length < 3) S.error = t('fewData');
       S.stats.scans = (S.stats.scans || 0) + 1; write(K.stats, S.stats);
       try {
-        const rec = { mint: S.result.token.mint, symbol: S.result.token.symbol, score: S.result.score, liq: S.result.token.liq, price: S.result.token.price, at: Date.now() };
+        const rec = { mint: S.result.token.mint, symbol: S.result.token.symbol, score: S.result.score, liq: S.result.token.liq, price: S.result.token.price, holders: S.result.token.holders || 0, dev: S.result.token.creatorBalance && S.result.token.creatorBalance.pct ? S.result.token.creatorBalance.pct : 0, at: Date.now() };
         const ex = S.checks.find(function (x) { return x.mint === rec.mint; });
-        if (ex) { ex.score = rec.score; ex.liq = rec.liq; ex.price = rec.price; ex.at = rec.at; }
+        if (ex) { ex.score = rec.score; ex.liq = rec.liq; ex.price = rec.price; ex.holders = rec.holders; ex.dev = rec.dev; ex.at = rec.at; }
         else S.checks.unshift(rec);
         S.checks = S.checks.slice(0, 60);
         write('tc.checks', S.checks);
