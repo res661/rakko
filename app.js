@@ -29,8 +29,6 @@
     custom: read('tc.custom.v1', { active: 'reactive', items: [], seen: false }),
     alertPrefs: read('tc.alertPrefs', { score: true, liq: true, price: true, risky: true, wallet: true, scoreN: 10, liqN: 30, priceN: 40 }),
     alertLog: read('tc.alertLog', []),
-    scanLog: read('tc.scanLog', []),
-    track: read('tc.track', {}),
     creators: read('tc.creators', {}),
     walletAlerts: read('tc.walletAlerts', []),
     ui: read('tc.ui', { trend: true, recent: true, quota: true, anim: true, big: true }),
@@ -915,7 +913,7 @@
     const picks = [{ id: 'reactive', name: ru ? 'Reactive (общий)' : 'Reactive (general)' }].concat((c.items || []).map(function (x) { return { id: x.id, name: x.name }; }));
     const hints = ru ? ['Ликвидность', 'Холдеры', 'Дев', 'Минт', 'Объём', 'Возраст'] : ['Liquidity', 'Holders', 'Dev', 'Mint', 'Volume', 'Age'];
     let out = '<div class="page home">';
-    out += '<div class="hero-row"><img class="hero-logo" src="assets/reactive-icon-512.png?v=20261118ios10" alt="">';
+    out += '<div class="hero-row"><img class="hero-logo" src="assets/reactive-icon-512.png?v=20261118ios11" alt="">';
     out += '<div class="hero-tx"><h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '">' + esc(t('checkTab')) + '</h1>';
     out += '<p class="sub">' + esc(ru ? 'Оценка риска монеты Solana за 30 секунд' : 'Solana token risk score in 30 seconds') + '</p></div>';
     out += '<button type="button" class="gear" id="myChecks" aria-label="' + esc(ru ? 'Мои проверки' : 'My checks') + '"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6.1 6.1l1.6 1.6M16.3 16.3l1.6 1.6M17.9 6.1l-1.6 1.6M7.7 16.3l-1.6 1.6"/></svg><span class="pro-badge">PRO</span></button></div>';
@@ -1053,7 +1051,7 @@
     if (window.REACTIVE_EXPLAIN || S._explainLoading) return;
     S._explainLoading = true;
     const s = document.createElement('script');
-    s.src = 'explain.js?v=20261118ios10';
+    s.src = 'explain.js?v=20261118ios11';
     s.async = true;
     s.onload = function () { S._explainLoading = false; render(); };
     s.onerror = function () { S._explainLoading = false; };
@@ -1143,7 +1141,6 @@
     }
     if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
     out += '<div class="card wallet-box" id="walletBox"><p class="set-note">' + esc(ru ? 'Смотрю твои кошельки…' : 'Checking your wallets…') + '</p></div>';
-    out += '<div id="coinHist"></div>';
     out += explainSection(tk, ru);
 
     const insights = buildInsights(tk);
@@ -1594,7 +1591,7 @@
         (val != null ? '<span class="val' + (id === 'plan' && prem ? ' prem' : '') + '">' + val + '</span>' : '') + CHEV + '</button>';
     };
     return '<div class="page">' +
-      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png?v=20261118ios10" alt="">' + esc(t('profileTab')) + '</h1>' +
+      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png?v=20261118ios11" alt="">' + esc(t('profileTab')) + '</h1>' +
       '<div class="card phead"><span class="pfp">' + pfp + '</span><span><b>' + esc(name) + '</b><span>' + esc(handle) + '</span></span></div>' +
       '<div class="stats"><div class="stat"><b>' + (S.stats.scans || 0) + '</b><span>' + esc(t('scanned')) + '</span></div>' +
       '<div class="stat"><b>' + S.saved.length + '</b><span>' + esc(t('savedN')) + '</span></div></div>' +
@@ -1620,8 +1617,6 @@
       row('testPrem', ru ? 'Premium локально' : 'Premium locally', prem ? (ru ? 'вкл' : 'on') : (ru ? 'выкл' : 'off')) +
       '<button type="button" class="set-row" id="testReset">' + esc(ru ? 'Сбросить первый вход' : 'Reset first launch') + '</button>' +
       '</div>' +
-      '<p class="grp">' + esc(ru ? 'Это устройство' : 'This device') + '</p>' +
-      '<div class="card"><p class="set-note">' + esc(deviceStatsText()) + '</p></div>' +
       '<p class="foot">' + esc(t('about')) + ' · v' + APP_VER + '</p>' +
       '</div>';
   }
@@ -1697,7 +1692,7 @@
   function bannerSlides() {
     const ru = S.lang === 'ru';
     const welcome = '<div class="bn-ill" style="background:#1E2622">' +
-      '<img class="bn-logo" src="assets/reactive-icon-512.png?v=20261118ios10" alt="">' +
+      '<img class="bn-logo" src="assets/reactive-icon-512.png?v=20261118ios11" alt="">' +
       '<div class="bn-fl bn-tk" style="left:18px;top:16px;width:188px;transform:rotate(-5deg)">' +
       '<div class="bn-top"><span class="bn-ava">MO</span><span class="bn-id"><b>MOODENG</b><span>Moo Deng</span></span><span class="bn-score" style="color:var(--green)"><b>81</b><i>/100</i></span></div>' +
       '<div class="bn-pl"><b>$0.2134</b><span style="color:var(--green)">+4.8%</span></div><div class="bn-bar"><i style="width:81%;background:var(--green)"></i></div>' +
@@ -1714,7 +1709,7 @@
       '<div class="bn-rw"><span class="bn-ava">GR</span><span class="bn-id"><b>GRASS</b><span>$312.7K</span></span><svg width="40" height="16"><polyline points="1,8 14,7 26,9 39,8" fill="none" stroke="#30D158" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">57</b></div>' +
       '<div class="bn-rw"><span class="bn-ava">WI</span><span class="bn-id"><b>WIFX</b><span>$198.5K</span></span><svg width="40" height="16"><polyline points="1,4 14,7 26,11 39,14" fill="none" stroke="#FF453A" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">52</b></div></div>' +
       '<div class="bn-fl bn-limit" style="right:12px;top:18px;transform:rotate(4deg)"><div style="color:var(--blue);font-size:22px;line-height:1">∞</div><b>' + (ru ? 'Без лимита' : 'Unlimited') + '</b><span>' + (ru ? 'проверок в час' : 'checks per hour') + '</span></div>' +
-      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png?v=20261118ios10" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
+      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png?v=20261118ios11" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
     const wallets = '<div class="bn-ill" style="background:#1D222B">' +
       '<div class="bn-fl" style="left:12px;top:28px;width:176px;padding:4px 0;transform:rotate(-3deg)">' +
       '<div class="bn-rw"><span class="bn-ava" style="color:var(--green)">7x</span><span class="bn-id"><b>7xKX…9fPq</b><span>' + (ru ? 'купил ' : 'bought ') + '<em style="color:var(--green);font-style:normal">$1.2K</em></span></span></div>' +
@@ -1799,7 +1794,7 @@
         '<div class="sa-line"><span class="ava a-bad">PX</span><span><b>PEPEX</b><i>' + (ru ? '2 кошелька в монете' : '2 wallets in this coin') + '</i></span><em style="color:var(--red)">34</em></div></div>',
       prem: '<div class="sa-stack"><div class="sa-line sa-blur"><span class="ava">H1</span><span><b>9AhK…sbkw</b><i>12.4%</i></span></div><div class="sa-line sa-blur"><span class="ava">H2</span><span><b>3kLm…91Qa</b><i>8.1%</i></span></div><div class="sa-lock">' + LOCK_SVG + ' Premium</div></div>',
       custom: '<div class="sa-stack"><div class="sa-line"><span class="ic b-n">≡</span><span><b>' + (ru ? 'Снайпер' : 'Sniper') + '</b><i>' + (ru ? 'давление 22 · возраст 4' : 'pressure 22 · age 4') + '</i></span><em style="color:var(--blue)">72</em></div><div class="sa-line"><span class="ic b-r">!</span><span><b>' + (ru ? 'Дев больше 3%' : 'Dev above 3%') + '</b><i>' + (ru ? 'красный флаг' : 'red flag') + '</i></span></div><div class="sa-line"><span class="ic b-g">R</span><span><b>Reactive</b><i>' + (ru ? 'общий скор рядом' : 'general score stays') + '</i></span><em style="color:var(--green)">81</em></div></div>',
-      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png?v=20261118ios10" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
+      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png?v=20261118ios11" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
     };
     return [
       { art: art.check, t: ru ? 'Проверка за 30 секунд' : 'A check in 30 seconds', p: ru ? 'Вставь адрес — Reactive покажет скор, риски простыми словами и сколько потеряешь на входе.' : 'Paste an address — Reactive shows the score, the risks in plain words, and what you lose on entry.' },
@@ -2180,7 +2175,7 @@
     canvasRound(ctx, 48, foot, W - 96, 128, 24);
     ctx.fillStyle = '#000';
     ctx.fill();
-    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png?v=20261118ios10', location.href).href);
+    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png?v=20261118ios11', location.href).href);
     if (logo) {
       canvasRound(ctx, 72, foot + 18, 44, 44, 12);
       ctx.save();
@@ -2935,95 +2930,6 @@
   window.addEventListener('unhandledrejection', function (e) { if (e && e.reason) showFatal(e.reason); });
 
   let NEWS = null;
-  function deviceStatsText() {
-    const ru = S.lang === 'ru';
-    const log = S.scanLog || [];
-    const day = Date.now() - 864e5;
-    const today = log.filter(function (x) { return x.at > day; });
-    const users = {};
-    const coins = {};
-    today.forEach(function (x) { users[x.user] = 1; coins[x.mint] = (coins[x.mint] || 0) + 1; });
-    const top = Object.keys(coins).sort(function (a, b) { return coins[b] - coins[a]; })[0];
-    return (ru ? 'Только это устройство. Общей базы нет — некуда писать сканы всех людей. ' : 'This device only. There is no shared database, so scans from other people are not stored. ') +
-      (ru ? 'Сегодня: ' : 'Today: ') + today.length + (ru ? ' сканов, монет ' : ' scans, coins ') + Object.keys(coins).length +
-      (top ? (ru ? ', чаще всего ' : ', most often ') + top.slice(0, 4) + '…' : '') + '.';
-  }
-  function userHash() {
-    const id = TG && TG.initDataUnsafe && TG.initDataUnsafe.user && TG.initDataUnsafe.user.id;
-    if (!id) return 'local';
-    let h = 2166136261;
-    String(id).split('').forEach(function (c) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); });
-    return (h >>> 0).toString(16);
-  }
-  function flagsOf(tk) {
-    const f = [];
-    if (tk.liq > 0 && tk.liq < 15000) f.push('thin');
-    if ((tk.top10 || 0) > 50) f.push('top10');
-    if (tk.mintAuth) f.push('mint');
-    if (tk.gp && tk.gp.honeypot) f.push('honey');
-    return f.sort();
-  }
-  function recordScan(result) {
-    const tk = result && result.token;
-    if (!tk) return;
-    const kind = activeCustom() ? activeCustom().name : 'reactive';
-    S.scanLog = S.scanLog || [];
-    S.scanLog.push({ at: Date.now(), mint: tk.mint, user: userHash(), kind: kind });
-    S.scanLog = S.scanLog.slice(-400);
-    write('tc.scanLog', S.scanLog);
-    const slot = S.track[tk.mint] || { first: null, snaps: [], due: [] };
-    if (!slot.first) {
-      slot.first = { at: Date.now(), price: tk.price, mc: tk.mc, liq: tk.liq, score: result.score, flags: flagsOf(tk) };
-      slot.due = [3600e3, 6 * 3600e3, 864e5, 7 * 864e5].map(function (ms) { return Date.now() + ms; });
-    }
-    S.track[tk.mint] = slot;
-    write('tc.track', S.track);
-  }
-  function similarFlagLine(tk, ru) {
-    const flags = flagsOf(tk);
-    if (!flags.length) return '';
-    const key = flags.join('+');
-    const changes = [];
-    Object.keys(S.track || {}).forEach(function (mint) {
-      const t = S.track[mint];
-      if (!t || !t.first || !(t.snaps || []).length) return;
-      if ((t.first.flags || []).join('+') !== key) return;
-      const snap = t.snaps.find(function (s) { return s.at - t.first.at >= 20 * 3600e3 && s.at - t.first.at <= 30 * 3600e3; });
-      if (!snap || !t.first.price) return;
-      changes.push((snap.price - t.first.price) / t.first.price * 100);
-    });
-    if (changes.length < 5) return '';
-    changes.sort(function (a, b) { return a - b; });
-    const mid = changes[Math.floor(changes.length / 2)];
-    const txt = (mid >= 0 ? '+' : '') + Math.round(mid) + '%';
-    return ru
-      ? 'История: монеты с похожими флагами (' + key + ') через 24ч: медиана цены ' + txt + ' · n=' + changes.length + '.'
-      : 'History: coins with similar flags (' + key + ') after 24h: median price ' + txt + ' · n=' + changes.length + '.';
-  }
-  async function runDue() {
-    const now = Date.now();
-    const mints = Object.keys(S.track || {});
-    for (let i = 0; i < mints.length; i++) {
-      const mint = mints[i];
-      const slot = S.track[mint];
-      if (!slot || !(slot.due || []).some(function (t) { return t <= now; })) continue;
-      slot.due = slot.due.filter(function (t) { return t > now; });
-      try {
-        const d = await getJson('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(mint), 5000);
-        const pair = bestPair(d);
-        slot.snaps = slot.snaps || [];
-        slot.snaps.push({
-          at: now,
-          price: Number(pair && pair.priceUsd) || 0,
-          mc: Number(pair && pair.marketCap) || 0,
-          liq: Number(pair && pair.liquidity && pair.liquidity.usd) || 0
-        });
-        slot.snaps = slot.snaps.slice(-12);
-        write('tc.track', S.track);
-      } catch (e) {}
-      break;
-    }
-  }
   async function fillWalletBox(mint) {
     const box = document.getElementById('walletBox');
     if (!box) return;
@@ -3052,28 +2958,11 @@
       return '<p class="set-note"><b>' + esc(ru ? 'Твои кошельки: ' : 'Your wallets: ') + h.w.slice(0, 4) + '…' + h.w.slice(-4) + '</b> ' + esc(ru ? 'держит ' : 'holds ') + (h.amt > 1 ? Math.round(h.amt) : h.amt.toFixed(2)) + '</p>';
     }).join('');
   }
-  function fillCoinHist(tk) {
-    const el = document.getElementById('coinHist');
-    if (!el || !tk) return;
-    const ru = S.lang === 'ru';
-    const slot = (S.track || {})[tk.mint];
-    const bits = [];
-    if (slot && slot.first && Date.now() - slot.first.at > 60000) {
-      const p0 = slot.first.price, p1 = tk.price;
-      const dp = p0 ? Math.round((p1 - p0) / p0 * 100) : 0;
-      bits.push(ru
-        ? 'С первой проверки: цена ' + (dp >= 0 ? '+' : '') + dp + '%, скор ' + slot.first.score + ' → ' + (S.result ? S.result.score : '—') + '.'
-        : 'Since the first scan: price ' + (dp >= 0 ? '+' : '') + dp + '%, score ' + slot.first.score + ' → ' + (S.result ? S.result.score : '—') + '.');
-    }
-    const sim = similarFlagLine(tk, ru);
-    if (sim) bits.push(sim);
-    el.innerHTML = bits.length ? '<div class="card"><p class="set-note">' + esc(bits.join(' ')) + '</p></div>' : '';
-  }
   function viewInfo() {
     const ru = S.lang === 'ru';
     if (!NEWS && !S._newsLoading) {
       S._newsLoading = true;
-      fetch('news.json?v=20261118ios10').then(function (r) { return r.json(); }).then(function (d) { NEWS = d; S._newsLoading = false; if (S.tab === 'info') render(); }).catch(function () { S._newsLoading = false; });
+      fetch('news.json?v=20261118ios11').then(function (r) { return r.json(); }).then(function (d) { NEWS = d; S._newsLoading = false; if (S.tab === 'info') render(); }).catch(function () { S._newsLoading = false; });
     }
     const news = (NEWS || []).map(function (n) {
       return '<div class="news-item"><time>' + esc(n.at) + '</time><p>' + esc(ru ? n.ru : n.en) + '</p></div>';
@@ -3087,7 +2976,7 @@
       ['Где добавить кошелёк?', 'На экране Проверки, блок «Кошельки». Если адрес держит монету, это пишется в результате.'],
       ['Что такое Мои проверки?', 'Свои веса блоков и красные флаги. Общий скор остаётся. Сохранить и включить можно в Premium.'],
       ['Картинка для шеринга без логотипа монеты?', 'Если хост картинки не отдаёт её в холст, останутся инициалы. Кольцо скора всё равно на месте.'],
-      ['Данные уходят на сервер Reactive?', 'Нет. Сканы, список и снимки цены лежат в этом устройстве. Общей базы для всех пользователей нет.'],
+      ['Данные уходят на сервер Reactive?', 'Нет. Список, свои проверки и уведомления остаются в этом устройстве. Общей статистики сканов нет.'],
       ['Откуда цифры?', 'DexScreener, Rugcheck и GoPlus. Это чтение публичных данных, без доступа к кошельку.']
     ] : [
       ['Is this financial advice?', 'No. The score is a rough summary of data already loaded. It does not say to buy or sell.'],
@@ -3098,7 +2987,7 @@
       ['Where do I add a wallet?', 'On Check, in Wallets. If the address holds the coin, the result says so.'],
       ['What are My checks?', 'Your own block weights and red flags. The general score stays. Saving and turning one on is Premium.'],
       ['Share image has no token logo?', 'If the image host blocks the canvas, you get initials. The score ring is still there.'],
-      ['Do scans go to a Reactive server?', 'No. Scans, the list, and price snapshots stay on this device. There is no shared database.'],
+      ['Do scans go to a Reactive server?', 'No. The list, your checks, and alerts stay on this device. There is no shared scan history.'],
       ['Where do the numbers come from?', 'DexScreener, Rugcheck, and GoPlus. Public reads only, with no wallet access.']
     ]).map(function (q) {
       return '<details><summary>' + esc(q[0]) + '</summary><p>' + esc(q[1]) + '</p></details>';
@@ -3161,10 +3050,7 @@
       if (how) how.scrollIntoView({ block: 'start' });
       S.infoFocus = '';
     }
-    if (S.resultOpen && S.result && S.result.token) {
-      fillWalletBox(S.result.token.mint);
-      fillCoinHist(S.result.token);
-    }
+    if (S.resultOpen && S.result && S.result.token) fillWalletBox(S.result.token.mint);
     if (animateIn) {
       try {
         document.querySelectorAll('.cat-v').forEach(function (el) {
@@ -3708,7 +3594,6 @@
           write('tc.creators', S.creators);
         }
       } catch (e) {}
-      try { recordScan(S.result); } catch (e) {}
       quotaConsume();
       S.stats.lastCheckAt = Date.now();
       abuse.cache[mint] = { at: Date.now(), result: S.result };
@@ -3726,8 +3611,6 @@
 
   /* ---------------- boot ---------------- */
   S.lang = detectLang();
-  setTimeout(runDue, 8000);
-  setInterval(runDue, 90000);
   applyTheme();
   if (IS_DESKTOP) document.documentElement.classList.add('desktop');
   if (TG) {
