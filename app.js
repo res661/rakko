@@ -908,21 +908,7 @@
           ['$500', slip(500), slipColor(slip(500))],
           ['$1 000', slip(1000), slipColor(slip(1000))]
         ];
-        (function () {
-        const p = S.result.score;
-        const pool = (S.saved || []).concat((S.checks || []).filter(function (c) { return !(S.saved || []).some(function (s) { return s.mint === c.mint; }); }));
-        const band = pool.filter(function (s) { const ref = (typeof s.entryScore === 'number') ? s.entryScore : s.score; return typeof ref === 'number' && Math.abs(ref - p) <= 10; });
-        if (band.length < 3) return;
-        const dead = band.filter(function (s) { const ref = s.entryLiq || s.liq || 1; return (s.liq || 0) < ref * 0.4; }).length;
-        const pctDead = Math.round(dead / band.length * 100);
-        out += '<div class="personal">' +
-          '<div class="p-top"><b>' + esc(S.lang === 'ru' ? 'ТВОЯ ИСТОРИЯ' : 'YOUR HISTORY') + '</b><em>' + pctDead + '%</em></div>' +
-          '<span>' + esc(S.lang === 'ru'
-            ? dead + ' из ' + band.length + ' похожих (скор ' + Math.max(0, p - 10) + '–' + Math.min(100, p + 10) + ') потеряли ликвидность'
-            : dead + ' of ' + band.length + ' similar lost liquidity') + '</span>' +
-          '</div>';
-      })() +
-      '<p class="eyebrow" style="margin-top:20px">' + esc(S.lang === 'ru' ? 'ДЛЯ СДЕЛКИ' : 'TRADE CHECK') + '</p>';
+        '<p class="eyebrow" style="margin-top:20px">' + esc(S.lang === 'ru' ? 'ДЛЯ СДЕЛКИ' : 'TRADE CHECK') + '</p>';
         out += '<div class="trade">' +
           '<div class="trade-h">' + esc(S.lang === 'ru' ? 'Проскальзывание при входе' : 'Slippage on entry') + '</div>' +
           rowsT.map(function (r) {
@@ -1604,6 +1590,44 @@
     return j && j.result;
   }
 
+  const PUMP_PROGRAMS = [
+    '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P',
+    'pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA',
+    'LanMV9sAd7wArD4vJFtMpvBCZQ2p2yF5kK1n1jFhKXf'
+  ];
+
+  async function devFallback(creator) {
+    const out = [];
+    try {
+      const sigs = await rpcCall('getSignaturesForAddress', [creator, { limit: 25 }]);
+      if (!Array.isArray(sigs)) return out;
+      for (const sg of sigs.slice(0, 15)) {
+        if (!sg || !sg.signature) continue;
+        const tx = await rpcCall('getTransaction', [sg.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
+        if (!tx || !tx.transaction) continue;
+        const msg = tx.transaction.message || {};
+        const allIns = (msg.instructions || []).concat(((tx.meta && tx.meta.innerInstructions) || []).reduce(function (acc, x) { return acc.concat(x.instructions || []); }, []));
+        allIns.forEach(function (i) {
+          const pid = String(i.programId || '');
+          if (PUMP_PROGRAMS.indexOf(pid) === -1) return;
+          const accs = i.accounts || [];
+          if (accs.length && typeof accs[0] === 'string') out.push({ mint: accs[0], amount: 0 });
+        });
+        // fallback: new mints in postTokenBalances that were absent in pre
+        const pre = (tx.meta && tx.meta.preTokenBalances) || [];
+        const post = (tx.meta && tx.meta.postTokenBalances) || [];
+        post.forEach(function (p) {
+          const inPre = pre.some(function (x) { return x.mint === p.mint; });
+          if (!inPre && p.mint) out.push({ mint: p.mint, amount: 0 });
+        });
+        if (out.length >= 8) break;
+      }
+    } catch (e) {}
+    const uniq = {};
+    const res = out.filter(function (x) { if (uniq[x.mint]) return false; uniq[x.mint] = 1; return true; }).slice(0, 8);
+    return res;
+  }
+
   async function checkDev(creator, btnEl) {
     const ru = S.lang === 'ru';
     const setTxt = function (t2) { if (btnEl) btnEl.textContent = t2; };
@@ -1620,9 +1644,15 @@
       }).filter(function (x) { return x && x.amount > 0; }).slice(0, 10);
 
       if (!held.length) {
-        toast(ru ? 'На кошельке создателя нет токенов' : 'Creator wallet holds no tokens');
-        setTxt(ru ? 'Проверить создателя' : 'Check creator');
-        return;
+        setTxt(ru ? 'Кошелёк пуст, смотрю транзакции…' : 'Empty wallet, scanning txs…');
+        const found = await devFallback(creator);
+        if (found.length) {
+          held.push.apply(held, found);
+        } else {
+          toast(ru ? 'Созданий токенов не найдено' : 'No token creations found');
+          setTxt(ru ? 'Проверить создателя' : 'Check creator');
+          return;
+        }
       }
 
       setTxt(ru ? 'Проверяю ' + held.length + ' токенов…' : 'Checking ' + held.length + ' tokens…');
