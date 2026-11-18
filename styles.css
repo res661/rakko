@@ -1940,3 +1940,12 @@ body::before {
 .al-txt b { display: block; font-size: 14px; font-weight: 650; }
 .al-txt i { display: block; font-style: normal; font-size: 12px; color: #8e8e93; margin-top: 2px; }
 .al-time { font-size: 11px; color: #6f6f75; }
+
+/* ===== personal calibration card ===== */
+.personal {
+  margin-top: 18px; padding: 14px 16px; border-radius: 16px;
+  background: linear-gradient(160deg, rgba(97,105,238,.18), rgba(97,105,238,.06));
+  border: .5px solid rgba(97,105,238,.28);
+}
+.personal b { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #a9b0ff; margin-bottom: 6px; }
+.personal span { display: block; font-size: 13.5px; line-height: 1.4; color: #e6e6f0; }
