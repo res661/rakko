@@ -336,7 +336,7 @@
     if (walletN) {
       out += '<div class="sh"><b>' + esc(ru ? 'Кошельки' : 'Wallets') + '</b></div><div class="card">' + S.wallets.map(function (w) {
         return '<div class="row"><span class="ava">' + esc(w.slice(0, 2)) + '</span><span class="tx"><b>' + esc(w.slice(0, 6) + '…' + w.slice(-4)) + '</b><span>' + (ru ? 'наблюдаем' : 'watching') + '</span></span>' +
-          '<button type="button" class="tag tg-trash" data-delw="' + esc(w) + '">×</button></div>';
+          '<button type="button" class="tag tg-trash ico" data-delw="' + esc(w) + '" aria-label="remove">' + SVG_X + '</button></div>';
       }).join('') + '</div>';
     }
     out += '<div class="sh"><b>' + esc(ru ? 'События' : 'Events') + '</b></div>';
@@ -875,6 +875,8 @@
   }
   const CHEV = '<svg class="chev" width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M1.5 1.5 6.5 7l-5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const LOCK_SVG = '<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="9" width="12" height="8" rx="2"/><path d="M7 9V6.6a3 3 0 0 1 6 0V9" stroke-linecap="round"/></svg>';
+  const SVG_X = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.25 2.25l7.5 7.5M9.75 2.25L2.25 9.75" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  const SVG_HELP = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6.05 6.1a2 2 0 1 1 3.15 1.65c-.55.3-.85.7-.85 1.3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8.35" cy="11.65" r=".85" fill="currentColor"/></svg>';
   function premLock(id, html) {
     return '<div class="prem-lock" id="' + id + '" role="button" tabindex="0"><div class="prem-blur">' + html + '</div><span class="prem-cap">' + LOCK_SVG + 'Premium</span></div>';
   }
@@ -1062,7 +1064,7 @@
       '<span>' + esc(ru ? 'Все метрики' : 'All metrics') + '</span><span class="cnt">' + rows.length + '</span>' + CHEV + '</button>' +
       '<div class="info-extra" id="infoExtra">' + rows.map(rowHtml).join('') + '</div></div>';
 
-    out += '<div class="sh"><b>' + esc(t('checksK')) + '</b><button type="button" class="help" id="help">?</button></div>';
+    out += '<div class="sh"><b>' + esc(t('checksK')) + '</b><button type="button" class="help" id="help" aria-label="Help">' + SVG_HELP + '</button></div>';
     out += '<div class="cats">' + S.result.blocks.map(function (x, bi) {
       const c = x.s >= 0.7 ? 'green' : x.s >= 0.4 ? 'yellow' : 'red';
       const col = 'var(--' + c + ')';
@@ -1338,7 +1340,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'modal';
     wrap.innerHTML = '<div class="modal-card sheet-help" style="max-height:86vh">' +
-      '<div class="modal-head"><b>' + (ru ? 'Сравнение' : 'Comparison') + '</b><button class="modal-x" id="mx">✕</button></div>' +
+      '<div class="modal-head"><b>' + (ru ? 'Сравнение' : 'Comparison') + '</b><button type="button" class="modal-x" id="mx" aria-label="Close">' + SVG_X + '</button></div>' +
       '<div class="help-list"><table class="cmp-table"><thead><tr><th></th>' +
       picks.map(function (s) { return '<th>' + esc(s.symbol) + '</th>'; }).join('') + '</tr></thead><tbody>' +
       rows.map(function (r) {
@@ -1362,7 +1364,7 @@
         (val != null ? '<span class="val' + (id === 'plan' && prem ? ' prem' : '') + '">' + val + '</span>' : '') + CHEV + '</button>';
     };
     return '<div class="page">' +
-      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '">' + esc(t('profileTab')) + '</h1>' +
+      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png" alt="">' + esc(t('profileTab')) + '</h1>' +
       '<div class="card phead"><span class="pfp">' + pfp + '</span><span><b>' + esc(name) + '</b><span>' + esc(handle) + '</span></span></div>' +
       '<div class="stats"><div class="stat"><b>' + (S.stats.scans || 0) + '</b><span>' + esc(t('scanned')) + '</span></div>' +
       '<div class="stat"><b>' + S.saved.length + '</b><span>' + esc(t('savedN')) + '</span></div></div>' +
@@ -1382,6 +1384,11 @@
       '<div class="card">' +
       row('cache', ru ? 'Очистить кэш' : 'Clear cache', null) +
       '<button type="button" class="set-row danger" id="clear">' + esc(t('clear')) + '</button>' +
+      '</div>' +
+      '<p class="grp">' + esc(ru ? 'Для теста' : 'For testing') + '</p>' +
+      '<div class="card">' +
+      row('testPrem', ru ? 'Premium локально' : 'Premium locally', prem ? (ru ? 'вкл' : 'on') : (ru ? 'выкл' : 'off')) +
+      '<button type="button" class="set-row" id="testReset">' + esc(ru ? 'Сбросить первый вход' : 'Reset first launch') + '</button>' +
       '</div>' +
       '<p class="foot">' + esc(t('about')) + ' · v' + APP_VER + '</p>' +
       '</div>';
@@ -1453,30 +1460,105 @@
   };
 
   const STORY_KEY = 'tc.ob.story.v1';
+  const BANNER_KEY = 'tc.ob.banners.v1';
+
+  function bannerSlides() {
+    const ru = S.lang === 'ru';
+    const welcome = '<div class="bn-ill" style="background:#1E2622">' +
+      '<img class="bn-logo" src="assets/reactive-icon-512.png" alt="">' +
+      '<div class="bn-fl bn-tk" style="left:18px;top:16px;width:188px;transform:rotate(-5deg)">' +
+      '<div class="bn-top"><span class="bn-ava">MO</span><span class="bn-id"><b>MOODENG</b><span>Moo Deng</span></span><span class="bn-score" style="color:var(--green)"><b>81</b><i>/100</i></span></div>' +
+      '<div class="bn-pl"><b>$0.2134</b><span style="color:var(--green)">+4.8%</span></div><div class="bn-bar"><i style="width:81%;background:var(--green)"></i></div>' +
+      '<div class="bn-st"><div><span>MC</span><b>$212M</b></div><div><span>' + (ru ? 'Ликв.' : 'Liq') + '</span><b>$4.21M</b></div><div><span>' + (ru ? 'Возраст' : 'Age') + '</span><b>214d</b></div></div></div>' +
+      '<div class="bn-fl bn-tk" style="left:118px;top:58px;width:200px;transform:rotate(3deg)">' +
+      '<div class="bn-top"><span class="bn-ava">PX</span><span class="bn-id"><b>PEPEX</b><span>PepeX</span></span><span class="bn-score" style="color:var(--red)"><b>34</b><i>/100</i></span></div>' +
+      '<div class="bn-pl"><b>$0.0004120</b><span style="color:var(--red)">-18.4%</span></div><div class="bn-bar"><i style="width:34%;background:var(--red)"></i></div>' +
+      '<div class="bn-st"><div><span>MC</span><b>$412.0K</b></div><div><span>' + (ru ? 'Ликв.' : 'Liq') + '</span><b>$86.4K</b></div><div><span>' + (ru ? 'Возраст' : 'Age') + '</span><b>6h</b></div></div></div>' +
+      '<div class="bn-chip" style="left:16px;bottom:16px"><span class="dot" style="background:var(--red)"></span>' + (ru ? 'Минт не отозван' : 'Mint not revoked') + '</div>' +
+      '<div class="bn-chip bn-paste" style="right:16px;bottom:16px">' + (ru ? 'Вставить' : 'Paste') + '</div></div>';
+    const premium = '<div class="bn-ill" style="background:#28241D">' +
+      '<div class="bn-fl" style="left:14px;top:22px;width:200px;padding:4px 0;transform:rotate(-3deg)">' +
+      '<div class="bn-rw"><span class="bn-ava">MO</span><span class="bn-id"><b>MOODENG</b><span>$4.21M</span></span><svg width="40" height="16"><polyline points="1,14 14,10 26,7 39,3" fill="none" stroke="#30D158" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--green)">81</b></div>' +
+      '<div class="bn-rw"><span class="bn-ava">GR</span><span class="bn-id"><b>GRASS</b><span>$312.7K</span></span><svg width="40" height="16"><polyline points="1,8 14,7 26,9 39,8" fill="none" stroke="#30D158" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">57</b></div>' +
+      '<div class="bn-rw"><span class="bn-ava">WI</span><span class="bn-id"><b>WIFX</b><span>$198.5K</span></span><svg width="40" height="16"><polyline points="1,4 14,7 26,11 39,14" fill="none" stroke="#FF453A" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">52</b></div></div>' +
+      '<div class="bn-fl bn-limit" style="right:12px;top:18px;transform:rotate(4deg)"><div style="color:var(--blue);font-size:22px;line-height:1">∞</div><b>' + (ru ? 'Без лимита' : 'Unlimited') + '</b><span>' + (ru ? 'проверок в час' : 'checks per hour') + '</span></div>' +
+      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
+    const wallets = '<div class="bn-ill" style="background:#1D222B">' +
+      '<div class="bn-fl" style="left:12px;top:28px;width:176px;padding:4px 0;transform:rotate(-3deg)">' +
+      '<div class="bn-rw"><span class="bn-ava" style="color:var(--green)">7x</span><span class="bn-id"><b>7xKX…9fPq</b><span>' + (ru ? 'купил ' : 'bought ') + '<em style="color:var(--green);font-style:normal">$1.2K</em></span></span></div>' +
+      '<div class="bn-rw"><span class="bn-ava" style="color:var(--blue)">Ab</span><span class="bn-id"><b>AbE3…k2Lm</b><span>' + (ru ? 'держит · 0.8%' : 'holds · 0.8%') + '</span></span></div></div>' +
+      '<div class="bn-fl" style="left:16px;bottom:18px;width:168px;padding:4px 0;transform:rotate(2deg)"><div class="bn-rw"><span class="bn-ava" style="color:var(--red)">Hq</span><span class="bn-id"><b>Hq9w…3TzB</b><span>' + (ru ? 'продал ' : 'sold ') + '<em style="color:var(--red);font-style:normal">$860</em></span></span></div></div>' +
+      '<div class="bn-fl bn-tk" style="right:12px;top:70px;width:150px;transform:rotate(3deg)"><div class="bn-top"><span class="bn-ava">PX</span><span class="bn-id"><b>PEPEX</b><span>PepeX</span></span></div><div class="bn-score" style="color:var(--red);margin-top:8px"><b>34</b><i>/100</i></div><div class="bn-bar"><i style="width:34%;background:var(--red)"></i></div><div style="font-size:11px;color:var(--l2);margin-top:6px">' + (ru ? '2 кошелька в монете' : '2 wallets in this coin') + '</div></div></div>';
+    return [
+      { ill: welcome, title: ru ? 'Проверь монету\nза 30 секунд' : 'Check any coin\nin 30 seconds', text: ru ? 'Вставь адрес — Reactive покажет скор, риски по-русски и сколько потеряешь на входе.' : 'Paste an address — Reactive shows the score, the risks in plain words and what you lose on entry.', cta: ru ? 'Поехали' : "Let's go", act: 'check' },
+      { ill: premium, title: 'Reactive Premium', text: '', perks: ru ? ['Без лимита проверок', 'Большой список монет', 'Алерты по твоим монетам'] : ['Unlimited checks', 'Big watchlist', 'Alerts on your coins'], cta: ru ? 'Подключить' : 'Subscribe', act: 'prem' },
+      { ill: wallets, title: 'Smart Wallets', text: ru ? 'Добавь кошельки — Reactive покажет, что они делают с твоими монетами.' : 'Add wallets — Reactive shows what they do with your coins.', cta: ru ? 'Добавить кошелёк' : 'Add wallet', act: 'wallets' }
+    ];
+  }
+
+  function finishBanners(act) {
+    write(BANNER_KEY, true);
+    write(K.ob, true);
+    const el = document.getElementById('banners');
+    if (el) el.remove();
+    if (act === 'prem') { showPaywall(); return; }
+    if (act === 'wallets') { S.tab = 'alerts'; render(); return; }
+    if (act === 'check') { S.tab = 'scan'; S.resultOpen = false; render(); }
+  }
+
+  function openBanners() {
+    if (document.getElementById('banners')) return;
+    const slides = bannerSlides();
+    const wrap = document.createElement('div');
+    wrap.className = 'bn';
+    wrap.id = 'banners';
+    wrap.innerHTML = '<button type="button" class="bn-x" id="bnX" aria-label="Close">' + SVG_X + '</button>' +
+      '<div class="bn-sheet"><div class="bn-grab"></div><div class="bn-track" id="bnTrack">' +
+      slides.map(function (s, i) {
+        const perks = (s.perks || []).map(function (p) { return '<div class="bn-perk">' + esc(p) + '</div>'; }).join('');
+        return '<section class="bn-slide"><div class="bn-illwrap">' + s.ill + '</div><h2>' + esc(s.title).replace(/\n/g, '<br>') + '</h2>' +
+          (s.text ? '<p>' + esc(s.text) + '</p>' : '') +
+          (perks ? '<div class="bn-perks">' + perks + '</div>' : '') +
+          '<button type="button" class="bn-go" data-act="' + s.act + '">' + esc(s.cta) + '</button></section>';
+      }).join('') +
+      '</div><div class="bn-dots" id="bnDots">' + slides.map(function (_, i) { return '<i' + (i === 0 ? ' class="on"' : '') + '></i>'; }).join('') + '</div></div>';
+    document.body.appendChild(wrap);
+    const track = wrap.querySelector('#bnTrack');
+    const dots = wrap.querySelectorAll('#bnDots i');
+    track.addEventListener('scroll', function () {
+      const w = track.clientWidth || 1;
+      const i = Math.max(0, Math.min(slides.length - 1, Math.round(track.scrollLeft / w)));
+      dots.forEach(function (d, k) { d.classList.toggle('on', k === i); });
+    }, { passive: true });
+    wrap.querySelector('#bnX').onclick = function () { finishBanners(''); };
+    wrap.querySelectorAll('.bn-go').forEach(function (b) {
+      b.onclick = function () { haptic(); finishBanners(b.dataset.act); };
+    });
+  }
 
   function storySlides() {
     const ru = S.lang === 'ru';
     const art = {
-      check: '<div class="sa-card sa-a"><span class="ava a-good">MO</span><b>MOODENG</b><em style="color:var(--green)">81</em></div>' +
-        '<div class="sa-card sa-b"><span class="ava a-bad">PX</span><b>PEPEX</b><em style="color:var(--red)">34</em></div>' +
-        '<div class="sa-note"><i class="dot" style="background:var(--red)"></i>' + (ru ? 'Минт не отозван' : 'Mint not revoked') + '</div>',
-      score: '<div class="sa-scores"><div><b style="color:var(--green)">81</b><i style="background:var(--green);width:81%"></i></div>' +
-        '<div><b style="color:var(--yellow)">57</b><i style="background:var(--yellow);width:57%"></i></div>' +
-        '<div><b style="color:var(--red)">34</b><i style="background:var(--red);width:34%"></i></div></div>' +
-        '<div class="sa-legend"><span style="color:var(--green)">' + (ru ? 'чисто' : 'clean') + '</span><span style="color:var(--yellow)">' + (ru ? 'риск' : 'risky') + '</span><span style="color:var(--red)">' + (ru ? 'опасно' : 'danger') + '</span></div>',
-      risks: '<div class="sa-rows"><div><span class="ic b-r">' + INS_ICON.key + '</span><b>' + (ru ? 'Минт не отозван' : 'Mint not revoked') + '</b></div>' +
-        '<div><span class="ic b-o">' + INS_ICON.lock + '</span><b>' + (ru ? 'LP не заблокирован' : 'LP is unlocked') + '</b></div>' +
-        '<div><span class="ic b-r">' + INS_ICON.people + '</span><b>' + (ru ? 'Топ-10 держат 62%' : 'Top-10 hold 62%') + '</b></div></div>',
-      trade: '<div class="sa-deal"><div><span>$100</span><b style="color:var(--green)">−$2</b></div><div><span>$500</span><b style="color:var(--orange)">−$46</b></div><div><span>$1000</span><b style="color:var(--red)">−$171</b></div></div>',
-      list: '<div class="sa-rows sa-list"><div><span class="ava a-good">MO</span><b>MOODENG</b><em style="color:var(--green)">81</em></div>' +
-        '<div><span class="ava a-bad">WI</span><b>WIFX</b><em style="color:var(--yellow)">52</em></div></div>' +
-        '<div class="sa-note">' + (ru ? 'Сторож · скор упал' : 'Watcher · score dropped') + '</div>',
-      wallets: '<div class="sa-rows"><div><span class="ava">7x</span><b>7xKX…9fPq</b><em style="color:var(--green)">' + (ru ? 'купил' : 'bought') + '</em></div>' +
-        '<div><span class="ava a-bad">PX</span><b>PEPEX</b><em style="color:var(--red)">34</em></div></div>',
-      prem: '<div class="sa-rows"><div><span class="ic b-n">∞</span><b>' + (ru ? 'Без лимита проверок' : 'Unlimited checks') + '</b></div>' +
-        '<div><span class="ic b-n">≡</span><b>' + (ru ? 'Большой список' : 'Big watchlist') + '</b></div>' +
-        '<div><span class="ic b-n">⌘</span><b>' + (ru ? 'Алерты по монетам' : 'Alerts on your coins') + '</b></div></div>',
-      honest: '<div class="sa-honest"><b>0–100</b><span>' + (ru ? 'эвристика' : 'a heuristic') + '</span></div>'
+      check: '<div class="sa-ui"><div class="sa-tk"><div class="sa-row"><span class="ava a-good">MO</span><span><b>MOODENG</b><i>$0.2134</i></span><em style="color:var(--green)">81<small>/100</small></em></div><div class="sa-bar"><i style="width:81%;background:var(--green)"></i></div></div>' +
+        '<div class="sa-tk sa-shift"><div class="sa-row"><span class="ava a-bad">PX</span><span><b>PEPEX</b><i>$0.0004120</i></span><em style="color:var(--red)">34<small>/100</small></em></div><div class="sa-bar"><i style="width:34%;background:var(--red)"></i></div></div>' +
+        '<div class="sa-chip"><i style="background:var(--red)"></i>' + (ru ? 'Минт не отозван' : 'Mint not revoked') + '</div></div>',
+      score: '<div class="sa-blocks">' +
+        (ru ? ['Ликв.', 'Холдеры', 'Дев', 'Контракт', 'Актив.', 'Возраст', 'Цена', 'Ссылки'] : ['Liq', 'Holders', 'Dev', 'Contract', 'Activity', 'Age', 'Price', 'Links']).map(function (name, i) {
+          const b = [name, [88, 42, 70, 35, 61, 80, 48, 90][i], ['green', 'red', 'green', 'red', 'yellow', 'green', 'yellow', 'green'][i]];
+          return '<div><span>' + b[0] + '</span><b style="color:var(--' + b[2] + ')">' + b[1] + '</b><i style="width:' + b[1] + '%;background:var(--' + b[2] + ')"></i></div>';
+        }).join('') + '</div>',
+      risks: '<div class="sa-stack"><div class="sa-line"><span class="ic b-r">' + INS_ICON.key + '</span><span><b>' + (ru ? 'Минт не отозван' : 'Mint not revoked') + '</b><i>' + (ru ? 'Создатель может напечатать токены' : 'The dev can print tokens') + '</i></span></div>' +
+        '<div class="sa-line"><span class="ic b-r">' + INS_ICON.people + '</span><span><b>' + (ru ? 'Топ-10 держат 62%' : 'Top-10 hold 62%') + '</b><i>' + (ru ? 'Пара кошельков может обвалить цену' : 'A few wallets can crash the price') + '</i></span></div>' +
+        '<div class="sa-line"><span class="ic b-o">' + INS_ICON.lock + '</span><span><b>' + (ru ? 'LP не заблокирован' : 'LP is unlocked') + '</b><i>' + (ru ? 'Пул могут вывести' : 'The pool can be pulled') + '</i></span></div></div>',
+      trade: '<div class="sa-deal"><div><span>$100</span><b style="color:var(--green)">−$2,10</b><i>2,1%</i></div><div><span>$500</span><b style="color:var(--orange)">−$46</b><i>9,2%</i></div><div><span>$1000</span><b style="color:var(--red)">−$171</b><i>17,1%</i></div></div><div class="sa-tax">' + (ru ? 'Налог · доля дева' : 'Tax · dev share') + ' <b>0% · 7,4%</b></div>',
+      list: '<div class="sa-stack"><div class="sa-line"><span class="ava a-good">MO</span><span><b>MOODENG</b><i>$4.21M</i></span><svg width="48" height="18"><polyline points="1,14 16,10 32,8 47,3" fill="none" stroke="#30D158" stroke-width="1.6" stroke-linecap="round"/></svg><em style="color:var(--green)">81</em></div>' +
+        '<div class="sa-line"><span class="ava a-mid">WI</span><span><b>WIFX <small style="color:var(--red)">▼19</small></b><i>$198.5K</i></span><svg width="48" height="18"><polyline points="1,4 16,8 32,12 47,16" fill="none" stroke="#FF453A" stroke-width="1.6" stroke-linecap="round"/></svg><em style="color:var(--yellow)">52</em></div>' +
+        '<div class="sa-alert">' + (ru ? 'Сторож · скор 71 → 52' : 'Watcher · score 71 → 52') + '</div></div>',
+      wallets: '<div class="sa-stack"><div class="sa-line"><span class="ava" style="color:var(--green)">7x</span><span><b>7xKX…9fPq</b><i>' + (ru ? 'купил $1.2K' : 'bought $1.2K') + '</i></span></div>' +
+        '<div class="sa-line"><span class="ava" style="color:var(--red)">Hq</span><span><b>Hq9w…3TzB</b><i>' + (ru ? 'продал $860' : 'sold $860') + '</i></span></div>' +
+        '<div class="sa-line"><span class="ava a-bad">PX</span><span><b>PEPEX</b><i>' + (ru ? '2 кошелька в монете' : '2 wallets in this coin') + '</i></span><em style="color:var(--red)">34</em></div></div>',
+      prem: '<div class="sa-stack"><div class="sa-line sa-blur"><span class="ava">H1</span><span><b>9AhK…sbkw</b><i>12.4%</i></span></div><div class="sa-line sa-blur"><span class="ava">H2</span><span><b>3kLm…91Qa</b><i>8.1%</i></span></div><div class="sa-lock">' + LOCK_SVG + ' Premium</div></div>',
+      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
     };
     return [
       { art: art.check, t: ru ? 'Проверка за 30 секунд' : 'A check in 30 seconds', p: ru ? 'Вставь адрес — Reactive покажет скор, риски простыми словами и сколько потеряешь на входе.' : 'Paste an address — Reactive shows the score, the risks in plain words, and what you lose on entry.' },
@@ -1497,7 +1579,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'story';
     wrap.id = 'story';
-    wrap.innerHTML = '<button type="button" class="story-x" id="storyX" aria-label="Close">×</button>' +
+    wrap.innerHTML = '<button type="button" class="story-x" id="storyX" aria-label="Close">' + SVG_X + '</button>' +
       '<div class="story-sheet"><div class="story-track" id="storyTrack">' +
       slides.map(function (s) {
         return '<section class="story-slide"><div class="story-art">' + s.art + '</div><h2>' + esc(s.t) + '</h2><p>' + esc(s.p) + '</p></section>';
@@ -1589,9 +1671,14 @@
     canvasRound(ctx, 48, 48, W - 96, H - 96, 36);
     ctx.fillStyle = '#1C1C1E';
     ctx.fill();
+    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png', location.href).href);
+    if (logo) ctx.drawImage(logo, 96, 88, 56, 56);
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 32px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText('Reactive', logo ? 168 : 96, 112);
     ctx.fillStyle = 'rgba(235,235,245,.6)';
-    ctx.font = '600 28px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText('REACTIVE', 96, 130);
+    ctx.font = '500 22px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText('@reactive_app', logo ? 168 : 96, 142);
     ctx.textAlign = 'right';
     ctx.font = '500 24px -apple-system, BlinkMacSystemFont, sans-serif';
     const stamp = new Date().toLocaleString(ru ? 'ru-RU' : 'en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -1632,6 +1719,19 @@
     ctx.fillStyle = chCol;
     ctx.font = '600 32px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.fillText(tk.ch24 ? pct(tk.ch24) : '', 112 + pw, 360);
+    const spark = [0, Number(tk.ch1) || 0, Number(tk.ch6) || 0, ch];
+    const sMax = Math.max(1, Math.abs(Math.min.apply(null, spark)), Math.abs(Math.max.apply(null, spark)));
+    ctx.beginPath();
+    spark.forEach(function (v, i) {
+      const x = W - 250 + i * 46;
+      const y = 348 - (v / sMax) * 28;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = chCol;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
 
     ctx.fillStyle = col;
     ctx.font = '700 92px -apple-system, BlinkMacSystemFont, sans-serif';
@@ -1651,6 +1751,18 @@
     canvasRound(ctx, 96, 556, Math.max(8, (W - 192) * (S.result.score / 100)), 8, 4);
     ctx.fillStyle = col;
     ctx.fill();
+    const blocks = (S.result.blocks || []).slice(0, 8);
+    blocks.forEach(function (b, i) {
+      const x = 96 + i * 112;
+      const h = Math.max(8, Math.round((b.s || 0) * 56));
+      const bc = b.s >= 0.7 ? '#30D158' : b.s >= 0.4 ? '#FFD60A' : '#FF453A';
+      canvasRound(ctx, x, 590, 28, 64, 6);
+      ctx.fillStyle = 'rgba(118,118,128,.24)';
+      ctx.fill();
+      canvasRound(ctx, x, 590 + 64 - h, 28, h, 6);
+      ctx.fillStyle = bc;
+      ctx.fill();
+    });
 
     const ageTxt = (function () {
       if (!tk.created) return '—';
@@ -1680,7 +1792,7 @@
       const colN = i % 4;
       const row = Math.floor(i / 4);
       const x = 96 + colN * 228;
-      const y = 620 + row * 110;
+      const y = 700 + row * 88;
       ctx.fillStyle = 'rgba(235,235,245,.55)';
       ctx.font = '600 22px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillText(m[0], x, y);
@@ -1691,19 +1803,46 @@
 
     ctx.fillStyle = '#fff';
     ctx.font = '700 32px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText(ru ? 'Что важно' : 'What matters', 96, 880);
+    canvasRound(ctx, 96, 860, W - 192, 10, 5);
+    ctx.fillStyle = 'rgba(118,118,128,.24)';
+    ctx.fill();
+    canvasRound(ctx, 96, 860, Math.max(8, (W - 192) * Math.min(1, top10 / 100)), 10, 5);
+    ctx.fillStyle = top10 > 50 ? '#FF453A' : '#FFD60A';
+    ctx.fill();
+    ctx.fillStyle = 'rgba(235,235,245,.6)';
+    ctx.font = '500 20px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText((ru ? 'Топ-10 ' : 'Top-10 ') + (top10 ? Math.round(top10) + '%' : '—'), 96, 848);
+    const slip = tk.liq > 0 ? function (a) { return (a / tk.liq) * 100; } : function () { return 0; };
+    [100, 500, 1000].forEach(function (amt, i) {
+      const x = 96 + i * 296;
+      canvasRound(ctx, x, 888, 270, 78, 16);
+      ctx.fillStyle = '#000';
+      ctx.fill();
+      const p = slip(amt);
+      const loss = amt * p / 100;
+      const lc = p < 1 ? '#30D158' : p < 3 ? '#FF9F0A' : '#FF453A';
+      ctx.fillStyle = 'rgba(235,235,245,.55)';
+      ctx.font = '500 18px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('$' + amt, x + 16, 918);
+      ctx.fillStyle = lc;
+      ctx.font = '700 26px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('−$' + (loss >= 10 ? loss.toFixed(0) : loss.toFixed(2)), x + 16, 948);
+    });
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 28px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(ru ? 'Что важно' : 'What matters', 96, 1016);
     const lines = buildInsights(tk).slice(0, 3);
-    ctx.font = '500 28px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.font = '500 24px -apple-system, BlinkMacSystemFont, sans-serif';
     lines.forEach(function (x, i) {
       const tone = x.tone === 'good' ? '#30D158' : x.tone === 'warn' ? '#FF9F0A' : '#FF453A';
       ctx.fillStyle = tone;
       ctx.beginPath();
-      ctx.arc(112, 930 + i * 64, 8, 0, Math.PI * 2);
+      ctx.arc(112, 1052 + i * 40, 7, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#fff';
       const parts = insightParts(x.text);
-      const wrapped = wrapCanvas(ctx, parts.title, W - 240);
-      ctx.fillText(wrapped[0] || '', 140, 940 + i * 64);
+      const wrapped = wrapCanvas(ctx, parts.title, W - 260);
+      ctx.fillText(wrapped[0] || '', 136, 1060 + i * 40);
     });
 
     const mint = String(tk.mint || '');
@@ -1713,7 +1852,7 @@
     ctx.fillText(short, 96, 1160);
     ctx.fillStyle = '#fff';
     ctx.font = '600 28px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText('Reactive · @rakko_app', 96, 1220);
+    ctx.fillText('Reactive · @reactive_app', 96, 1220);
     ctx.fillStyle = 'rgba(235,235,245,.45)';
     ctx.font = '400 22px -apple-system, BlinkMacSystemFont, sans-serif';
     const disc = ru ? 'Не финансовый совет. Оценка — эвристика, не гарантия.' : 'Not financial advice. The score is a heuristic, not a guarantee.';
@@ -1729,7 +1868,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'share-prev';
     wrap.id = 'sharePrev';
-    wrap.innerHTML = '<button type="button" class="story-x" id="spx">×</button>' +
+    wrap.innerHTML = '<button type="button" class="story-x" id="spx" aria-label="Close">' + SVG_X + '</button>' +
       '<img alt="" src="' + url + '">' +
       '<p>' + (ru ? 'Удерживай, чтобы сохранить' : 'Hold the image to save it') + '</p>' +
       '<a class="btn" id="spdl" download="reactive.png" href="' + url + '">' + (ru ? 'Скачать' : 'Download') + '</a>';
@@ -1811,7 +1950,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'expl';
     wrap.innerHTML = '<div class="expl-head">' +
-      '<button class="expl-x" id="bx">✕</button>' +
+      '<button type="button" class="expl-x" id="bx" aria-label="Close">' + SVG_X + '</button>' +
       '<span class="expl-count" id="ec">' + (idx + 1) + ' / ' + slides.length + '</span>' +
       '</div>' +
       '<div class="expl-track" id="track">' + slides.map(function (s) {
@@ -1901,7 +2040,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'modal';
     wrap.innerHTML = '<div class="modal-card sheet-help" style="max-height:80vh">' +
-      '<div class="modal-head"><b>' + (ru ? 'Настройки экрана' : 'Screen settings') + '</b><button class="modal-x" id="mx">✕</button></div>' +
+      '<div class="modal-head"><b>' + (ru ? 'Настройки экрана' : 'Screen settings') + '</b><button type="button" class="modal-x" id="mx" aria-label="Close">' + SVG_X + '</button></div>' +
       '<div class="help-list">' + rows.map(function (r) {
         const on = S.ui[r[0]] !== false;
         return '<button class="ui-row" data-k="' + r[0] + '"><span class="ui-txt"><b>' + esc(r[1]) + '</b><i>' + esc(r[2]) + '</i></span>' +
@@ -1936,7 +2075,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'modal';
     wrap.innerHTML = '<div class="modal-card sheet-help" style="max-height:80vh">' +
-      '<div class="modal-head"><b>' + (ru ? 'Какие уведомления нужны' : 'Which alerts you need') + '</b><button class="modal-x" id="mx">✕</button></div>' +
+      '<div class="modal-head"><b>' + (ru ? 'Какие уведомления нужны' : 'Which alerts you need') + '</b><button type="button" class="modal-x" id="mx" aria-label="Close">' + SVG_X + '</button></div>' +
       '<div class="help-list">' + rows.map(function (r) {
         const on = (S.alertPrefs || {})[r[0]] !== false;
         return '<button class="ui-row" data-k="' + r[0] + '"><span class="ui-txt"><b>' + esc(r[1]) + '</b><i>' + esc(r[2]) + '</i></span>' +
@@ -1962,7 +2101,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'modal';
     wrap.innerHTML = '<div class="modal-card sheet-help" style="max-height:60vh">' +
-      '<div class="modal-head"><b>' + (ru ? 'Добавить кошелёк' : 'Add wallet') + '</b><button class="modal-x" id="mx">✕</button></div>' +
+      '<div class="modal-head"><b>' + (ru ? 'Добавить кошелёк' : 'Add wallet') + '</b><button type="button" class="modal-x" id="mx" aria-label="Close">' + SVG_X + '</button></div>' +
       '<div class="help-list"><p class="small">' + (ru ? 'Вставь адрес кошелька Solana. Reactive проверит его сделки при открытии.' : 'Paste a Solana wallet address. Reactive checks its trades when you open the app.') + '</p>' +
       '<div class="panel-in" style="margin-top:10px"><input id="waddr" placeholder="' + (ru ? 'Адрес кошелька' : 'Wallet address') + '"></div>' +
       '<button class="panel-go" id="wsave" style="margin-top:12px">' + (ru ? 'Добавить' : 'Add') + '</button>' +
@@ -2074,7 +2213,7 @@
       const wrap = document.createElement('div');
       wrap.className = 'modal';
       wrap.innerHTML = '<div class="modal-card sheet-help" style="max-height:80vh">' +
-        '<div class="modal-head"><b>' + (ru ? 'Кошелёк создателя' : 'Creator wallet') + '</b><button class="modal-x" id="mx">✕</button></div>' +
+        '<div class="modal-head"><b>' + (ru ? 'Кошелёк создателя' : 'Creator wallet') + '</b><button type="button" class="modal-x" id="mx" aria-label="Close">' + SVG_X + '</button></div>' +
         '<div class="help-list">' +
         '<div class="trade" style="margin-bottom:12px">' +
         '<div class="trade-row flat"><span>' + (ru ? 'Токенов на кошельке' : 'Tokens held') + '</span><b>' + rows.length + '</b></div>' +
@@ -2163,7 +2302,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'modal';
     wrap.innerHTML = '<div class="modal-card paywall">' +
-      '<div class="pw-head"><button class="pw-x" id="px" aria-label="Close">✕</button></div>' +
+      '<div class="pw-head"><button type="button" class="pw-x" id="px" aria-label="Close">' + SVG_X + '</button></div>' +
       '<h2 class="pw-title">' + (ru ? 'Проверяй быстрее и глубже' : 'Check faster and deeper') + '</h2>' +
       '<p class="pw-sub">' + (ru ? 'Больше источников, все сети, без лимитов и с алертами.' : 'More sources, all chains, no limits, with alerts.') + '</p>' +
       '<div class="pw-perks">' + perks.map(function (p) { return '<div class="pw-perk"><i>✓</i><span>' + esc(p) + '</span></div>'; }).join('') + '</div>' +
@@ -2237,7 +2376,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'modal';
     wrap.innerHTML = '<div class="modal-card sheet-help">' +
-      '<div class="modal-head"><b>' + (ru ? 'Что значит каждый блок' : 'What each block means') + '</b><button class="modal-x" id="mx">✕</button></div>' +
+      '<div class="modal-head"><b>' + (ru ? 'Что значит каждый блок' : 'What each block means') + '</b><button type="button" class="modal-x" id="mx" aria-label="Close">' + SVG_X + '</button></div>' +
       '<div class="help-list" id="hl">' + cards + '</div>' +
       '</div>';
     document.body.appendChild(wrap);
@@ -2306,7 +2445,7 @@
     S._animKey = animKey;
     app.classList.toggle('enter', animateIn);
     if (animateIn) app.scrollTop = 0; else app.scrollTop = kept;
-    try { if (!read(STORY_KEY, false)) openStory(true); } catch (e) {}
+    try { if (!read(BANNER_KEY, false)) openBanners(); } catch (e) {}
     syncDock();
     bind();
     decorate();
@@ -2685,6 +2824,27 @@
     if ($('#cache')) $('#cache').onclick = function () { try { localStorage.clear(); } catch (e) {} toast(S.lang === 'ru' ? 'Кэш очищен' : 'Cache cleared'); };
     if ($('#lang')) $('#lang').onclick = () => { S.lang = S.lang === 'ru' ? 'en' : 'ru'; write(K.lang, S.lang); render(); };
     if ($('#screen')) $('#screen').onclick = showScreenSettings;
+    if ($('#testPrem')) $('#testPrem').onclick = function () {
+      if (isPrem()) { S.plan = 'free'; S.planUntil = 0; }
+      else { S.plan = 'premium'; S.planUntil = Date.now() + 30 * 864e5; }
+      write('tc.plan', S.plan);
+      write('tc.planUntil', S.planUntil);
+      haptic();
+      render();
+    };
+    if ($('#testReset')) $('#testReset').onclick = function () {
+      try {
+        localStorage.removeItem(BANNER_KEY);
+        localStorage.removeItem(STORY_KEY);
+        localStorage.removeItem(K.ob);
+      } catch (e) {}
+      const b = document.getElementById('banners'); if (b) b.remove();
+      const s = document.getElementById('story'); if (s) s.remove();
+      S.tab = 'scan';
+      S.resultOpen = false;
+      haptic();
+      render();
+    };
     if ($('#clear')) $('#clear').onclick = () => { S.saved = []; write(K.saved, []); render(); toast(t('cleared')); };
     const more = $('#infoMore');
     if (more) more.onclick = function () {
