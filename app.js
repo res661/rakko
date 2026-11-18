@@ -26,6 +26,7 @@
     quota: read('tc.quota', { hour: [], day: [] }),
     plan: read('tc.plan', 'free'),
     wallets: read('tc.wallets', []),
+    checks: read('tc.checks', []),
     alertPrefs: read('tc.alertPrefs', { score: true, liq: true, price: true, risky: true, wallet: true }),
     creators: read('tc.creators', {}),
     walletAlerts: read('tc.walletAlerts', []),
@@ -864,6 +865,7 @@
         '<div><span>' + esc(S.lang === 'ru' ? 'Объём' : 'Vol') + '</span><b>' + usd(tk.vol) + '</b></div>' +
         '<div><span>' + esc(S.lang === 'ru' ? 'Возраст' : 'Age') + '</span><b>' + esc(ageTxt) + '</b></div>' +
         '</div>' +
+        (tk.creator ? '<button class="ghost-action" id="devCheck" style="margin-top:10px">' + esc(S.lang === 'ru' ? 'Проверить создателя' : 'Check creator') + '</button>' : '') +
         '<div class="tk-upd">' + esc((S.lang === 'ru' ? 'обновлено ' : 'updated ') + ago(S.updatedAt || Date.now())) + (S.result.partial ? ' · ' + (S.lang === 'ru' ? 'догружаю…' : 'loading…') : '') + '</div>' +
         '<div class="tk-links">' +
         (tk.url ? '<a class="tkl" href="' + esc(tk.url) + '" target="_blank" rel="noopener" aria-label="DEX"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18l6-6 4 3 6-8"/><path d="M16 7h4v4"/></svg></a>' : '') +
@@ -908,9 +910,10 @@
         ];
         (function () {
         const p = S.result.score;
-        const band = S.saved.filter(function (s) { return typeof s.entryScore === 'number' && Math.abs(s.entryScore - p) <= 10; });
+        const pool = (S.saved || []).concat((S.checks || []).filter(function (c) { return !(S.saved || []).some(function (s) { return s.mint === c.mint; }); }));
+        const band = pool.filter(function (s) { const ref = (typeof s.entryScore === 'number') ? s.entryScore : s.score; return typeof ref === 'number' && Math.abs(ref - p) <= 10; });
         if (band.length < 3) return;
-        const dead = band.filter(function (s) { return (s.liq || 0) < (s.entryLiq || 1) * 0.4; }).length;
+        const dead = band.filter(function (s) { const ref = s.entryLiq || s.liq || 1; return (s.liq || 0) < ref * 0.4; }).length;
         const pctDead = Math.round(dead / band.length * 100);
         out += '<div class="personal">' +
           '<b>' + esc(S.lang === 'ru' ? 'Твоя история' : 'Your history') + '</b>' +
@@ -1601,6 +1604,70 @@
     return j && j.result;
   }
 
+  async function checkDev(creator, btnEl) {
+    const ru = S.lang === 'ru';
+    const setTxt = function (t2) { if (btnEl) btnEl.textContent = t2; };
+    setTxt(ru ? 'Смотрю создателя…' : 'Checking creator…');
+    try {
+      const sigs = await rpcCall('getSignaturesForAddress', [creator, { limit: 30 }]);
+      if (!Array.isArray(sigs) || !sigs.length) { toast(ru ? 'Нет истории у создателя' : 'No creator history'); setTxt(ru ? 'Проверить создателя' : 'Check creator'); return; }
+      const mints = [];
+      for (const sg of sigs.slice(0, 12)) {
+        if (!sg || !sg.signature) continue;
+        setTxt(ru ? 'Разбираю ' + (mints.length ? mints.length : '') + '…' : 'Parsing…');
+        const tx = await rpcCall('getTransaction', [sg.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
+        if (!tx || !tx.transaction) continue;
+        const ins = ((tx.transaction.message && tx.transaction.message.instructions) || [])
+          .concat(((tx.meta && tx.meta.innerInstructions) || []).reduce(function (acc, x) { return acc.concat(x.instructions || []); }, []));
+        ins.forEach(function (i) {
+          const p = i.parsed;
+          if (!p) return;
+          if (p.type === 'initializeMint' && p.info && p.info.mint) mints.push(p.info.mint);
+          if (i.program === 'pump' || (i.programId && String(i.programId).indexOf('pump') > -1)) {
+            if (i.accounts && i.accounts[0]) mints.push(String(i.accounts[0]));
+          }
+        });
+        if (mints.length >= 8) break;
+      }
+      const uniq = mints.filter(function (m, idx) { return mints.indexOf(m) === idx; }).slice(0, 8);
+      if (!uniq.length) {
+        toast(ru ? 'Созданий токенов не найдено в последних сделках' : 'No token creations found');
+        setTxt(ru ? 'Проверить создателя' : 'Check creator');
+        return;
+      }
+      setTxt(ru ? 'Проверяю пулы…' : 'Checking pools…');
+      const res = await getJson('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(uniq.join(',')), 7000).catch(function () { return null; });
+      const pairs = (res && res.pairs) || [];
+      const rows = uniq.map(function (m) {
+        const ps = pairs.filter(function (p) { return p.baseToken && p.baseToken.address === m; });
+        const best = ps.sort(function (x, y) { return (Number(y.liquidity && y.liquidity.usd) || 0) - (Number(x.liquidity && x.liquidity.usd) || 0); })[0];
+        const liq = best ? Number(best.liquidity && best.liquidity.usd) || 0 : 0;
+        const sym = best && best.baseToken ? best.baseToken.symbol : m.slice(0, 4) + '…';
+        return { mint: m, symbol: sym, liq: liq, alive: liq > 500 };
+      });
+      const dead = rows.filter(function (r) { return !r.alive; }).length;
+      const wrap = document.createElement('div');
+      wrap.className = 'modal';
+      wrap.innerHTML = '<div class="modal-card sheet-help" style="max-height:80vh">' +
+        '<div class="modal-head"><b>' + (ru ? 'Монеты создателя' : 'Creator tokens') + '</b><button class="modal-x" id="mx">✕</button></div>' +
+        '<div class="help-list">' +
+        '<div class="trade" style="margin-bottom:12px"><div class="trade-row flat"><span>' + (ru ? 'Найдено монет' : 'Found') + '</span><b>' + rows.length + '</b></div>' +
+        '<div class="trade-row flat"><span>' + (ru ? 'Умерли (нет ликвидности)' : 'Dead') + '</span><b style="color:var(--red)">' + dead + ' из ' + rows.length + '</b></div></div>' +
+        rows.map(function (r) {
+          return '<div class="alert-row"><span class="al-dot" style="background:' + (r.alive ? 'var(--green)' : 'var(--red)') + '"></span>' +
+            '<span class="al-txt"><b>' + esc(r.symbol) + '</b><i>' + (r.alive ? usd(r.liq) + ' ' + (ru ? 'ликвидности' : 'liquidity') : (ru ? 'мёртвая' : 'dead')) + '</i></span></div>';
+        }).join('') + '</div></div>';
+      document.body.appendChild(wrap);
+      const close = function () { wrap.remove(); };
+      wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
+      wrap.querySelector('#mx').onclick = close;
+      setTxt(ru ? 'Проверить снова' : 'Check again');
+    } catch (e) {
+      toast(ru ? 'Не удалось получить историю' : 'Failed to load history');
+      setTxt(ru ? 'Проверить создателя' : 'Check creator');
+    }
+  }
+
   async function refreshWallets() {
     if (!S.wallets || !S.wallets.length) return;
     const savedMints = {};
@@ -2032,6 +2099,10 @@
         btn2.innerHTML = '<svg class="ok-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4.5 4.5L19 7"/></svg><span>' + (S.lang === 'ru' ? 'В списке' : 'Saved') + '</span>';
       }
     };
+    if ($('#devCheck') && S.result && S.result.token.creator) {
+      const btnEl = $('#devCheck');
+      btnEl.onclick = function () { checkDev(S.result.token.creator, btnEl); };
+    }
     if ($('#copyMint') && S.result) $('#copyMint').onclick = function () {
       const mint = S.result.token.mint;
       const done = function () {
@@ -2239,6 +2310,14 @@
       S.updatedAt = Date.now();
       if (S.result.blocks.length < 3) S.error = t('fewData');
       S.stats.scans = (S.stats.scans || 0) + 1; write(K.stats, S.stats);
+      try {
+        const rec = { mint: S.result.token.mint, symbol: S.result.token.symbol, score: S.result.score, liq: S.result.token.liq, price: S.result.token.price, at: Date.now() };
+        const ex = S.checks.find(function (x) { return x.mint === rec.mint; });
+        if (ex) { ex.score = rec.score; ex.liq = rec.liq; ex.price = rec.price; ex.at = rec.at; }
+        else S.checks.unshift(rec);
+        S.checks = S.checks.slice(0, 60);
+        write('tc.checks', S.checks);
+      } catch (e) {}
       try {
         const cr = S.result.token.creator;
         if (cr) {
