@@ -236,47 +236,6 @@
     return into;
   }
 
-  function trendingCached() {
-    const c = read('tc.trending', null);
-    if (!c || !c.at || Date.now() - c.at > 15 * 60000) return null;
-    return c.items;
-  }
-
-  async function loadTrending() {
-    const cached = trendingCached();
-    if (cached) return cached;
-    try {
-      const d = await getJson('https://api.geckoterminal.com/api/v2/networks/solana/trending_pools?page=1', 4000);
-      const pools = (d && d.data) || [];
-      const items = pools.map(function (p) {
-        const at = p.attributes || {};
-        const rel = (p.relationships && p.relationships.base_token && p.relationships.base_token.data) || {};
-        const id = String(rel.id || '');
-        const addr = id.indexOf('_') > -1 ? id.split('_')[1] : '';
-        const ch = at.price_change_percentage && at.price_change_percentage.h24;
-        return { mint: addr, symbol: String(at.name || '').split(' / ')[0], ch: Number(ch) || 0 };
-      }).filter(function (x) { return x.mint && x.symbol; }).slice(0, 5);
-      if (items.length) write('tc.trending', { at: Date.now(), items: items });
-      return items;
-    } catch (e) {}
-    // fallback: top volume Solana pairs from DexScreener search
-    try {
-      const d2 = await getJson('https://api.dexscreener.com/latest/dex/search?q=SOL', 5000);
-      const pairs = (d2 && d2.pairs) || [];
-      const seen = {};
-      const items = pairs
-        .filter(function (p) { return p.chainId === 'solana' && p.baseToken && p.liquidity && p.liquidity.usd > 200000; })
-        .sort(function (x, y) { return (Number(y.volume && y.volume.h24) || 0) - (Number(x.volume && x.volume.h24) || 0); })
-        .filter(function (p) { if (seen[p.baseToken.address]) return false; seen[p.baseToken.address] = 1; return true; })
-        .slice(0, 5)
-        .map(function (p) {
-          return { mint: p.baseToken.address, symbol: p.baseToken.symbol, ch: Number(p.priceChange && p.priceChange.h24) || 0 };
-        });
-      if (items.length) write('tc.trending', { at: Date.now(), items: items });
-      return items;
-    } catch (e2) { return []; }
-  }
-
   const marketCache = { at: 0, items: [] };
   async function loadMarket() {
     if (Date.now() - marketCache.at < 5 * 60000 && marketCache.items.length) return marketCache.items;
@@ -484,10 +443,6 @@
         ch1: Number(pair && pair.priceChange && pair.priceChange.h1) || 0,
         buys: Number(pair && pair.txns && pair.txns.h24 && pair.txns.h24.buys) || 0,
         sells: Number(pair && pair.txns && pair.txns.h24 && pair.txns.h24.sells) || 0,
-        buys1: Number(pair && pair.txns && pair.txns.h1 && pair.txns.h1.buys) || 0,
-        sells1: Number(pair && pair.txns && pair.txns.h1 && pair.txns.h1.sells) || 0,
-        buys6: Number(pair && pair.txns && pair.txns.h6 && pair.txns.h6.buys) || 0,
-        sells6: Number(pair && pair.txns && pair.txns.h6 && pair.txns.h6.sells) || 0,
         dex: (pair && pair.dexId) || '',
         pairAddr: (pair && pair.pairAddress) || '',
         created: Number(pair && pair.pairCreatedAt) || 0,
@@ -945,63 +900,8 @@
         }).join('') + '</div>';
       }
     }
-    if (S.ui.trend !== false) {
-      out += '<div id="trend"><div class="sh"><b>' + esc(ru ? 'Рынок Solana' : 'Solana market') + '</b><button type="button" class="sh-btn" id="trendAll">' + esc(ru ? 'Топ-25' : 'Top 25') + '</button></div>';
-      out += '<div class="trow" id="trendRow"><span class="trend-skel"></span><span class="trend-skel"></span><span class="trend-skel"></span></div></div>';
-    }
     out += '</div>';
     return out;
-  }
-
-  function premiumExtras(tk, ru) {
-    let html = '';
-    const pressRows = [['1h', tk.buys1 || 0, tk.sells1 || 0], ['6h', tk.buys6 || 0, tk.sells6 || 0], ['24h', tk.buys || 0, tk.sells || 0]];
-    if (pressRows.some(function (r) { return r[1] || r[2]; })) {
-      const body = '<div class="card prem-card"><div class="prem-h">' + esc(ru ? 'Давление покупок' : 'Buy pressure') + '</div>' +
-        pressRows.map(function (r) {
-          const tot = r[1] + r[2] || 1;
-          const bp = Math.round(r[1] / tot * 100);
-          return '<div class="pr"><span>' + r[0] + '</span><span class="pr-bar"><i style="width:' + bp + '%"></i></span><b>' + r[1] + ' / ' + r[2] + '</b></div>';
-        }).join('') + '</div>';
-      html += isPrem() ? body : premLock('lockPress', body);
-    }
-    const tops = tk.top || [];
-    if (tops.length) {
-      const sum = function (n) { return tops.slice(0, n).reduce(function (s, h) { return s + (Number(h.pct) || 0); }, 0); };
-      const buckets = [[ru ? 'Крупнейший' : 'Largest', sum(1)], [ru ? 'Топ-3' : 'Top 3', sum(3)], [ru ? 'Топ-5' : 'Top 5', sum(5)]];
-      const body = '<div class="card prem-card"><div class="prem-h">' + esc(ru ? 'Распределение' : 'Holder split') + '</div>' +
-        buckets.map(function (b) {
-          return '<div class="pr"><span>' + esc(b[0]) + '</span><span class="pr-bar"><i class="alt" style="width:' + Math.min(100, Math.round(b[1])) + '%"></i></span><b>' + (b[1] ? Math.round(b[1]) + '%' : '—') + '</b></div>';
-        }).join('') + '</div>';
-      html += isPrem() ? body : premLock('lockDist', body);
-    }
-    if (tk.liq > 0 && tk.price > 0) {
-      const cells = [100, 500, 1000].map(function (amt) {
-        const slip = amt / tk.liq * 100;
-        const rt = Math.min(80, slip * 2);
-        return '<div><span>$' + amt + '</span><b>' + fmtSlip(rt) + '</b></div>';
-      }).join('');
-      const body = '<div class="card prem-card"><div class="prem-h">' + esc(ru ? 'Вход и выход' : 'Entry and exit') + '</div>' +
-        '<div class="exit-grid">' + cells + '</div>' +
-        '<div class="kv"><span>' + esc(ru ? 'Стоп · цель' : 'Stop · target') + '</span><b>' + esc(price(tk.price * 0.9)) + ' · ' + esc(price(tk.price * 1.25)) + '</b></div>' +
-        '<p class="tiny">' + esc(ru ? 'Круг — покупка и продажа. Ориентир, не сигнал.' : 'Round trip is a buy and a sell. A guide, not a signal.') + '</p></div>';
-      html += isPrem() ? body : premLock('lockExit', body);
-    }
-    const hits = (S.wallets || []).filter(function (w) {
-      return tops.some(function (h) { return h.addr && h.addr === w; });
-    });
-    const alerts = (S.walletAlerts || []).filter(function (a) {
-      return a && (a.symbol === tk.symbol || (a.mint && a.mint === tk.mint));
-    }).slice(0, 3);
-    const body = '<div class="card prem-card"><div class="prem-h">' + esc(ru ? 'Кошельки' : 'Wallets') + '</div>' +
-      '<div class="kv"><span>' + esc(ru ? 'Из отслеживаемых в топ-5' : 'Tracked wallets in top 5') + '</span><b>' + hits.length + '</b></div>' +
-      (alerts.length
-        ? alerts.map(function (a) { return '<div class="pr"><span>' + esc(a.text || '') + '</span></div>'; }).join('')
-        : '<p class="tiny">' + esc(ru ? 'Добавь кошельки в Список — совпадения появятся здесь.' : 'Add wallets in List — matches show up here.') + '</p>') +
-      '</div>';
-    html += isPrem() ? body : premLock('lockFlow', body);
-    if (!html) return '';
-    return '<div class="sh"><b>' + esc(ru ? 'Для Premium' : 'Premium') + '</b></div>' + html;
   }
 
   function viewResultPage() {
@@ -1094,7 +994,6 @@
       if (freeR.length) out += '<div class="card risk-list">' + freeR.map(riskRow).join('') + '</div>';
       if (premR.length) out += premLock('lockRisk', '<div class="card risk-list">' + premR.map(riskRow).join('') + '</div>');
     }
-    out += premiumExtras(tk, ru);
 
     if (tk.liq > 0) {
       const slip = function (usdAmt) { return (usdAmt / tk.liq) * 100; };
@@ -1453,7 +1352,7 @@
         (val != null ? '<span class="val' + (id === 'plan' && prem ? ' prem' : '') + '">' + val + '</span>' : '') + CHEV + '</button>';
     };
     return '<div class="page">' +
-      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png?v=20261118ios5" alt="">' + esc(t('profileTab')) + '</h1>' +
+      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png?v=20261118ios6" alt="">' + esc(t('profileTab')) + '</h1>' +
       '<div class="card phead"><span class="pfp">' + pfp + '</span><span><b>' + esc(name) + '</b><span>' + esc(handle) + '</span></span></div>' +
       '<div class="stats"><div class="stat"><b>' + (S.stats.scans || 0) + '</b><span>' + esc(t('scanned')) + '</span></div>' +
       '<div class="stat"><b>' + S.saved.length + '</b><span>' + esc(t('savedN')) + '</span></div></div>' +
@@ -1554,7 +1453,7 @@
   function bannerSlides() {
     const ru = S.lang === 'ru';
     const welcome = '<div class="bn-ill" style="background:#1E2622">' +
-      '<img class="bn-logo" src="assets/reactive-icon-512.png?v=20261118ios5" alt="">' +
+      '<img class="bn-logo" src="assets/reactive-icon-512.png?v=20261118ios6" alt="">' +
       '<div class="bn-fl bn-tk" style="left:18px;top:16px;width:188px;transform:rotate(-5deg)">' +
       '<div class="bn-top"><span class="bn-ava">MO</span><span class="bn-id"><b>MOODENG</b><span>Moo Deng</span></span><span class="bn-score" style="color:var(--green)"><b>81</b><i>/100</i></span></div>' +
       '<div class="bn-pl"><b>$0.2134</b><span style="color:var(--green)">+4.8%</span></div><div class="bn-bar"><i style="width:81%;background:var(--green)"></i></div>' +
@@ -1571,7 +1470,7 @@
       '<div class="bn-rw"><span class="bn-ava">GR</span><span class="bn-id"><b>GRASS</b><span>$312.7K</span></span><svg width="40" height="16"><polyline points="1,8 14,7 26,9 39,8" fill="none" stroke="#30D158" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">57</b></div>' +
       '<div class="bn-rw"><span class="bn-ava">WI</span><span class="bn-id"><b>WIFX</b><span>$198.5K</span></span><svg width="40" height="16"><polyline points="1,4 14,7 26,11 39,14" fill="none" stroke="#FF453A" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">52</b></div></div>' +
       '<div class="bn-fl bn-limit" style="right:12px;top:18px;transform:rotate(4deg)"><div style="color:var(--blue);font-size:22px;line-height:1">∞</div><b>' + (ru ? 'Без лимита' : 'Unlimited') + '</b><span>' + (ru ? 'проверок в час' : 'checks per hour') + '</span></div>' +
-      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png?v=20261118ios5" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
+      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png?v=20261118ios6" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
     const wallets = '<div class="bn-ill" style="background:#1D222B">' +
       '<div class="bn-fl" style="left:12px;top:28px;width:176px;padding:4px 0;transform:rotate(-3deg)">' +
       '<div class="bn-rw"><span class="bn-ava" style="color:var(--green)">7x</span><span class="bn-id"><b>7xKX…9fPq</b><span>' + (ru ? 'купил ' : 'bought ') + '<em style="color:var(--green);font-style:normal">$1.2K</em></span></span></div>' +
@@ -1580,7 +1479,7 @@
       '<div class="bn-fl bn-tk" style="right:12px;top:70px;width:150px;transform:rotate(3deg)"><div class="bn-top"><span class="bn-ava">PX</span><span class="bn-id"><b>PEPEX</b><span>PepeX</span></span></div><div class="bn-score" style="color:var(--red);margin-top:8px"><b>34</b><i>/100</i></div><div class="bn-bar"><i style="width:34%;background:var(--red)"></i></div><div style="font-size:11px;color:var(--l2);margin-top:6px">' + (ru ? '2 кошелька в монете' : '2 wallets in this coin') + '</div></div></div>';
     return [
       { ill: welcome, title: ru ? 'Проверь монету\nза 30 секунд' : 'Check any coin\nin 30 seconds', text: ru ? 'Вставь адрес — Reactive покажет скор, риски по-русски и сколько потеряешь на входе.' : 'Paste an address — Reactive shows the score, the risks in plain words and what you lose on entry.', cta: ru ? 'Поехали' : "Let's go", act: 'check' },
-      { ill: premium, title: 'Reactive Premium', text: '', perks: ru ? ['Без лимита проверок', 'Давление, холдеры, вход и выход', 'Сигналы твоих кошельков'] : ['Unlimited checks', 'Pressure, holders, entry and exit', 'Signals from your wallets'], cta: ru ? 'Подключить' : 'Subscribe', act: 'prem' },
+      { ill: premium, title: 'Reactive Premium', text: '', perks: ru ? ['Без лимита проверок', 'Вторая половина рисков', 'Топ держателей'] : ['Unlimited checks', 'The other half of the risks', 'Top holders'], cta: ru ? 'Подключить' : 'Subscribe', act: 'prem' },
       { ill: wallets, title: 'Smart Wallets', text: ru ? 'Добавь кошельки — Reactive покажет, что они делают с твоими монетами.' : 'Add wallets — Reactive shows what they do with your coins.', cta: ru ? 'Добавить кошелёк' : 'Add wallet', act: 'wallets' }
     ];
   }
@@ -1655,7 +1554,7 @@
         '<div class="sa-line"><span class="ava" style="color:var(--red)">Hq</span><span><b>Hq9w…3TzB</b><i>' + (ru ? 'продал $860' : 'sold $860') + '</i></span></div>' +
         '<div class="sa-line"><span class="ava a-bad">PX</span><span><b>PEPEX</b><i>' + (ru ? '2 кошелька в монете' : '2 wallets in this coin') + '</i></span><em style="color:var(--red)">34</em></div></div>',
       prem: '<div class="sa-stack"><div class="sa-line sa-blur"><span class="ava">H1</span><span><b>9AhK…sbkw</b><i>12.4%</i></span></div><div class="sa-line sa-blur"><span class="ava">H2</span><span><b>3kLm…91Qa</b><i>8.1%</i></span></div><div class="sa-lock">' + LOCK_SVG + ' Premium</div></div>',
-      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png?v=20261118ios5" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
+      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png?v=20261118ios6" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
     };
     return [
       { art: art.check, t: ru ? 'Проверка за 30 секунд' : 'A check in 30 seconds', p: ru ? 'Вставь адрес — Reactive покажет скор, риски простыми словами и сколько потеряешь на входе.' : 'Paste an address — Reactive shows the score, the risks in plain words, and what you lose on entry.' },
@@ -1775,7 +1674,7 @@
     ctx.fillStyle = '#1C1C1E';
     ctx.fill();
 
-    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png?v=20261118ios5', location.href).href);
+    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png?v=20261118ios6', location.href).href);
     if (logo) {
       canvasRound(ctx, 72, 72, 64, 64, 16);
       ctx.save();
@@ -2101,7 +2000,6 @@
   function showScreenSettings() {
     const ru = S.lang === 'ru';
     const rows = [
-      ['trend', ru ? 'Рынок Solana' : 'Solana market', ru ? 'Топ монет сверху' : 'Top coins on top'],
       ['recent', ru ? 'Недавние проверки' : 'Recent checks', ru ? 'Список под панелью' : 'List under the panel'],
       ['quota', ru ? 'Счётчик лимита' : 'Quota counter', ru ? 'Сколько проверок осталось' : 'Checks left'],
       ['anim', ru ? 'Анимации цифр' : 'Number animations', ru ? 'Скор набегает' : 'Score counts up'],
@@ -2356,19 +2254,11 @@
     const isPrem = S.plan === 'premium' && (!S.planUntil || S.planUntil > Date.now());
     const perks = ru ? [
       'Без лимита — бесплатно 20 проверок в день',
-      'Вторая половина строк «Что важно»',
-      'Давление покупок и продаж: 1ч, 6ч, 24ч',
-      'Как распределены холдеры',
-      'Потеря на круге и ориентиры стоп / цель',
-      'Совпадения с твоими кошельками',
+      'Вторая половина «Что важно» и рисков Rugcheck',
       'Полный список топ-держателей'
     ] : [
       'No limit — 20 free checks a day',
-      'The other half of “What matters”',
-      'Buy and sell pressure: 1h, 6h, 24h',
-      'How holders are split',
-      'Round-trip loss and stop / target guides',
-      'Matches with wallets you track',
+      'The other half of “What matters” and Rugcheck risks',
       'The full top-holder list'
     ];
     const wrap = document.createElement('div');
@@ -2376,7 +2266,7 @@
     wrap.innerHTML = '<div class="modal-card paywall">' +
       '<div class="pw-head"><button type="button" class="pw-x" id="px" aria-label="Close">' + SVG_X + '</button></div>' +
       '<h2 class="pw-title">' + (ru ? 'Проверяй быстрее и глубже' : 'Check faster and deeper') + '</h2>' +
-      '<p class="pw-sub">' + (ru ? 'Без лимита и разбор сделки по данным, которые уже есть в проверке.' : 'No limit, plus a trade read from data the check already has.') + '</p>' +
+      '<p class="pw-sub">' + (ru ? 'Без лимита и полные риски по монете.' : 'No limit, and the full risk list.') + '</p>' +
       '<div class="pw-perks">' + perks.map(function (p) { return '<div class="pw-perk"><i>✓</i><span>' + esc(p) + '</span></div>'; }).join('') + '</div>' +
       '<div class="pw-plans">' + PLANS.map(function (p, i) {
         const disc = planDiscount(p);
@@ -2650,7 +2540,6 @@
     });
     if (document.getElementById('iosBack')) document.getElementById('iosBack').onclick = goBack;
     if (document.getElementById('recentAll')) document.getElementById('recentAll').onclick = function () { S.tab = 'saved'; haptic(); render(); };
-    if (document.getElementById('trendAll')) document.getElementById('trendAll').onclick = function () { S.tab = 'market'; haptic(); render(); };
     if (document.getElementById('openAlerts')) document.getElementById('openAlerts').onclick = function () { S.tab = 'alerts'; render(); };
     if (document.getElementById('mkBack')) document.getElementById('mkBack').onclick = function () { S.tab = 'scan'; render(); };
     const mk = document.getElementById('mkList');
@@ -2669,28 +2558,6 @@
         }).join('');
         el.querySelectorAll('.mk-row[data-mint]').forEach(function (b) {
           b.onclick = function () { S.lastMint = b.dataset.mint; S.result = null; S.resultOpen = false; S.tab = 'scan'; render(); setTimeout(runCheck, 80); };
-        });
-      });
-    }
-    const trendRow = $('#trendRow');
-    if (trendRow) {
-      loadTrending().then(function (items) {
-        if (!items || !items.length) { const t = $('#trend'); if (t) t.remove(); return; }
-        trendRow.innerHTML = items.map(function (x) {
-          const up = x.ch >= 0;
-          const c = up ? 'var(--green)' : 'var(--red)';
-          return '<button type="button" class="tr-chip ' + (up ? 'up' : 'down') + '" data-mint="' + esc(x.mint) + '">' +
-            '<span class="tr-sym">' + esc(x.symbol) + '</span>' +
-            '<span class="tr-pct">' + (up ? '+' : '') + x.ch.toFixed(1) + '%</span></button>';
-        }).join('');
-        trendRow.querySelectorAll('.tr-chip').forEach(function (b) {
-          b.onclick = function () {
-            const inp = $('#mint');
-            if (inp) inp.value = b.dataset.mint;
-            S.lastMint = b.dataset.mint;
-            const go = $('#go');
-            if (go) go.click(); else runCheck();
-          };
         });
       });
     }
