@@ -160,15 +160,25 @@
     if (TG && TG.setBottomBarColor) { try { TG.setBottomBarColor(bg); } catch (e) {} }
   }
   function applyInsets() {
-    let top = 0;
-    if (TG) {
-      const c = TG.contentSafeAreaInset;
-      if (c && typeof c.top === 'number' && c.top > 8) top = c.top;
-      else if (TG.isFullscreen) top = 100;
+    if (!TG) return;
+    const s = TG.safeAreaInset || {};
+    const c = TG.contentSafeAreaInset || {};
+    const st = document.documentElement.style;
+    function put(name, v) {
+      if (typeof v === 'number' && isFinite(v) && v > 0) st.setProperty(name, v + 'px');
     }
-    document.documentElement.style.setProperty('--top-inset', top + 'px');
-    const bot = (TG && TG.safeAreaInset && TG.safeAreaInset.bottom) || 0;
-    document.documentElement.style.setProperty('--bottom-inset', bot + 'px');
+    put('--tg-safe-area-inset-top', s.top);
+    put('--tg-safe-area-inset-bottom', s.bottom);
+    put('--tg-safe-area-inset-left', s.left);
+    put('--tg-safe-area-inset-right', s.right);
+    put('--tg-content-safe-area-inset-top', c.top);
+    put('--tg-content-safe-area-inset-bottom', c.bottom);
+    put('--tg-content-safe-area-inset-left', c.left);
+    put('--tg-content-safe-area-inset-right', c.right);
+    const reported = (Number(s.top) || 0) + (Number(c.top) || 0);
+    if (TG.isFullscreen && reported < 100) {
+      st.setProperty('--tg-content-safe-area-inset-top', Math.max(Number(c.top) || 0, 112 - (Number(s.top) || 0)) + 'px');
+    }
   }
 
   /* ---------------- data ---------------- */
@@ -864,6 +874,10 @@
     return s + '%';
   }
   const CHEV = '<svg class="chev" width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M1.5 1.5 6.5 7l-5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const LOCK_SVG = '<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="9" width="12" height="8" rx="2"/><path d="M7 9V6.6a3 3 0 0 1 6 0V9" stroke-linecap="round"/></svg>';
+  function premLock(id, html) {
+    return '<div class="prem-lock" id="' + id + '" role="button" tabindex="0"><div class="prem-blur">' + html + '</div><span class="prem-cap">' + LOCK_SVG + 'Premium</span></div>';
+  }
   function inTelegram() {
     return !!(TG && TG.BackButton && TG.platform && TG.platform !== 'unknown');
   }
@@ -968,20 +982,27 @@
     if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
 
     const insights = buildInsights(tk);
-    const vis = isPrem() ? insights : insights.slice(0, 3);
-    if (vis.length) {
+    const shownIns = isPrem() ? insights : insights.slice(0, 3);
+    const lockedIns = isPrem() ? [] : insights.slice(3);
+    const insRow = function (x, i) {
+      const p = insightParts(x.text);
+      const tone = x.tone === 'bad' ? 'b-r' : x.tone === 'warn' ? 'b-o' : x.tone === 'good' ? 'b-g' : 'b-n';
+      return '<div class="row" style="--i:' + i + '"><div class="ic ' + tone + '">' + insightIcon(x) + '</div>' +
+        '<div class="tx"><b>' + esc(p.title) + '</b>' + (p.sub ? '<span>' + esc(p.sub) + '</span>' : '') + '</div></div>';
+    };
+    if (insights.length) {
       const rc = (tk.risks || []).length;
       out += '<div class="sh"><b>' + esc(ru ? 'Что важно' : 'What matters') + '</b>' +
         (rc ? '<span class="muted">Rugcheck · ' + rc + '</span>' : '') + '</div>';
-      out += '<div class="card ins">' + vis.map(function (x, i) {
-        const p = insightParts(x.text);
-        const tone = x.tone === 'bad' ? 'b-r' : x.tone === 'warn' ? 'b-o' : x.tone === 'good' ? 'b-g' : 'b-n';
-        return '<div class="row" style="--i:' + i + '"><div class="ic ' + tone + '">' + insightIcon(x) + '</div>' +
-          '<div class="tx"><b>' + esc(p.title) + '</b>' + (p.sub ? '<span>' + esc(p.sub) + '</span>' : '') + '</div></div>';
+      if (shownIns.length) out += '<div class="card ins">' + shownIns.map(insRow).join('') + '</div>';
+      if (lockedIns.length) out += premLock('lockIns', '<div class="card ins">' + lockedIns.map(insRow).join('') + '</div>');
+    }
+    if (tk.risks && tk.risks.length) {
+      out += '<div class="sh"><b>' + esc(ru ? 'Риски Rugcheck' : 'Rugcheck risks') + '</b><span class="muted">' + tk.risks.length + '</span></div>';
+      out += '<div class="card risk-list">' + tk.risks.map(function (r) {
+        const low = /warn|medium|low/i.test(r.level);
+        return '<div class="risk"><span class="dot" style="background:' + (low ? 'var(--orange)' : 'var(--red)') + '"></span><span><b>' + esc(riskRu(r.name)) + '</b></span></div>';
       }).join('') + '</div>';
-      if (!isPrem() && insights.length > 3) {
-        out += '<button type="button" class="locked-row" id="lockIns"><span>🔒</span><span>' + esc(ru ? 'Ещё ' + (insights.length - 3) + ' — в Premium' : (insights.length - 3) + ' more in Premium') + '</span></button>';
-      }
     }
 
     if (tk.liq > 0) {
@@ -1056,19 +1077,16 @@
     out += '<div id="block-detail"></div>';
 
     if (tk.top && tk.top.length) {
-      if (!isPrem()) {
-        out += '<button type="button" class="locked-row" id="lockHold"><span>🔒</span><span>' + esc(ru ? 'Топ держателей — в Premium' : 'Top holders in Premium') + '</span></button>';
-      } else {
-        const maxPct = Math.max.apply(null, tk.top.map(function (h) { return h.pct; }).concat([1]));
-        out += '<details class="card holders" style="margin-top:10px"><summary class="plain">' + esc(ru ? 'Топ держателей' : 'Top holders') + '<span class="cnt">' + tk.top.length + '</span>' + CHEV + '</summary><div class="hold-list">' + tk.top.map(function (h, hi) {
-          const w = Math.max(3, Math.round(h.pct / maxPct * 100));
-          const ht = h.pct > 20 ? 'var(--red)' : h.pct > 10 ? 'var(--orange)' : 'var(--l3)';
-          return '<div class="hold-row"><span class="hold-n">' + (hi + 1) + '</span>' +
-            '<span class="hold-mid"><span class="hold-bar"><i style="width:' + w + '%;background:' + ht + '"></i></span>' +
-            '<span class="hold-addr">' + esc(h.addr ? h.addr.slice(0, 5) + '…' + h.addr.slice(-4) : '—') + '</span></span>' +
-            '<b>' + esc(h.pct.toFixed(2)) + '%</b></div>';
-        }).join('') + '</div></details>';
-      }
+      const maxPct = Math.max.apply(null, tk.top.map(function (h) { return h.pct; }).concat([1]));
+      const holdHtml = '<details class="card holders"' + (isPrem() ? ' style="margin-top:10px"' : '') + '><summary class="plain">' + esc(ru ? 'Топ держателей' : 'Top holders') + '<span class="cnt">' + tk.top.length + '</span>' + CHEV + '</summary><div class="hold-list">' + tk.top.map(function (h, hi) {
+        const w = Math.max(3, Math.round(h.pct / maxPct * 100));
+        const ht = h.pct > 20 ? 'var(--red)' : h.pct > 10 ? 'var(--orange)' : 'var(--l3)';
+        return '<div class="hold-row"><span class="hold-n">' + (hi + 1) + '</span>' +
+          '<span class="hold-mid"><span class="hold-bar"><i style="width:' + w + '%;background:' + ht + '"></i></span>' +
+          '<span class="hold-addr">' + esc(h.addr ? h.addr.slice(0, 5) + '…' + h.addr.slice(-4) : '—') + '</span></span>' +
+          '<b>' + esc(h.pct.toFixed(2)) + '%</b></div>';
+      }).join('') + '</div></details>';
+      out += isPrem() ? holdHtml : premLock('lockHold', holdHtml);
     }
 
     if (S.result.blocks.length < 8) out += '<p class="tiny" style="margin-top:12px">' + esc(ru ? 'Часть данных недоступна — оценка по ' + S.result.blocks.length + ' из 8 блоков.' : 'Some data unavailable — scored on ' + S.result.blocks.length + ' of 8 blocks.') + '</p>';
@@ -1078,6 +1096,7 @@
     out += '<div class="actions-main"><button type="button" class="btn' + (inList ? ' saved' : '') + '" id="save">' +
       (inList ? '<svg class="ok-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4.5 4.5L19 7"/></svg><span>' + esc(ru ? 'В списке' : 'Saved') + '</span>' : esc(t('save'))) +
       '</button></div>';
+    out += '<button type="button" class="btn secondary" id="share" style="margin-top:10px">' + esc(ru ? 'Поделиться' : 'Share') + '</button>';
     out += '<div class="card" style="margin-top:10px">';
     if (tk.creator) {
       const blocked = !!S.black.devs[tk.creator];
@@ -1090,14 +1109,6 @@
       '<span class="ga-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M6.5 6.5l11 11"/></svg></span>' +
       '<span>' + esc(tokBlocked ? (ru ? 'Монета в чёрном списке' : 'Token blacklisted') : (ru ? 'В чёрный список' : 'Blacklist token')) + '</span></button>';
     out += '</div>';
-
-    if (tk.risks && tk.risks.length) {
-      out += '<div class="sh"><b>' + esc(ru ? 'Риски Rugcheck' : 'Rugcheck risks') + '</b><span class="muted">' + tk.risks.length + '</span></div>';
-      out += '<div class="card risk-list">' + tk.risks.map(function (r) {
-        const low = /warn|medium|low/i.test(r.level);
-        return '<div class="risk"><span class="dot" style="background:' + (low ? 'var(--orange)' : 'var(--red)') + '"></span><span><b>' + esc(riskRu(r.name)) + '</b></span></div>';
-      }).join('') + '</div>';
-    }
 
     out += '<p class="tiny copy-a" id="copyMint" style="margin-top:14px"><span class="mint">' + esc(tk.mint) + '</span><span class="cp">' + (ru ? 'копировать' : 'copy') + '</span></p>';
     out += '<p class="tiny">' + esc(t('about')) + '</p></div>';
@@ -1441,30 +1452,310 @@
     ]
   };
 
-  function showHow() {
+  const STORY_KEY = 'tc.ob.story.v1';
+
+  function storySlides() {
     const ru = S.lang === 'ru';
-    const steps = ru ? [
-      ['Проверка', 'Вставь адрес монеты. Reactive опрашивает DexScreener, Rugcheck, GoPlus, GeckoTerminal и Pump.fun — параллельно, за 1–2 секунды.'],
-      ['Оценка', 'Каждый блок получает 0–100%. Из них собирается общий балл. Цвет: зелёный — чисто, жёлтый — рискованно, красный — опасно.'],
-      ['Инсайты', 'Правила находят конкретику: открыт минт, LP не заблокирован, продаж больше покупок, создатель уже запускал монеты.'],
-      ['Чёрный список', 'Блокируй монету или создателя. При следующей проверке Reactive сразу предупредит.'],
-      ['Точность', 'Оценка — не гарантия. Rag бывает и у чистых монет. Задача — сэкономить время и показать риски, а не решать за тебя.']
-    ] : [
-      ['Check', 'Paste the address. Reactive queries DexScreener, Rugcheck, GoPlus, GeckoTerminal and Pump.fun in parallel — 1–2 seconds.'],
-      ['Score', 'Each block scores 0–100%. They combine into one number. Green — clean, yellow — risky, red — dangerous.'],
-      ['Insights', 'Rules surface concrete facts: mint open, LP unlocked, more sells than buys, creator launched tokens before.'],
-      ['Blacklist', 'Block a token or a creator. Next check Reactive warns you instantly.'],
-      ['Accuracy', 'A score is not a guarantee. Rugs happen to clean tokens too. The goal is to save time and show risks, not decide for you.']
+    const art = {
+      check: '<div class="sa-card sa-a"><span class="ava a-good">MO</span><b>MOODENG</b><em style="color:var(--green)">81</em></div>' +
+        '<div class="sa-card sa-b"><span class="ava a-bad">PX</span><b>PEPEX</b><em style="color:var(--red)">34</em></div>' +
+        '<div class="sa-note"><i class="dot" style="background:var(--red)"></i>' + (ru ? 'Минт не отозван' : 'Mint not revoked') + '</div>',
+      score: '<div class="sa-scores"><div><b style="color:var(--green)">81</b><i style="background:var(--green);width:81%"></i></div>' +
+        '<div><b style="color:var(--yellow)">57</b><i style="background:var(--yellow);width:57%"></i></div>' +
+        '<div><b style="color:var(--red)">34</b><i style="background:var(--red);width:34%"></i></div></div>' +
+        '<div class="sa-legend"><span style="color:var(--green)">' + (ru ? 'чисто' : 'clean') + '</span><span style="color:var(--yellow)">' + (ru ? 'риск' : 'risky') + '</span><span style="color:var(--red)">' + (ru ? 'опасно' : 'danger') + '</span></div>',
+      risks: '<div class="sa-rows"><div><span class="ic b-r">' + INS_ICON.key + '</span><b>' + (ru ? 'Минт не отозван' : 'Mint not revoked') + '</b></div>' +
+        '<div><span class="ic b-o">' + INS_ICON.lock + '</span><b>' + (ru ? 'LP не заблокирован' : 'LP is unlocked') + '</b></div>' +
+        '<div><span class="ic b-r">' + INS_ICON.people + '</span><b>' + (ru ? 'Топ-10 держат 62%' : 'Top-10 hold 62%') + '</b></div></div>',
+      trade: '<div class="sa-deal"><div><span>$100</span><b style="color:var(--green)">−$2</b></div><div><span>$500</span><b style="color:var(--orange)">−$46</b></div><div><span>$1000</span><b style="color:var(--red)">−$171</b></div></div>',
+      list: '<div class="sa-rows sa-list"><div><span class="ava a-good">MO</span><b>MOODENG</b><em style="color:var(--green)">81</em></div>' +
+        '<div><span class="ava a-bad">WI</span><b>WIFX</b><em style="color:var(--yellow)">52</em></div></div>' +
+        '<div class="sa-note">' + (ru ? 'Сторож · скор упал' : 'Watcher · score dropped') + '</div>',
+      wallets: '<div class="sa-rows"><div><span class="ava">7x</span><b>7xKX…9fPq</b><em style="color:var(--green)">' + (ru ? 'купил' : 'bought') + '</em></div>' +
+        '<div><span class="ava a-bad">PX</span><b>PEPEX</b><em style="color:var(--red)">34</em></div></div>',
+      prem: '<div class="sa-rows"><div><span class="ic b-n">∞</span><b>' + (ru ? 'Без лимита проверок' : 'Unlimited checks') + '</b></div>' +
+        '<div><span class="ic b-n">≡</span><b>' + (ru ? 'Большой список' : 'Big watchlist') + '</b></div>' +
+        '<div><span class="ic b-n">⌘</span><b>' + (ru ? 'Алерты по монетам' : 'Alerts on your coins') + '</b></div></div>',
+      honest: '<div class="sa-honest"><b>0–100</b><span>' + (ru ? 'эвристика' : 'a heuristic') + '</span></div>'
+    };
+    return [
+      { art: art.check, t: ru ? 'Проверка за 30 секунд' : 'A check in 30 seconds', p: ru ? 'Вставь адрес — Reactive покажет скор, риски простыми словами и сколько потеряешь на входе.' : 'Paste an address — Reactive shows the score, the risks in plain words, and what you lose on entry.' },
+      { art: art.score, t: ru ? 'Скор от 0 до 100' : 'A score from 0 to 100', p: ru ? 'Восемь блоков в одном числе. Зелёный — чисто, жёлтый — рискованно, красный — опасно.' : 'Eight blocks in one number. Green — clean, yellow — risky, red — dangerous.' },
+      { art: art.risks, t: ru ? 'Что важно и риски' : 'What matters, and the risks', p: ru ? 'Не таблица, а фразы: минт открыт, топ-10 держат много, LP не заблокирован.' : 'Not a table — sentences: mint is open, top-10 hold too much, LP isn’t locked.' },
+      { art: art.trade, t: ru ? 'Для сделки' : 'For a trade', p: ru ? 'Три суммы: $100, $500 и $1000. Сколько долларов и процентов сгорит на входе.' : 'Three sizes: $100, $500 and $1000. How many dollars and percent you lose on entry.' },
+      { art: art.list, t: ru ? 'Список и сторож' : 'List and watcher', p: ru ? 'Монеты со скором, спарклайном и пометкой, если скор или ликвидность упали.' : 'Coins with a score, a sparkline, and a flag when the score or liquidity drops.' },
+      { art: art.wallets, t: 'Smart Wallets', p: ru ? 'Добавь кошельки — Reactive покажет, что они делают с монетами из твоего списка.' : 'Add wallets — Reactive shows what they do with the coins on your list.' },
+      { art: art.prem, t: 'Premium', p: ru ? 'Без лимита проверок, топ держателей, все инсайты и алерты, когда монета ломается.' : 'Unlimited checks, top holders, every insight, and alerts when a coin breaks.' },
+      { art: art.honest, t: ru ? 'Оценка — эвристика, не гарантия' : 'A score is a heuristic, not a guarantee', p: ru ? 'Раг случается и с чистыми монетами. Reactive экономит время и показывает риски, а не решает за тебя.' : 'Rugs happen to clean coins too. Reactive saves time and shows risks — it doesn’t decide for you.' }
     ];
+  }
+
+  function openStory(onboard) {
+    if (document.getElementById('story')) return;
+    const ru = S.lang === 'ru';
+    const slides = storySlides();
     const wrap = document.createElement('div');
-    wrap.className = 'modal';
-    wrap.innerHTML = '<div class="modal-card"><div class="modal-head"><b>' + (ru ? 'Как работает Reactive' : 'How Reactive works') + '</b><button class="modal-x" id="mx">✕</button></div><div class="modal-body">' +
-      steps.map(function (s, i) { return '<div class="how-step"><span class="how-n">' + (i + 1) + '</span><div><b>' + esc(s[0]) + '</b><span>' + esc(s[1]) + '</span></div></div>'; }).join('') +
-      '</div></div>';
+    wrap.className = 'story';
+    wrap.id = 'story';
+    wrap.innerHTML = '<button type="button" class="story-x" id="storyX" aria-label="Close">×</button>' +
+      '<div class="story-sheet"><div class="story-track" id="storyTrack">' +
+      slides.map(function (s) {
+        return '<section class="story-slide"><div class="story-art">' + s.art + '</div><h2>' + esc(s.t) + '</h2><p>' + esc(s.p) + '</p></section>';
+      }).join('') +
+      '</div><div class="story-dots" id="storyDots">' + slides.map(function (_, i) { return '<i' + (i === 0 ? ' class="on"' : '') + '></i>'; }).join('') + '</div>' +
+      '<button type="button" class="btn" id="storyNext">' + (ru ? 'Далее' : 'Next') + '</button></div>';
     document.body.appendChild(wrap);
-    const close = function () { wrap.remove(); };
-    wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
-    wrap.querySelector('#mx').onclick = close;
+    const track = wrap.querySelector('#storyTrack');
+    const dots = wrap.querySelectorAll('#storyDots i');
+    const next = wrap.querySelector('#storyNext');
+    let idx = 0;
+    const finish = function () {
+      if (onboard) { write(STORY_KEY, true); write(K.ob, true); }
+      wrap.remove();
+    };
+    const sync = function () {
+      const w = track.clientWidth || 1;
+      idx = Math.max(0, Math.min(slides.length - 1, Math.round(track.scrollLeft / w)));
+      dots.forEach(function (d, i) { d.classList.toggle('on', i === idx); });
+      next.textContent = idx === slides.length - 1 ? (ru ? 'Готово' : 'Done') : (ru ? 'Далее' : 'Next');
+    };
+    track.addEventListener('scroll', sync, { passive: true });
+    next.onclick = function () {
+      haptic();
+      if (idx >= slides.length - 1) { finish(); return; }
+      track.scrollTo({ left: (idx + 1) * track.clientWidth, behavior: 'smooth' });
+    };
+    wrap.querySelector('#storyX').onclick = finish;
+    haptic();
+  }
+
+  function showHow() { openStory(false); }
+
+  function loadShareImage(url) {
+    return new Promise(function (resolve) {
+      if (!url) { resolve(null); return; }
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function () {
+        try {
+          const t = document.createElement('canvas');
+          t.width = t.height = 8;
+          const x = t.getContext('2d');
+          x.drawImage(img, 0, 0, 8, 8);
+          x.getImageData(0, 0, 1, 1);
+          resolve(img);
+        } catch (e) { resolve(null); }
+      };
+      img.onerror = function () { resolve(null); };
+      img.src = url;
+    });
+  }
+
+  function canvasRound(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function wrapCanvas(ctx, text, max) {
+    const words = String(text || '').split(/\s+/);
+    const lines = [];
+    let cur = '';
+    words.forEach(function (w) {
+      const t = cur ? cur + ' ' + w : w;
+      if (ctx.measureText(t).width > max && cur) { lines.push(cur); cur = w; }
+      else cur = t;
+    });
+    if (cur) lines.push(cur);
+    return lines.slice(0, 2);
+  }
+
+  async function buildSharePng(tk) {
+    const ru = S.lang === 'ru';
+    const W = 1080, H = 1350;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    const v = verdictLabel(S.result.score);
+    const col = v.cls === 'good' ? '#30D158' : v.cls === 'mid' ? '#FFD60A' : '#FF453A';
+    const ch = Number(tk.ch24) || 0;
+    const chCol = ch >= 0 ? '#30D158' : '#FF453A';
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+    canvasRound(ctx, 48, 48, W - 96, H - 96, 36);
+    ctx.fillStyle = '#1C1C1E';
+    ctx.fill();
+    ctx.fillStyle = 'rgba(235,235,245,.6)';
+    ctx.font = '600 28px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText('REACTIVE', 96, 130);
+    ctx.textAlign = 'right';
+    ctx.font = '500 24px -apple-system, BlinkMacSystemFont, sans-serif';
+    const stamp = new Date().toLocaleString(ru ? 'ru-RU' : 'en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    ctx.fillText(stamp, W - 96, 130);
+    ctx.textAlign = 'left';
+
+    const img = await loadShareImage(tk.image);
+    const ax = 96, ay = 168, as = 96;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(ax + as / 2, ay + as / 2, as / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    if (img) ctx.drawImage(img, ax, ay, as, as);
+    else {
+      ctx.fillStyle = '#2C2C2E';
+      ctx.fillRect(ax, ay, as, as);
+      ctx.fillStyle = '#fff';
+      ctx.font = '700 36px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(tk.symbol || '?').slice(0, 2).toUpperCase(), ax + as / 2, ay + 60);
+      ctx.textAlign = 'left';
+    }
+    ctx.restore();
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 52px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(String(tk.symbol || ''), 216, 214);
+    ctx.fillStyle = 'rgba(235,235,245,.6)';
+    ctx.font = '500 28px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(String(tk.name || '').slice(0, 28), 216, 256);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 56px -apple-system, BlinkMacSystemFont, sans-serif';
+    const priceTxt = price(tk.price);
+    ctx.fillText(priceTxt, 96, 360);
+    const pw = ctx.measureText(priceTxt).width;
+    ctx.fillStyle = chCol;
+    ctx.font = '600 32px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(tk.ch24 ? pct(tk.ch24) : '', 112 + pw, 360);
+
+    ctx.fillStyle = col;
+    ctx.font = '700 92px -apple-system, BlinkMacSystemFont, sans-serif';
+    const scoreTxt = String(S.result.score);
+    ctx.fillText(scoreTxt, 96, 480);
+    const sw = ctx.measureText(scoreTxt).width;
+    ctx.font = '600 28px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillStyle = 'rgba(235,235,245,.55)';
+    ctx.fillText('/100', 108 + sw, 480);
+    ctx.fillStyle = col;
+    ctx.font = '600 32px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(v.txt || '', 96, 530);
+
+    canvasRound(ctx, 96, 556, W - 192, 8, 4);
+    ctx.fillStyle = 'rgba(118,118,128,.24)';
+    ctx.fill();
+    canvasRound(ctx, 96, 556, Math.max(8, (W - 192) * (S.result.score / 100)), 8, 4);
+    ctx.fillStyle = col;
+    ctx.fill();
+
+    const ageTxt = (function () {
+      if (!tk.created) return '—';
+      const h = (Date.now() - tk.created) / 36e5;
+      return h < 1 ? Math.round(h * 60) + 'm' : h < 48 ? Math.round(h) + 'h' : Math.round(h / 24) + 'd';
+    })();
+    const top10 = (tk.top || []).slice(0, 10).reduce(function (s, h) { return s + (h.pct || 0); }, 0);
+    let tax = '—';
+    if (tk.gp) {
+      const b = String(tk.gp.buyTax || '0');
+      const s = String(tk.gp.sellTax || '0');
+      tax = (b === s ? b : b + '/' + s) + '%';
+    }
+    const dev = (tk.creatorBalance && tk.creatorBalance.pct) ? tk.creatorBalance.pct.toFixed(1) + '%' : '—';
+    const lp = (tk.lpLocked === null || tk.lpLocked === undefined) ? '—' : Math.round(tk.lpLocked) + '%';
+    const metrics = [
+      ['MC', usd(tk.mc)],
+      [ru ? 'Ликв.' : 'Liq', usd(tk.liq)],
+      [ru ? 'Объём' : 'Vol', usd(tk.vol)],
+      [ru ? 'Возраст' : 'Age', ageTxt],
+      [ru ? 'Топ-10' : 'Top-10', top10 ? Math.round(top10) + '%' : '—'],
+      [ru ? 'Дев' : 'Dev', dev],
+      ['LP', lp],
+      [ru ? 'Налог' : 'Tax', tax]
+    ];
+    metrics.forEach(function (m, i) {
+      const colN = i % 4;
+      const row = Math.floor(i / 4);
+      const x = 96 + colN * 228;
+      const y = 620 + row * 110;
+      ctx.fillStyle = 'rgba(235,235,245,.55)';
+      ctx.font = '600 22px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(m[0], x, y);
+      ctx.fillStyle = '#fff';
+      ctx.font = '600 32px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(String(m[1]), x, y + 40);
+    });
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 32px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(ru ? 'Что важно' : 'What matters', 96, 880);
+    const lines = buildInsights(tk).slice(0, 3);
+    ctx.font = '500 28px -apple-system, BlinkMacSystemFont, sans-serif';
+    lines.forEach(function (x, i) {
+      const tone = x.tone === 'good' ? '#30D158' : x.tone === 'warn' ? '#FF9F0A' : '#FF453A';
+      ctx.fillStyle = tone;
+      ctx.beginPath();
+      ctx.arc(112, 930 + i * 64, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      const parts = insightParts(x.text);
+      const wrapped = wrapCanvas(ctx, parts.title, W - 240);
+      ctx.fillText(wrapped[0] || '', 140, 940 + i * 64);
+    });
+
+    const mint = String(tk.mint || '');
+    const short = mint ? mint.slice(0, 4) + '…' + mint.slice(-4) : '';
+    ctx.fillStyle = 'rgba(235,235,245,.6)';
+    ctx.font = '500 26px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(short, 96, 1160);
+    ctx.fillStyle = '#fff';
+    ctx.font = '600 28px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText('Reactive · @rakko_app', 96, 1220);
+    ctx.fillStyle = 'rgba(235,235,245,.45)';
+    ctx.font = '400 22px -apple-system, BlinkMacSystemFont, sans-serif';
+    const disc = ru ? 'Не финансовый совет. Оценка — эвристика, не гарантия.' : 'Not financial advice. The score is a heuristic, not a guarantee.';
+    ctx.fillText(disc, 96, 1264);
+
+    return await new Promise(function (resolve) { c.toBlob(function (b) { resolve(b); }, 'image/png'); });
+  }
+
+  function openSharePreview(blob, ru) {
+    const url = URL.createObjectURL(blob);
+    const old = document.getElementById('sharePrev');
+    if (old) old.remove();
+    const wrap = document.createElement('div');
+    wrap.className = 'share-prev';
+    wrap.id = 'sharePrev';
+    wrap.innerHTML = '<button type="button" class="story-x" id="spx">×</button>' +
+      '<img alt="" src="' + url + '">' +
+      '<p>' + (ru ? 'Удерживай, чтобы сохранить' : 'Hold the image to save it') + '</p>' +
+      '<a class="btn" id="spdl" download="reactive.png" href="' + url + '">' + (ru ? 'Скачать' : 'Download') + '</a>';
+    document.body.appendChild(wrap);
+    const close = function () { URL.revokeObjectURL(url); wrap.remove(); };
+    wrap.querySelector('#spx').onclick = close;
+  }
+
+  async function shareResult() {
+    const tk = S.result && S.result.token;
+    if (!tk) return;
+    const ru = S.lang === 'ru';
+    let blob;
+    try { blob = await buildSharePng(tk); } catch (e) { toast(ru ? 'Не удалось собрать картинку' : 'Couldn’t build the image'); return; }
+    if (!blob) { toast(ru ? 'Не удалось собрать картинку' : 'Couldn’t build the image'); return; }
+    const file = new File([blob], 'reactive-' + String(tk.symbol || 'coin') + '.png', { type: 'image/png' });
+    const payload = { files: [file], title: 'Reactive · ' + (tk.symbol || ''), text: (ru ? 'Проверка ' : 'Check ') + (tk.symbol || '') + ' · Reactive' };
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share(payload);
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+    }
+    openSharePreview(blob, ru);
   }
 
   const ETA = { liq: 0.8, holders: 2.5, dev: 3, contract: 2, activity: 1.2, age: 0.8, price: 0.8, links: 1.5 };
@@ -1993,7 +2284,6 @@
 
   /* ---------------- render ---------------- */
   function render() {
-    if (!read(K.ob, false)) return viewOnboard();
     const dock = document.getElementById('dock');
     if (dock) dock.style.display = '';
     document.documentElement.lang = S.lang === 'en' ? 'en' : 'ru';
@@ -2016,6 +2306,7 @@
     S._animKey = animKey;
     app.classList.toggle('enter', animateIn);
     if (animateIn) app.scrollTop = 0; else app.scrollTop = kept;
+    try { if (!read(STORY_KEY, false)) openStory(true); } catch (e) {}
     syncDock();
     bind();
     decorate();
@@ -2387,6 +2678,7 @@
     });
     if ($('#plan')) $('#plan').onclick = showPaywall;
     document.querySelectorAll('#lockIns, #lockHold').forEach(function (b) { b.onclick = showPaywall; });
+    if ($('#share')) $('#share').onclick = function () { haptic(); shareResult(); };
     if ($('#notify')) $('#notify').onclick = function () { S.notify = !S.notify; write('tc.notify', S.notify); render(); };
     if ($('#auto')) $('#auto').onclick = function () { S.autoUpd = S.autoUpd === false; write('tc.auto', S.autoUpd); render(); };
     if ($('#hide')) $('#hide').onclick = function () { S.hideMoney = !S.hideMoney; write('tc.hide', S.hideMoney); render(); };
@@ -2610,6 +2902,7 @@
         TG.onEvent('themeChanged', applyTheme);
         TG.onEvent('viewportChanged', function () { if (TG.expand) TG.expand(); applyInsets(); });
       }
+      [0, 400, 1200].forEach(function (ms) { setTimeout(applyInsets, ms); });
     } catch (e) {}
   }
   applyInsets();
