@@ -1907,3 +1907,16 @@ body::before {
 .mk-price { font-size: 13px; color: #d1d1d6; font-variant-numeric: tabular-nums; }
 .mk-ch { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 58px; text-align: right; }
 .trend-all { margin-left: auto; border: 0; background: transparent; color: #6169ee; font: inherit; font-size: 12px; font-weight: 650; }
+
+/* ===== trade check block ===== */
+.trade { background: #2c2c2e; border-radius: 18px; padding: 14px 16px; }
+.trade-h { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #8e8e93; font-weight: 700; margin-bottom: 10px; }
+.trade-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13.5px; }
+.trade-row > span:first-child { width: 64px; color: #d1d1d6; font-variant-numeric: tabular-nums; }
+.trade-bar { flex: 1; height: 5px; border-radius: 99px; background: #3a3a3c; overflow: hidden; }
+.trade-bar i { display: block; height: 100%; border-radius: 99px; }
+.trade-row b { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 62px; text-align: right; }
+.trade-row.flat { justify-content: space-between; }
+.trade-row.flat > span:first-child { width: auto; color: #8e8e93; font-size: 13px; }
+.trade-row.flat b { color: #fff; }
+.trade-sep { height: .5px; background: rgba(255,255,255,.08); margin: 8px 0; }
