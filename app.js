@@ -916,10 +916,10 @@
         const dead = band.filter(function (s) { const ref = s.entryLiq || s.liq || 1; return (s.liq || 0) < ref * 0.4; }).length;
         const pctDead = Math.round(dead / band.length * 100);
         out += '<div class="personal">' +
-          '<b>' + esc(S.lang === 'ru' ? 'Твоя история' : 'Your history') + '</b>' +
+          '<div class="p-top"><b>' + esc(S.lang === 'ru' ? 'ТВОЯ ИСТОРИЯ' : 'YOUR HISTORY') + '</b><em>' + pctDead + '%</em></div>' +
           '<span>' + esc(S.lang === 'ru'
-            ? 'Похожие по скору (' + Math.max(0, p - 10) + '–' + Math.min(100, p + 10) + '): ' + dead + ' из ' + band.length + ' потеряли ликвидность (' + pctDead + '%)'
-            : 'Similar score: ' + dead + ' of ' + band.length + ' lost liquidity (' + pctDead + '%)') + '</span>' +
+            ? dead + ' из ' + band.length + ' похожих (скор ' + Math.max(0, p - 10) + '–' + Math.min(100, p + 10) + ') потеряли ликвидность'
+            : dead + ' of ' + band.length + ' similar lost liquidity') + '</span>' +
           '</div>';
       })() +
       '<p class="eyebrow" style="margin-top:20px">' + esc(S.lang === 'ru' ? 'ДЛЯ СДЕЛКИ' : 'TRADE CHECK') + '</p>';
@@ -1607,63 +1607,59 @@
   async function checkDev(creator, btnEl) {
     const ru = S.lang === 'ru';
     const setTxt = function (t2) { if (btnEl) btnEl.textContent = t2; };
-    setTxt(ru ? 'Смотрю создателя…' : 'Checking creator…');
+    setTxt(ru ? 'Смотрю кошелёк создателя…' : 'Reading creator wallet…');
     try {
-      const sigs = await rpcCall('getSignaturesForAddress', [creator, { limit: 30 }]);
-      if (!Array.isArray(sigs) || !sigs.length) { toast(ru ? 'Нет истории у создателя' : 'No creator history'); setTxt(ru ? 'Проверить создателя' : 'Check creator'); return; }
-      const mints = [];
-      for (const sg of sigs.slice(0, 12)) {
-        if (!sg || !sg.signature) continue;
-        setTxt(ru ? 'Разбираю ' + (mints.length ? mints.length : '') + '…' : 'Parsing…');
-        const tx = await rpcCall('getTransaction', [sg.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
-        if (!tx || !tx.transaction) continue;
-        const ins = ((tx.transaction.message && tx.transaction.message.instructions) || [])
-          .concat(((tx.meta && tx.meta.innerInstructions) || []).reduce(function (acc, x) { return acc.concat(x.instructions || []); }, []));
-        ins.forEach(function (i) {
-          const p = i.parsed;
-          if (!p) return;
-          if (p.type === 'initializeMint' && p.info && p.info.mint) mints.push(p.info.mint);
-          if (i.program === 'pump' || (i.programId && String(i.programId).indexOf('pump') > -1)) {
-            if (i.accounts && i.accounts[0]) mints.push(String(i.accounts[0]));
-          }
-        });
-        if (mints.length >= 8) break;
-      }
-      const uniq = mints.filter(function (m, idx) { return mints.indexOf(m) === idx; }).slice(0, 8);
-      if (!uniq.length) {
-        toast(ru ? 'Созданий токенов не найдено в последних сделках' : 'No token creations found');
+      const TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+      const resp = await rpcCall('getTokenAccountsByOwner', [creator, { programId: TOKEN_PROGRAM }, { encoding: 'jsonParsed' }]);
+      const accounts = (resp && resp.value) || [];
+      const held = accounts.map(function (acc) {
+        const info = acc.account && acc.account.data && acc.account.data.parsed && acc.account.data.parsed.info;
+        if (!info) return null;
+        const amount = Number(info.tokenAmount && info.tokenAmount.uiAmount) || 0;
+        return { mint: info.mint, amount: amount };
+      }).filter(function (x) { return x && x.amount > 0; }).slice(0, 10);
+
+      if (!held.length) {
+        toast(ru ? 'На кошельке создателя нет токенов' : 'Creator wallet holds no tokens');
         setTxt(ru ? 'Проверить создателя' : 'Check creator');
         return;
       }
-      setTxt(ru ? 'Проверяю пулы…' : 'Checking pools…');
-      const res = await getJson('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(uniq.join(',')), 7000).catch(function () { return null; });
+
+      setTxt(ru ? 'Проверяю ' + held.length + ' токенов…' : 'Checking ' + held.length + ' tokens…');
+      const mints = held.map(function (x) { return x.mint; });
+      const res = await getJson('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(mints.join(',')), 7000).catch(function () { return null; });
       const pairs = (res && res.pairs) || [];
-      const rows = uniq.map(function (m) {
-        const ps = pairs.filter(function (p) { return p.baseToken && p.baseToken.address === m; });
+      const rows = held.map(function (h) {
+        const ps = pairs.filter(function (p) { return p.baseToken && p.baseToken.address === h.mint; });
         const best = ps.sort(function (x, y) { return (Number(y.liquidity && y.liquidity.usd) || 0) - (Number(x.liquidity && x.liquidity.usd) || 0); })[0];
         const liq = best ? Number(best.liquidity && best.liquidity.usd) || 0 : 0;
-        const sym = best && best.baseToken ? best.baseToken.symbol : m.slice(0, 4) + '…';
-        return { mint: m, symbol: sym, liq: liq, alive: liq > 500 };
+        const sym = best && best.baseToken && best.baseToken.symbol ? best.baseToken.symbol : h.mint.slice(0, 4) + '…';
+        return { mint: h.mint, symbol: sym, liq: liq, alive: liq > 500, amount: h.amount };
       });
       const dead = rows.filter(function (r) { return !r.alive; }).length;
+
       const wrap = document.createElement('div');
       wrap.className = 'modal';
       wrap.innerHTML = '<div class="modal-card sheet-help" style="max-height:80vh">' +
-        '<div class="modal-head"><b>' + (ru ? 'Монеты создателя' : 'Creator tokens') + '</b><button class="modal-x" id="mx">✕</button></div>' +
+        '<div class="modal-head"><b>' + (ru ? 'Кошелёк создателя' : 'Creator wallet') + '</b><button class="modal-x" id="mx">✕</button></div>' +
         '<div class="help-list">' +
-        '<div class="trade" style="margin-bottom:12px"><div class="trade-row flat"><span>' + (ru ? 'Найдено монет' : 'Found') + '</span><b>' + rows.length + '</b></div>' +
-        '<div class="trade-row flat"><span>' + (ru ? 'Умерли (нет ликвидности)' : 'Dead') + '</span><b style="color:var(--red)">' + dead + ' из ' + rows.length + '</b></div></div>' +
+        '<div class="trade" style="margin-bottom:12px">' +
+        '<div class="trade-row flat"><span>' + (ru ? 'Токенов на кошельке' : 'Tokens held') + '</span><b>' + rows.length + '</b></div>' +
+        '<div class="trade-row flat"><span>' + (ru ? 'Без ликвидности' : 'No liquidity') + '</span><b style="color:var(--red)">' + dead + ' из ' + rows.length + '</b></div>' +
+        '</div>' +
         rows.map(function (r) {
           return '<div class="alert-row"><span class="al-dot" style="background:' + (r.alive ? 'var(--green)' : 'var(--red)') + '"></span>' +
-            '<span class="al-txt"><b>' + esc(r.symbol) + '</b><i>' + (r.alive ? usd(r.liq) + ' ' + (ru ? 'ликвидности' : 'liquidity') : (ru ? 'мёртвая' : 'dead')) + '</i></span></div>';
-        }).join('') + '</div></div>';
+            '<span class="al-txt"><b>' + esc(r.symbol) + '</b><i>' + (r.alive ? usd(r.liq) + ' ' + (ru ? 'ликвидности' : 'liquidity') : (ru ? 'нет пула — мёртвый' : 'no pool — dead')) + '</i></span></div>';
+        }).join('') +
+        '<p class="tiny" style="margin:10px 2px 0">' + (ru ? 'Это токены, которые создатель держит сейчас. Полная история запусков требует сервера.' : 'Tokens the creator holds right now. Full launch history needs a backend.') + '</p>' +
+        '</div></div>';
       document.body.appendChild(wrap);
       const close = function () { wrap.remove(); };
       wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
       wrap.querySelector('#mx').onclick = close;
       setTxt(ru ? 'Проверить снова' : 'Check again');
     } catch (e) {
-      toast(ru ? 'Не удалось получить историю' : 'Failed to load history');
+      toast(ru ? 'RPC не ответил, попробуй ещё раз' : 'RPC failed, try again');
       setTxt(ru ? 'Проверить создателя' : 'Check creator');
     }
   }
