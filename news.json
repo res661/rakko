@@ -1,0 +1,32 @@
+[
+  {
+    "at": "2026-11-18",
+    "ru": "Инфо: новости, как устроен Reactive, сравнение Free и Premium, вопросы и отказ от финансовых советов.",
+    "en": "Info: news, how Reactive works, a Free vs Premium comparison, questions, and a no-advice notice."
+  },
+  {
+    "at": "2026-11-18",
+    "ru": "Уведомления переехали в настройки Списка. Кошельки добавляются на экране Проверки и отмечаются в результате, если держат монету.",
+    "en": "Alerts moved into List settings. Wallets are added on Check and marked on a result when they hold the coin."
+  },
+  {
+    "at": "2026-11-18",
+    "ru": "Разбор: библиотека сценариев с заголовком, пояснением и тем, за чем следить. Бесплатно — сводка и критичные пункты.",
+    "en": "Read: a scenario library with a headline, an explanation, and what to watch. Free includes the summary and the critical lines."
+  },
+  {
+    "at": "2026-11-18",
+    "ru": "Карточка для шеринга: кольцо скора, логотип монеты, график, плитки и блоки. Блокировка LP не показывается, если её нельзя измерить.",
+    "en": "Share card: score ring, token logo, chart, tiles, and blocks. An LP lock is omitted when it cannot be measured."
+  },
+  {
+    "at": "2026-11-18",
+    "ru": "Мои проверки: свои веса блоков и красные флаги. Общий скор Reactive остаётся рядом. Сохранение — Premium.",
+    "en": "My checks: your own block weights and red flags. The general Reactive score stays beside them. Saving is Premium."
+  },
+  {
+    "at": "2026-11-18",
+    "ru": "Бесплатно 20 проверок в день. Вкладка Рынок убрана. Тёмная тема только.",
+    "en": "20 free checks a day. The Market tab is gone. Dark theme only."
+  }
+]

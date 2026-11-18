@@ -27,7 +27,10 @@
     wallets: read('tc.wallets', []),
     checks: read('tc.checks', []),
     custom: read('tc.custom.v1', { active: 'reactive', items: [], seen: false }),
-    alertPrefs: read('tc.alertPrefs', { score: true, liq: true, price: true, risky: true, wallet: true }),
+    alertPrefs: read('tc.alertPrefs', { score: true, liq: true, price: true, risky: true, wallet: true, scoreN: 10, liqN: 30, priceN: 40 }),
+    alertLog: read('tc.alertLog', []),
+    scanLog: read('tc.scanLog', []),
+    track: read('tc.track', {}),
     creators: read('tc.creators', {}),
     walletAlerts: read('tc.walletAlerts', []),
     ui: read('tc.ui', { trend: true, recent: true, quota: true, anim: true, big: true }),
@@ -487,6 +490,8 @@
   const FREE_SAVED_LIMIT = 7;
   const FREE_PER_HOUR = 20;
   const FREE_PER_DAY = 20;
+  const FREE_WATCH_N = 3;
+  const FREE_ALERTS_DAY = 8;
   const PREMIUM_DAY_CAP = 1000;      // internal only, never shown
   const MIN_INTERVAL_FREE = 3000;    // ms between checks
   const MIN_INTERVAL_PREM = 1500;
@@ -886,6 +891,14 @@
   function premLock(id, html) {
     return '<div class="prem-lock" id="' + id + '" role="button" tabindex="0"><div class="prem-blur">' + html + '</div><span class="prem-cap">' + LOCK_SVG + 'Premium</span></div>';
   }
+  function lockBundle(id, rows, hiddenN) {
+    const ru = S.lang === 'ru';
+    const body = rows.map(function (r) {
+      return '<div class="lock-row"><div class="lock-title"><b>' + esc(r.title) + '</b><span class="prem-cap mini">' + LOCK_SVG + 'Premium</span></div><div class="prem-blur">' + r.detail + '</div></div>';
+    }).join('');
+    const more = hiddenN > 0 ? '<p class="lock-more">' + esc(ru ? 'ещё ' + hiddenN + ' скрыто в Premium' : hiddenN + ' more hidden in Premium') + '</p>' : '';
+    return '<div class="prem-lock" id="' + id + '" role="button" tabindex="0">' + body + more + '</div>';
+  }
   function inTelegram() {
     return !!(TG && TG.BackButton && TG.platform && TG.platform !== 'unknown');
   }
@@ -902,7 +915,7 @@
     const picks = [{ id: 'reactive', name: ru ? 'Reactive (общий)' : 'Reactive (general)' }].concat((c.items || []).map(function (x) { return { id: x.id, name: x.name }; }));
     const hints = ru ? ['Ликвидность', 'Холдеры', 'Дев', 'Минт', 'Объём', 'Возраст'] : ['Liquidity', 'Holders', 'Dev', 'Mint', 'Volume', 'Age'];
     let out = '<div class="page home">';
-    out += '<div class="hero-row"><img class="hero-logo" src="assets/reactive-icon-512.png?v=20261118ios9" alt="">';
+    out += '<div class="hero-row"><img class="hero-logo" src="assets/reactive-icon-512.png?v=20261118ios10" alt="">';
     out += '<div class="hero-tx"><h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '">' + esc(t('checkTab')) + '</h1>';
     out += '<p class="sub">' + esc(ru ? 'Оценка риска монеты Solana за 30 секунд' : 'Solana token risk score in 30 seconds') + '</p></div>';
     out += '<button type="button" class="gear" id="myChecks" aria-label="' + esc(ru ? 'Мои проверки' : 'My checks') + '"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6.1 6.1l1.6 1.6M16.3 16.3l1.6 1.6M17.9 6.1l-1.6 1.6M7.7 16.3l-1.6 1.6"/></svg><span class="pro-badge">PRO</span></button></div>';
@@ -917,6 +930,13 @@
       return '<button type="button" class="pick' + (p.id === activeId ? ' on' : '') + '" data-check="' + esc(p.id) + '">' + esc(p.name) + '</button>';
     }).join('') + '</div>';
     out += '<div class="hints">' + hints.map(function (h) { return '<span>' + esc(h) + '</span>'; }).join('') + '</div>';
+    out += '<div class="sh"><b>' + esc(ru ? 'Кошельки' : 'Wallets') + '</b><button type="button" class="sh-btn" id="walletAdd">' + esc(ru ? 'Добавить' : 'Add') + '</button></div>';
+    out += '<div class="card">';
+    if (!(S.wallets || []).length) out += '<p class="set-note">' + esc(ru ? 'Добавь адрес Solana. Если он держит проверенную монету, это появится в результате.' : 'Add a Solana address. If it holds a coin you check, the result will say so.') + '</p>';
+    else out += (S.wallets || []).map(function (w) {
+      return '<div class="row"><span class="tx"><b>' + esc(w.slice(0, 4) + '…' + w.slice(-4)) + '</b><span>' + esc(ru ? 'смотрим баланс' : 'watching balance') + '</span></span><button type="button" class="tag tg-trash" data-delw="' + esc(w) + '">' + SVG_X + '</button></div>';
+    }).join('');
+    out += '</div>';
     if (S.ui.quota !== false) {
       const L = quotaLeft();
       out += '<p class="quota-pill">' + esc(isPrem()
@@ -1033,7 +1053,7 @@
     if (window.REACTIVE_EXPLAIN || S._explainLoading) return;
     S._explainLoading = true;
     const s = document.createElement('script');
-    s.src = 'explain.js?v=20261118ios9';
+    s.src = 'explain.js?v=20261118ios10';
     s.async = true;
     s.onload = function () { S._explainLoading = false; render(); };
     s.onerror = function () { S._explainLoading = false; };
@@ -1055,7 +1075,12 @@
     let html = '<div class="sh"><b>' + esc(ru ? 'Разбор' : 'Read') + '</b><span class="muted">' + built.rows.length + '</span></div>';
     html += '<div class="card"><p class="read-sum">' + esc(built.summary) + '</p></div>';
     if (openRows.length) html += '<div class="card read-list">' + openRows.map(rowHtml).join('') + '</div>';
-    if (locked.length) html += premLock('lockRead', '<div class="card read-list">' + locked.map(rowHtml).join('') + '</div>');
+    if (locked.length) {
+      const shown = locked.slice(0, 3).map(function (r) {
+        return { title: r.h, detail: '<p>' + esc(r.why) + '</p>' };
+      });
+      html += lockBundle('lockRead', shown, Math.max(0, locked.length - shown.length));
+    }
     return html;
   }
 
@@ -1117,6 +1142,8 @@
         '</div>';
     }
     if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
+    out += '<div class="card wallet-box" id="walletBox"><p class="set-note">' + esc(ru ? 'Смотрю твои кошельки…' : 'Checking your wallets…') + '</p></div>';
+    out += '<div id="coinHist"></div>';
     out += explainSection(tk, ru);
 
     const insights = buildInsights(tk);
@@ -1140,7 +1167,13 @@
       out += '<div class="sh"><b>' + esc(ru ? 'Что важно' : 'What matters') + '</b>' +
         (rc ? '<span class="muted">Rugcheck · ' + rc + '</span>' : '') + '</div>';
       if (shownIns.length) out += '<div class="card ins">' + shownIns.map(insRow).join('') + '</div>';
-      if (lockedIns.length) out += premLock('lockIns', '<div class="card ins">' + lockedIns.map(insRow).join('') + '</div>');
+      if (lockedIns.length) {
+        const shown = lockedIns.slice(0, 3).map(function (x) {
+          const p = insightParts(x.text);
+          return { title: p.title, detail: '<span class="tiny">' + esc(p.sub || (ru ? 'подробности' : 'details')) + '</span>' };
+        });
+        out += lockBundle('lockIns', shown, Math.max(0, lockedIns.length - shown.length));
+      }
     }
     if (tk.risks && tk.risks.length) {
       const critR = [], restR = [];
@@ -1156,7 +1189,12 @@
       };
       out += '<div class="sh"><b>' + esc(ru ? 'Риски Rugcheck' : 'Rugcheck risks') + '</b><span class="muted">' + tk.risks.length + '</span></div>';
       if (freeR.length) out += '<div class="card risk-list">' + freeR.map(riskRow).join('') + '</div>';
-      if (premR.length) out += premLock('lockRisk', '<div class="card risk-list">' + premR.map(riskRow).join('') + '</div>');
+      if (premR.length) {
+        const shown = premR.slice(0, 3).map(function (r) {
+          return { title: riskRu(r.name), detail: '<span class="tiny">' + esc(r.desc || (ru ? 'подробности риска' : 'risk details')) + '</span>' };
+        });
+        out += lockBundle('lockRisk', shown, Math.max(0, premR.length - shown.length));
+      }
     }
 
     if (tk.liq > 0) {
@@ -1240,7 +1278,7 @@
           '<span class="hold-addr">' + esc(h.addr ? h.addr.slice(0, 5) + '…' + h.addr.slice(-4) : '—') + '</span></span>' +
           '<b>' + esc(h.pct.toFixed(2)) + '%</b></div>';
       }).join('') + '</div></details>';
-      out += isPrem() ? holdHtml : premLock('lockHold', holdHtml);
+      out += isPrem() ? holdHtml : lockBundle('lockHold', [{ title: ru ? 'Топ держателей' : 'Top holders', detail: '<span class="tiny">' + tk.top.length + '</span>' }], Math.max(0, tk.top.length - 1));
     }
 
     if (S.result.blocks.length < 8) out += '<p class="tiny" style="margin-top:12px">' + esc(ru ? 'Часть данных недоступна — оценка по ' + S.result.blocks.length + ' из 8 блоков.' : 'Some data unavailable — scored on ' + S.result.blocks.length + ' of 8 blocks.') + '</p>';
@@ -1350,16 +1388,50 @@
     return ru ? 'слежу' : 'watching';
   }
 
+  function watchedCoins() {
+    const list = S.saved || [];
+    if (isPrem()) return list;
+    return list.slice(0, FREE_WATCH_N);
+  }
+  function alertsToday() {
+    const cut = Date.now() - 864e5;
+    return (S.alertLog || []).filter(function (a) { return a.at > cut; }).length;
+  }
+  function alertAllowed(kind) {
+    const prefs = S.alertPrefs || {};
+    if (prefs[kind] === false) return false;
+    if (isPrem()) return true;
+    return kind === 'score' || kind === 'liq';
+  }
+  function takeAlert(mint, kind) {
+    if (!alertAllowed(kind)) return false;
+    const day = new Date().toISOString().slice(0, 10);
+    const id = mint + '|' + kind + '|' + day;
+    S.alertLog = S.alertLog || [];
+    if (S.alertLog.some(function (a) { return a.id === id; })) return true;
+    if (!isPrem() && alertsToday() >= FREE_ALERTS_DAY) return false;
+    S.alertLog.push({ id: id, at: Date.now(), kind: kind });
+    S.alertLog = S.alertLog.filter(function (a) { return Date.now() - a.at < 864e5 * 2; }).slice(-200);
+    write('tc.alertLog', S.alertLog);
+    return true;
+  }
+  function alertLimitText() {
+    const ru = S.lang === 'ru';
+    if (isPrem()) return ru ? 'Premium · все типы уведомлений, без лимита' : 'Premium · every alert type, no limit';
+    return ru
+      ? 'Free · ' + FREE_WATCH_N + ' монеты в слежке · ' + alertsToday() + '/' + FREE_ALERTS_DAY + ' уведомлений сегодня. Скор и ликвидность. Остальное — Premium.'
+      : 'Free · ' + FREE_WATCH_N + ' watched coins · ' + alertsToday() + '/' + FREE_ALERTS_DAY + ' alerts today. Score and liquidity. The rest is Premium.';
+  }
   function viewSaved() {
     const ru = S.lang === 'ru';
     const sort = S.listSort || 'score';
     const sortLbl = sort === 'score' ? (ru ? 'Скор' : 'Score') : sort === 'change' ? '24ч' : (ru ? 'Дата' : 'Date');
     const cmpIco = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4v16M16 4v16M4 8h8M12 16h8"/></svg>';
     if (!S.saved.length) {
-      return '<div class="page"><h1 class="lt">' + esc(t('savedTab')) + '</h1>' +
+      return '<div class="page"><div class="lt"><span>' + esc(t('savedTab')) + '</span><button type="button" class="lt-ico" id="listGear" aria-label="' + (ru ? 'Уведомления' : 'Alerts') + '"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2" stroke-linecap="round"/></svg></button></div>' +
         '<p class="sub">' + esc(ru ? 'Обновляется каждые 45 секунд' : 'Refreshes every 45 seconds') + '</p>' +
         '<div class="empty"><b>' + esc(t('emptyTitle')) + '</b><span>' + esc(t('emptyText')) + '</span></div>' +
-        '<button type="button" class="refresh-all" id="openAlerts">' + esc(ru ? 'Сторож' : 'Watcher') + '</button></div>';
+        '<p class="set-note">' + esc(alertLimitText()) + '</p></div>';
     }
 
     const avg = Math.round(S.saved.reduce(function (x, s) { return x + (s.score || 0); }, 0) / S.saved.length);
@@ -1381,16 +1453,22 @@
     });
 
     const attn = [];
+    const watchSet = {};
+    watchedCoins().forEach(function (s) { watchSet[s.mint] = 1; });
+    const scoreN = Number(S.alertPrefs.scoreN) || 10;
+    const liqN = Number(S.alertPrefs.liqN) || 30;
+    const priceN = Number(S.alertPrefs.priceN) || 40;
     S.saved.forEach(function (s) {
-      if (typeof s.prevScore === 'number' && s.prevScore - s.score >= 10) {
+      if (!watchSet[s.mint]) return;
+      if (typeof s.prevScore === 'number' && s.prevScore - s.score >= scoreN && takeAlert(s.mint, 'score')) {
         const d = s.prevScore - s.score;
         attn.push({ mint: s.mint, tone: 'bad', icon: 'down', title: s.symbol + (ru ? ' · скор ' : ' · score ') + s.prevScore + ' → ' + s.score, sub: ru ? 'Упал на ' + d + ' с прошлой проверки' : 'Down ' + d + ' since the last check' });
-      } else if (typeof s.prevLiq === 'number' && s.prevLiq > 0 && (s.liq - s.prevLiq) / s.prevLiq <= -0.3) {
+      } else if (typeof s.prevLiq === 'number' && s.prevLiq > 0 && (s.prevLiq - s.liq) / s.prevLiq * 100 >= liqN && takeAlert(s.mint, 'liq')) {
         const p = Math.abs(Math.round((s.liq - s.prevLiq) / s.prevLiq * 100));
         attn.push({ mint: s.mint, tone: 'warn', icon: 'drop', title: s.symbol + (ru ? ' · ликвидность −' : ' · liquidity −') + p + '%', sub: (ru ? 'С ' : 'From ') + usd(s.prevLiq) + (ru ? ' до ' : ' to ') + usd(s.liq) });
-      } else if (Number(s.ch24) <= -40) {
+      } else if (Number(s.ch24) <= -priceN && takeAlert(s.mint, 'price')) {
         attn.push({ mint: s.mint, tone: 'bad', icon: 'down', title: s.symbol + (ru ? ' · цена ' : ' · price ') + Math.round(Number(s.ch24)) + '%', sub: ru ? 'Сильное падение за 24 часа' : 'Sharp drop over 24 hours' });
-      } else if ((s.score || 0) < 40) {
+      } else if ((s.score || 0) < 40 && takeAlert(s.mint, 'risky')) {
         attn.push({ mint: s.mint, tone: 'bad', icon: 'alert', title: s.symbol + (ru ? ' · скор ' : ' · score ') + (s.score || 0), sub: ru ? 'Ниже 40 — высокий риск' : 'Below 40 — high risk' });
       }
     });
@@ -1434,6 +1512,7 @@
     let head = '<div class="lt' + (S.ui.big === false ? ' compact' : '') + '"><span>' + esc(t('savedTab')) + '</span><span class="lt-acts">' +
       '<button type="button" class="lt-txt" id="sortBtn">' + esc(sortLbl) + '</button>' +
       '<button type="button" class="lt-txt" id="refreshAll">' + esc(ru ? 'Обновить' : 'Refresh') + '</button>' +
+      '<button type="button" class="lt-ico" id="listGear" aria-label="' + (ru ? 'Уведомления' : 'Alerts') + '"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2" stroke-linecap="round"/></svg></button>' +
       '<button type="button" class="lt-ico' + (S.compareMode ? ' on' : '') + '" id="cmpBtn" aria-label="' + (ru ? 'Сравнить' : 'Compare') + '">' + cmpIco + '</button>' +
       '</span></div>';
     head += '<p class="sub">' + esc(ru ? 'Обновляется каждые 45 секунд' : 'Refreshes every 45 seconds') + '</p>';
@@ -1444,15 +1523,14 @@
       '</div>';
 
     if (attn.length) {
-      head += '<div class="sh"><b>' + esc(ru ? 'Требует внимания' : 'Needs attention') + '</b><button type="button" class="sh-btn" id="openAlerts">' + attn.length + '</button></div>';
+      head += '<div class="sh"><b>' + esc(ru ? 'Требует внимания' : 'Needs attention') + '</b><span class="muted">' + attn.length + '</span></div>';
       head += '<div class="card ins">' + attn.slice(0, 4).map(function (a) {
         const tone = a.tone === 'warn' ? 'b-o' : 'b-r';
         const ic = a.icon === 'drop' ? INS_ICON.drop : INS_ICON.down;
         return '<button type="button" class="row attn-row" data-mint="' + esc(a.mint) + '"><div class="ic ' + tone + '">' + ic + '</div><div class="tx"><b>' + esc(a.title) + '</b><span>' + esc(a.sub) + '</span></div>' + CHEV + '</button>';
       }).join('') + '</div>';
     } else {
-      head += '<div class="sh"><b>' + esc(ru ? 'Сторож' : 'Watcher') + '</b></div>';
-      head += '<button type="button" class="card plain" id="openAlerts" style="width:100%"><span class="tx"><b>' + esc(ru ? 'Сторож' : 'Watcher') + '</b><span>' + esc(ru ? 'Кошельки и события' : 'Wallets and events') + '</span></span>' + CHEV + '</button>';
+      head += '<p class="set-note">' + esc(alertLimitText()) + '</p>';
     }
 
     const filters = [
@@ -1516,7 +1594,7 @@
         (val != null ? '<span class="val' + (id === 'plan' && prem ? ' prem' : '') + '">' + val + '</span>' : '') + CHEV + '</button>';
     };
     return '<div class="page">' +
-      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png?v=20261118ios9" alt="">' + esc(t('profileTab')) + '</h1>' +
+      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png?v=20261118ios10" alt="">' + esc(t('profileTab')) + '</h1>' +
       '<div class="card phead"><span class="pfp">' + pfp + '</span><span><b>' + esc(name) + '</b><span>' + esc(handle) + '</span></span></div>' +
       '<div class="stats"><div class="stat"><b>' + (S.stats.scans || 0) + '</b><span>' + esc(t('scanned')) + '</span></div>' +
       '<div class="stat"><b>' + S.saved.length + '</b><span>' + esc(t('savedN')) + '</span></div></div>' +
@@ -1542,6 +1620,8 @@
       row('testPrem', ru ? 'Premium локально' : 'Premium locally', prem ? (ru ? 'вкл' : 'on') : (ru ? 'выкл' : 'off')) +
       '<button type="button" class="set-row" id="testReset">' + esc(ru ? 'Сбросить первый вход' : 'Reset first launch') + '</button>' +
       '</div>' +
+      '<p class="grp">' + esc(ru ? 'Это устройство' : 'This device') + '</p>' +
+      '<div class="card"><p class="set-note">' + esc(deviceStatsText()) + '</p></div>' +
       '<p class="foot">' + esc(t('about')) + ' · v' + APP_VER + '</p>' +
       '</div>';
   }
@@ -1617,7 +1697,7 @@
   function bannerSlides() {
     const ru = S.lang === 'ru';
     const welcome = '<div class="bn-ill" style="background:#1E2622">' +
-      '<img class="bn-logo" src="assets/reactive-icon-512.png?v=20261118ios9" alt="">' +
+      '<img class="bn-logo" src="assets/reactive-icon-512.png?v=20261118ios10" alt="">' +
       '<div class="bn-fl bn-tk" style="left:18px;top:16px;width:188px;transform:rotate(-5deg)">' +
       '<div class="bn-top"><span class="bn-ava">MO</span><span class="bn-id"><b>MOODENG</b><span>Moo Deng</span></span><span class="bn-score" style="color:var(--green)"><b>81</b><i>/100</i></span></div>' +
       '<div class="bn-pl"><b>$0.2134</b><span style="color:var(--green)">+4.8%</span></div><div class="bn-bar"><i style="width:81%;background:var(--green)"></i></div>' +
@@ -1634,7 +1714,7 @@
       '<div class="bn-rw"><span class="bn-ava">GR</span><span class="bn-id"><b>GRASS</b><span>$312.7K</span></span><svg width="40" height="16"><polyline points="1,8 14,7 26,9 39,8" fill="none" stroke="#30D158" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">57</b></div>' +
       '<div class="bn-rw"><span class="bn-ava">WI</span><span class="bn-id"><b>WIFX</b><span>$198.5K</span></span><svg width="40" height="16"><polyline points="1,4 14,7 26,11 39,14" fill="none" stroke="#FF453A" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">52</b></div></div>' +
       '<div class="bn-fl bn-limit" style="right:12px;top:18px;transform:rotate(4deg)"><div style="color:var(--blue);font-size:22px;line-height:1">∞</div><b>' + (ru ? 'Без лимита' : 'Unlimited') + '</b><span>' + (ru ? 'проверок в час' : 'checks per hour') + '</span></div>' +
-      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png?v=20261118ios9" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
+      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png?v=20261118ios10" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
     const wallets = '<div class="bn-ill" style="background:#1D222B">' +
       '<div class="bn-fl" style="left:12px;top:28px;width:176px;padding:4px 0;transform:rotate(-3deg)">' +
       '<div class="bn-rw"><span class="bn-ava" style="color:var(--green)">7x</span><span class="bn-id"><b>7xKX…9fPq</b><span>' + (ru ? 'купил ' : 'bought ') + '<em style="color:var(--green);font-style:normal">$1.2K</em></span></span></div>' +
@@ -1654,7 +1734,7 @@
     const el = document.getElementById('banners');
     dismiss(el, function () {
       if (act === 'prem') { showPaywall(); return; }
-      if (act === 'wallets') { S.tab = 'alerts'; render(); return; }
+      if (act === 'wallets') { S.tab = 'scan'; S.resultOpen = false; render(); setTimeout(addWallet, 60); return; }
       if (act === 'check') { S.tab = 'scan'; S.resultOpen = false; render(); }
     });
   }
@@ -1719,7 +1799,7 @@
         '<div class="sa-line"><span class="ava a-bad">PX</span><span><b>PEPEX</b><i>' + (ru ? '2 кошелька в монете' : '2 wallets in this coin') + '</i></span><em style="color:var(--red)">34</em></div></div>',
       prem: '<div class="sa-stack"><div class="sa-line sa-blur"><span class="ava">H1</span><span><b>9AhK…sbkw</b><i>12.4%</i></span></div><div class="sa-line sa-blur"><span class="ava">H2</span><span><b>3kLm…91Qa</b><i>8.1%</i></span></div><div class="sa-lock">' + LOCK_SVG + ' Premium</div></div>',
       custom: '<div class="sa-stack"><div class="sa-line"><span class="ic b-n">≡</span><span><b>' + (ru ? 'Снайпер' : 'Sniper') + '</b><i>' + (ru ? 'давление 22 · возраст 4' : 'pressure 22 · age 4') + '</i></span><em style="color:var(--blue)">72</em></div><div class="sa-line"><span class="ic b-r">!</span><span><b>' + (ru ? 'Дев больше 3%' : 'Dev above 3%') + '</b><i>' + (ru ? 'красный флаг' : 'red flag') + '</i></span></div><div class="sa-line"><span class="ic b-g">R</span><span><b>Reactive</b><i>' + (ru ? 'общий скор рядом' : 'general score stays') + '</i></span><em style="color:var(--green)">81</em></div></div>',
-      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png?v=20261118ios9" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
+      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png?v=20261118ios10" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
     };
     return [
       { art: art.check, t: ru ? 'Проверка за 30 секунд' : 'A check in 30 seconds', p: ru ? 'Вставь адрес — Reactive покажет скор, риски простыми словами и сколько потеряешь на входе.' : 'Paste an address — Reactive shows the score, the risks in plain words, and what you lose on entry.' },
@@ -1778,7 +1858,7 @@
     haptic();
   }
 
-  function showHow() { openStory(false); }
+  function showHow() { S.tab = 'info'; S.infoFocus = 'how'; haptic(); render(); }
 
   function loadShareImage(url) {
     return new Promise(function (resolve) {
@@ -2100,7 +2180,7 @@
     canvasRound(ctx, 48, foot, W - 96, 128, 24);
     ctx.fillStyle = '#000';
     ctx.fill();
-    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png?v=20261118ios9', location.href).href);
+    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png?v=20261118ios10', location.href).href);
     if (logo) {
       canvasRound(ctx, 72, foot + 18, 44, 44, 12);
       ctx.save();
@@ -2329,32 +2409,45 @@
   function showAlertSettings() {
     const ru = S.lang === 'ru';
     const rows = [
-      ['score', ru ? 'Скор упал' : 'Score dropped', ru ? 'падение на 10+ пунктов' : 'down 10+ points'],
-      ['liq', ru ? 'Ликвидность упала' : 'Liquidity dropped', ru ? 'минус 30% и больше' : '−30% or more'],
-      ['price', ru ? 'Цена упала' : 'Price dropped', ru ? 'минус 40% за 24ч' : '−40% in 24h'],
-      ['risky', ru ? 'Опасный скор' : 'Risky score', ru ? 'ниже 40' : 'below 40'],
-      ['wallet', ru ? 'Сделки кошельков' : 'Wallet trades', ru ? 'покупка/продажа по твоему списку' : 'buys/sells in your list']
+      ['score', ru ? 'Скор упал' : 'Score dropped', ru ? 'На сколько пунктов. Пример: 10 — с 70 до 60.' : 'How many points. Example: 10 means 70 to 60.', 'scoreN', 1, 40],
+      ['liq', ru ? 'Ликвидность упала' : 'Liquidity dropped', ru ? 'Процент пула. Пример: 30 — с $100K до $70K.' : 'Percent of the pool. Example: 30 means $100K to $70K.', 'liqN', 5, 90],
+      ['price', ru ? 'Цена упала' : 'Price dropped', ru ? 'Процент за 24 часа. Пример: 40.' : 'Percent over 24 hours. Example: 40.', 'priceN', 5, 90],
+      ['risky', ru ? 'Опасный скор' : 'Risky score', ru ? 'Скор ниже 40. Тип целиком в Premium.' : 'Score below 40. This type is Premium.', '', 0, 0],
+      ['wallet', ru ? 'Сделки кошельков' : 'Wallet trades', ru ? 'Покупка или продажа монеты из списка. Premium.' : 'A buy or sell of a listed coin. Premium.', '', 0, 0]
     ];
     const wrap = document.createElement('div');
     wrap.className = 'modal';
-    wrap.innerHTML = '<div class="modal-card sheet-help" style="max-height:80vh">' +
-      '<div class="modal-head"><b>' + (ru ? 'Какие уведомления нужны' : 'Which alerts you need') + '</b><button type="button" class="modal-x" id="mx" aria-label="Close">' + SVG_X + '</button></div>' +
+    wrap.innerHTML = '<div class="modal-card sheet-help" style="max-height:86vh">' +
+      '<div class="modal-head"><b>' + (ru ? 'Уведомления' : 'Alerts') + '</b><button type="button" class="modal-x" id="mx" aria-label="Close">' + SVG_X + '</button></div>' +
+      '<p class="set-note">' + esc(alertLimitText()) + '</p>' +
       '<div class="help-list">' + rows.map(function (r) {
-        const on = (S.alertPrefs || {})[r[0]] !== false;
-        return '<button class="ui-row" data-k="' + r[0] + '"><span class="ui-txt"><b>' + esc(r[1]) + '</b><i>' + esc(r[2]) + '</i></span>' +
-          '<span class="ui-sw' + (on ? ' on' : '') + '"><i></i></span></button>';
+        const freeOk = r[0] === 'score' || r[0] === 'liq';
+        const locked = !isPrem() && !freeOk;
+        const on = (S.alertPrefs || {})[r[0]] !== false && !locked;
+        const num = r[3] ? '<label class="cx-rule"><span>' + esc(ru ? 'Порог' : 'Threshold') + '</span><input type="number" data-n="' + r[3] + '" min="' + r[4] + '" max="' + r[5] + '" value="' + (Number(S.alertPrefs[r[3]]) || r[4]) + '"></label>' : '';
+        return '<div class="lock-row"><button class="ui-row" data-k="' + r[0] + '" data-locked="' + (locked ? '1' : '0') + '"><span class="ui-txt"><b>' + esc(r[1]) + (locked ? ' · PRO' : '') + '</b><i>' + esc(r[2]) + '</i></span>' +
+          '<span class="ui-sw' + (on ? ' on' : '') + '"><i></i></span></button>' + num + '</div>';
       }).join('') + '</div></div>';
     document.body.appendChild(wrap);
-    const close = function () { wrap.remove(); };
+    const close = function () { dismiss(wrap); render(); };
     wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
     wrap.querySelector('#mx').onclick = close;
     wrap.querySelectorAll('.ui-row').forEach(function (b) {
       b.onclick = function () {
+        if (b.dataset.locked === '1') { showPaywall(); return; }
         const k = b.dataset.k;
         S.alertPrefs[k] = S.alertPrefs[k] === false;
         write('tc.alertPrefs', S.alertPrefs);
         b.querySelector('.ui-sw').classList.toggle('on', S.alertPrefs[k] !== false);
         haptic();
+      };
+    });
+    wrap.querySelectorAll('[data-n]').forEach(function (inp) {
+      inp.onchange = function () {
+        const k = inp.dataset.n;
+        const v = Math.max(Number(inp.min) || 0, Math.min(Number(inp.max) || 100, Number(inp.value) || 0));
+        S.alertPrefs[k] = v;
+        write('tc.alertPrefs', S.alertPrefs);
       };
     });
   }
@@ -2501,6 +2594,7 @@
 
   async function refreshWallets() {
     if (!S.wallets || !S.wallets.length) return;
+    if (!alertAllowed('wallet')) return;
     const savedMints = {};
     (S.saved || []).forEach(function (s) { savedMints[s.mint] = s.symbol; });
     const out = [];
@@ -2556,19 +2650,52 @@
     const ruleField = function (k, label, val) {
       return '<label class="cx-rule"><span>' + esc(label) + '</span><input type="number" min="0" step="1" data-r="' + k + '" value="' + (Number(val) || 0) + '"></label>';
     };
+    const weightHelp = {
+      liq: ru ? ['Чем выше вес, тем сильнее размер пула двигает скор.', 'Пример: 30 вместо 20 — тонкий пул сильнее снижает скор.'] : ['A higher weight lets pool size move the score more.', 'Example: 30 instead of 20 — a thin pool pulls the score down harder.'],
+      holders: ru ? ['Вес доли топ-10 и числа холдеров.', 'Пример: 30 — концентрация у десяти кошельков почти решает скор.'] : ['Weight of the top-10 share and holder count.', 'Example: 30 — concentration in ten wallets almost decides the score.'],
+      dev: ru ? ['Вес рисков создателя и Rugcheck.', 'Пример: 5 — предупреждения о создателе почти не влияют.'] : ['Weight of creator and Rugcheck risks.', 'Example: 5 — creator warnings barely count.'],
+      contract: ru ? ['Вес минта, заморозки и налога.', 'Пример: 30 — открытый минт сильно роняет скор.'] : ['Weight of mint, freeze, and tax.', 'Example: 30 — an open mint drops the score hard.'],
+      activity: ru ? ['Вес объёма относительно пула.', 'Пример: 20 — тихий или накрученный объём заметнее.'] : ['Weight of volume versus the pool.', 'Example: 20 — quiet or inflated volume counts more.'],
+      age: ru ? ['Вес того, сколько живёт пара.', 'Пример: 4 — возраст почти не важен, как у снайпера.'] : ['Weight of how long the pair has lived.', 'Example: 4 — age barely matters, as in the sniper preset.'],
+      price: ru ? ['Вес изменения цены за сутки.', 'Пример: 16 — резкий ход сильнее двигает скор.'] : ['Weight of the 24-hour price move.', 'Example: 16 — a sharp move shifts the score more.'],
+      links: ru ? ['Вес сайта и соцсетей.', 'Пример: 0 — отсутствие ссылок не меняет скор.'] : ['Weight of a site and socials.', 'Example: 0 — missing links do not change the score.'],
+      pressure: ru ? ['Вес перевеса покупок над продажами.', 'Пример: 22 — поток сделок почти как отдельный скор.'] : ['Weight of buys versus sells.', 'Example: 22 — trade flow almost becomes its own score.']
+    };
+    const ruleHelp = {
+      devPct: ru ? ['Красный флаг, если у создателя больше этого процента.', 'Пример: 3 — остаток 4% уже красит проверку.'] : ['A red flag when the creator holds more than this percent.', 'Example: 3 — a 4% balance already turns the check red.'],
+      liqUsd: ru ? ['Красный флаг, если пул меньше этой суммы в долларах.', 'Пример: 50000 — пул $20K не проходит.'] : ['A red flag when the pool is under this many dollars.', 'Example: 50000 — a $20K pool fails.'],
+      top10: ru ? ['Красный флаг, если топ-10 держат больше этого процента.', 'Пример: 40 — доля 55% красит проверку.'] : ['A red flag when the top 10 hold more than this percent.', 'Example: 40 — a 55% share turns the check red.'],
+      ageMin: ru ? ['Красный флаг, если монете меньше стольких минут. 0 — правило выключено.', 'Пример: 360 — монета моложе 6 часов не проходит.'] : ['A red flag when the coin is younger than this many minutes. 0 turns the rule off.', 'Example: 360 — a coin under 6 hours fails.']
+    };
+    const previewText = function () {
+      const base = { liq: 20, holders: 15, dev: 20, contract: 15, activity: 10, age: 10, price: 5, links: 5, pressure: 8 };
+      const bits = [];
+      meta.forEach(function (m) {
+        const d = (Number(draft.weights[m[0]]) || 0) - base[m[0]];
+        if (Math.abs(d) >= 6) bits.push(m[1] + (d > 0 ? ' ↑' : ' ↓'));
+      });
+      if (!bits.length) return ru ? 'Баланс весов как у общего скора Reactive.' : 'Weights match the general Reactive score.';
+      return (ru ? 'Сильнее или слабее общего скора: ' : 'Stronger or weaker than the general score: ') + bits.join(', ');
+    };
     const formHtml = function () {
-      return '<label class="cx-name">' + esc(ru ? 'Название' : 'Name') + '<input id="cxName" value="' + esc(draft.name) + '" placeholder="' + esc(ru ? 'Например, Ночной' : 'For example, Night') + '"></label>' +
-        '<p class="cx-k">' + esc(ru ? 'Веса блоков' : 'Block weights') + '</p>' +
+      return '<div class="cx-group"><label class="cx-name">' + esc(ru ? 'Название' : 'Name') + '<input id="cxName" value="' + esc(draft.name) + '" placeholder="' + esc(ru ? 'Например, Ночной' : 'For example, Night') + '"></label></div>' +
+        '<p class="cx-k">' + esc(ru ? 'Веса блоков · 0–40' : 'Block weights · 0–40') + '</p><div class="cx-group">' +
         meta.map(function (m) {
           const v = Number(draft.weights[m[0]]) || 0;
-          return '<label class="cx-sl"><span>' + esc(m[1]) + '</span><input type="range" min="0" max="40" step="1" data-w="' + m[0] + '" value="' + v + '"><b>' + v + '</b></label>';
+          const h = weightHelp[m[0]] || ['', ''];
+          return '<label class="cx-sl"><span>' + esc(m[1]) + '<i class="cx-help">' + esc(h[0]) + '</i><i class="cx-ex">' + esc(h[1]) + '</i></span><input type="range" min="0" max="40" step="1" data-w="' + m[0] + '" value="' + v + '"><b>' + v + '</b></label>';
         }).join('') +
-        '<p class="cx-k">' + esc(ru ? 'Красные флаги' : 'Red flags') + '</p><div class="cx-rules">' +
-        ruleField('devPct', ru ? 'Дев больше, %' : 'Dev above, %', draft.rules.devPct) +
-        ruleField('liqUsd', ru ? 'Ликвидность меньше, $' : 'Liquidity under, $', draft.rules.liqUsd) +
-        ruleField('top10', ru ? 'Топ-10 больше, %' : 'Top-10 above, %', draft.rules.top10) +
-        ruleField('ageMin', ru ? 'Возраст меньше, мин' : 'Age under, min', draft.rules.ageMin) +
-        '</div><button type="button" class="btn" id="cxSave">' + esc(ru ? 'Сохранить и использовать' : 'Save and use') + '</button>' +
+        '<p class="cx-preview" id="cxPreview">' + esc(previewText()) + '</p></div>' +
+        '<p class="cx-k">' + esc(ru ? 'Красные флаги' : 'Red flags') + '</p><div class="cx-group">' +
+        ['devPct', 'liqUsd', 'top10', 'ageMin'].map(function (k) {
+          const labels = { devPct: ru ? 'Создатель больше, %' : 'Creator above, %', liqUsd: ru ? 'Пул меньше, $' : 'Pool under, $', top10: ru ? 'Топ-10 больше, %' : 'Top-10 above, %', ageMin: ru ? 'Моложе, минут' : 'Younger than, minutes' };
+          const h = ruleHelp[k];
+          return '<label class="cx-rule"><span>' + esc(labels[k]) + '<i class="cx-help">' + esc(h[0]) + '</i><i class="cx-ex">' + esc(h[1]) + '</i></span><input type="number" min="0" step="1" data-r="' + k + '" value="' + (Number(draft.rules[k]) || 0) + '"></label>';
+        }).join('') + '</div>' +
+        '<div class="cx-pres" id="cxReset">' + checkPresets().map(function (p, i) {
+          return '<button type="button" class="cx-pre" data-reset="' + i + '"><b>' + esc(p.name) + '</b><span>' + esc(ru ? 'Сбросить к пресету' : 'Reset to preset') + '</span></button>';
+        }).join('') + '</div>' +
+        '<button type="button" class="btn" id="cxSave">' + esc(ru ? 'Сохранить и использовать' : 'Save and use') + '</button>' +
         '<p class="tiny">' + esc(ru ? '0 в флаге — правило выключено. Сохранение открывает Premium.' : '0 turns a flag off. Saving opens Premium.') + '</p>';
     };
     const needPrem = function () {
@@ -2586,7 +2713,20 @@
       const seen = wrap.querySelector('#cxSeen');
       if (seen) seen.onclick = function () { c.seen = true; S.custom = c; saveCustom(); paint(); };
       wrap.querySelectorAll('[data-w]').forEach(function (el) {
-        el.oninput = function () { const b = el.parentNode.querySelector('b'); if (b) b.textContent = el.value; };
+        el.oninput = function () {
+          const b = el.parentNode.querySelector('b');
+          if (b) b.textContent = el.value;
+          draft.weights[el.dataset.w] = Number(el.value) || 0;
+          const prev = wrap.querySelector('#cxPreview');
+          if (prev) prev.textContent = previewText();
+        };
+      });
+      wrap.querySelectorAll('[data-reset]').forEach(function (b) {
+        b.onclick = function () {
+          const p = checkPresets()[Number(b.dataset.reset)];
+          draft = { name: p.name, weights: Object.assign({}, p.weights), rules: Object.assign({}, p.rules) };
+          paint();
+        };
       });
       wrap.querySelectorAll('[data-pre]').forEach(function (b) {
         b.onclick = function () {
@@ -2663,12 +2803,14 @@
       'Без лимита — бесплатно 20 проверок в день',
       'Вторая половина «Что важно» и рисков Rugcheck',
       'Полный список топ-держателей',
-      'Свои проверки: веса блоков и красные флаги'
+      'Свои проверки: веса блоков и красные флаги',
+      'Уведомления без лимита и все типы, не только скор и ликвидность'
     ] : [
       'No limit — 20 free checks a day',
       'The other half of “What matters” and Rugcheck risks',
       'The full top-holder list',
-      'Your own checks: block weights and red flags'
+      'Your own checks: block weights and red flags',
+      'Unlimited alerts and every alert type, not only score and liquidity'
     ];
     const wrap = document.createElement('div');
     wrap.className = 'modal';
@@ -2792,6 +2934,200 @@
   window.addEventListener('error', function (e) { if (e && e.error) showFatal(e.error); });
   window.addEventListener('unhandledrejection', function (e) { if (e && e.reason) showFatal(e.reason); });
 
+  let NEWS = null;
+  function deviceStatsText() {
+    const ru = S.lang === 'ru';
+    const log = S.scanLog || [];
+    const day = Date.now() - 864e5;
+    const today = log.filter(function (x) { return x.at > day; });
+    const users = {};
+    const coins = {};
+    today.forEach(function (x) { users[x.user] = 1; coins[x.mint] = (coins[x.mint] || 0) + 1; });
+    const top = Object.keys(coins).sort(function (a, b) { return coins[b] - coins[a]; })[0];
+    return (ru ? 'Только это устройство. Общей базы нет — некуда писать сканы всех людей. ' : 'This device only. There is no shared database, so scans from other people are not stored. ') +
+      (ru ? 'Сегодня: ' : 'Today: ') + today.length + (ru ? ' сканов, монет ' : ' scans, coins ') + Object.keys(coins).length +
+      (top ? (ru ? ', чаще всего ' : ', most often ') + top.slice(0, 4) + '…' : '') + '.';
+  }
+  function userHash() {
+    const id = TG && TG.initDataUnsafe && TG.initDataUnsafe.user && TG.initDataUnsafe.user.id;
+    if (!id) return 'local';
+    let h = 2166136261;
+    String(id).split('').forEach(function (c) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); });
+    return (h >>> 0).toString(16);
+  }
+  function flagsOf(tk) {
+    const f = [];
+    if (tk.liq > 0 && tk.liq < 15000) f.push('thin');
+    if ((tk.top10 || 0) > 50) f.push('top10');
+    if (tk.mintAuth) f.push('mint');
+    if (tk.gp && tk.gp.honeypot) f.push('honey');
+    return f.sort();
+  }
+  function recordScan(result) {
+    const tk = result && result.token;
+    if (!tk) return;
+    const kind = activeCustom() ? activeCustom().name : 'reactive';
+    S.scanLog = S.scanLog || [];
+    S.scanLog.push({ at: Date.now(), mint: tk.mint, user: userHash(), kind: kind });
+    S.scanLog = S.scanLog.slice(-400);
+    write('tc.scanLog', S.scanLog);
+    const slot = S.track[tk.mint] || { first: null, snaps: [], due: [] };
+    if (!slot.first) {
+      slot.first = { at: Date.now(), price: tk.price, mc: tk.mc, liq: tk.liq, score: result.score, flags: flagsOf(tk) };
+      slot.due = [3600e3, 6 * 3600e3, 864e5, 7 * 864e5].map(function (ms) { return Date.now() + ms; });
+    }
+    S.track[tk.mint] = slot;
+    write('tc.track', S.track);
+  }
+  function similarFlagLine(tk, ru) {
+    const flags = flagsOf(tk);
+    if (!flags.length) return '';
+    const key = flags.join('+');
+    const changes = [];
+    Object.keys(S.track || {}).forEach(function (mint) {
+      const t = S.track[mint];
+      if (!t || !t.first || !(t.snaps || []).length) return;
+      if ((t.first.flags || []).join('+') !== key) return;
+      const snap = t.snaps.find(function (s) { return s.at - t.first.at >= 20 * 3600e3 && s.at - t.first.at <= 30 * 3600e3; });
+      if (!snap || !t.first.price) return;
+      changes.push((snap.price - t.first.price) / t.first.price * 100);
+    });
+    if (changes.length < 5) return '';
+    changes.sort(function (a, b) { return a - b; });
+    const mid = changes[Math.floor(changes.length / 2)];
+    const txt = (mid >= 0 ? '+' : '') + Math.round(mid) + '%';
+    return ru
+      ? 'История: монеты с похожими флагами (' + key + ') через 24ч: медиана цены ' + txt + ' · n=' + changes.length + '.'
+      : 'History: coins with similar flags (' + key + ') after 24h: median price ' + txt + ' · n=' + changes.length + '.';
+  }
+  async function runDue() {
+    const now = Date.now();
+    const mints = Object.keys(S.track || {});
+    for (let i = 0; i < mints.length; i++) {
+      const mint = mints[i];
+      const slot = S.track[mint];
+      if (!slot || !(slot.due || []).some(function (t) { return t <= now; })) continue;
+      slot.due = slot.due.filter(function (t) { return t > now; });
+      try {
+        const d = await getJson('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(mint), 5000);
+        const pair = bestPair(d);
+        slot.snaps = slot.snaps || [];
+        slot.snaps.push({
+          at: now,
+          price: Number(pair && pair.priceUsd) || 0,
+          mc: Number(pair && pair.marketCap) || 0,
+          liq: Number(pair && pair.liquidity && pair.liquidity.usd) || 0
+        });
+        slot.snaps = slot.snaps.slice(-12);
+        write('tc.track', S.track);
+      } catch (e) {}
+      break;
+    }
+  }
+  async function fillWalletBox(mint) {
+    const box = document.getElementById('walletBox');
+    if (!box) return;
+    const ru = S.lang === 'ru';
+    if (!(S.wallets || []).length) {
+      box.innerHTML = '<p class="set-note">' + esc(ru ? 'Кошельки не добавлены. Их можно добавить на экране Проверки.' : 'No wallets yet. Add them on the Check screen.') + '</p>';
+      return;
+    }
+    const hits = [];
+    for (let i = 0; i < Math.min(3, S.wallets.length); i++) {
+      const w = S.wallets[i];
+      try {
+        const resp = await rpcCall('getTokenAccountsByOwner', [w, { mint: mint }, { encoding: 'jsonParsed' }]);
+        const rows = (resp && resp.value) || [];
+        let amt = 0;
+        rows.forEach(function (acc) {
+          const info = acc.account && acc.account.data && acc.account.data.parsed && acc.account.data.parsed.info;
+          amt += Number(info && info.tokenAmount && info.tokenAmount.uiAmount) || 0;
+        });
+        if (amt > 0) hits.push({ w: w, amt: amt });
+      } catch (e) {}
+    }
+    if (!box.isConnected) return;
+    if (!hits.length) box.innerHTML = '<p class="set-note">' + esc(ru ? 'Твои кошельки эту монету не держат.' : 'Your wallets do not hold this coin.') + '</p>';
+    else box.innerHTML = hits.map(function (h) {
+      return '<p class="set-note"><b>' + esc(ru ? 'Твои кошельки: ' : 'Your wallets: ') + h.w.slice(0, 4) + '…' + h.w.slice(-4) + '</b> ' + esc(ru ? 'держит ' : 'holds ') + (h.amt > 1 ? Math.round(h.amt) : h.amt.toFixed(2)) + '</p>';
+    }).join('');
+  }
+  function fillCoinHist(tk) {
+    const el = document.getElementById('coinHist');
+    if (!el || !tk) return;
+    const ru = S.lang === 'ru';
+    const slot = (S.track || {})[tk.mint];
+    const bits = [];
+    if (slot && slot.first && Date.now() - slot.first.at > 60000) {
+      const p0 = slot.first.price, p1 = tk.price;
+      const dp = p0 ? Math.round((p1 - p0) / p0 * 100) : 0;
+      bits.push(ru
+        ? 'С первой проверки: цена ' + (dp >= 0 ? '+' : '') + dp + '%, скор ' + slot.first.score + ' → ' + (S.result ? S.result.score : '—') + '.'
+        : 'Since the first scan: price ' + (dp >= 0 ? '+' : '') + dp + '%, score ' + slot.first.score + ' → ' + (S.result ? S.result.score : '—') + '.');
+    }
+    const sim = similarFlagLine(tk, ru);
+    if (sim) bits.push(sim);
+    el.innerHTML = bits.length ? '<div class="card"><p class="set-note">' + esc(bits.join(' ')) + '</p></div>' : '';
+  }
+  function viewInfo() {
+    const ru = S.lang === 'ru';
+    if (!NEWS && !S._newsLoading) {
+      S._newsLoading = true;
+      fetch('news.json?v=20261118ios10').then(function (r) { return r.json(); }).then(function (d) { NEWS = d; S._newsLoading = false; if (S.tab === 'info') render(); }).catch(function () { S._newsLoading = false; });
+    }
+    const news = (NEWS || []).map(function (n) {
+      return '<div class="news-item"><time>' + esc(n.at) + '</time><p>' + esc(ru ? n.ru : n.en) + '</p></div>';
+    }).join('') || '<p class="set-note">' + esc(ru ? 'Загружаю…' : 'Loading…') + '</p>';
+    const faq = (ru ? [
+      ['Это финансовый совет?', 'Нет. Скор — грубая сводка уже загруженных данных. Он не говорит, покупать или продавать.'],
+      ['Почему часть строк размыта?', 'Бесплатно видны критичные риски и сводка. Подробности и полный список держателей открывает Premium.'],
+      ['Сколько проверок бесплатно?', '20 в день. Premium снимает этот лимит.'],
+      ['Почему уведомлений мало?', 'Free следит за 3 монетами и показывает до 8 уведомлений в день: падение скора и ликвидности. Остальные типы — Premium.'],
+      ['Куда делся Рынок?', 'Вкладку убрали. Проверка, Список, Инфо и Профиль.'],
+      ['Где добавить кошелёк?', 'На экране Проверки, блок «Кошельки». Если адрес держит монету, это пишется в результате.'],
+      ['Что такое Мои проверки?', 'Свои веса блоков и красные флаги. Общий скор остаётся. Сохранить и включить можно в Premium.'],
+      ['Картинка для шеринга без логотипа монеты?', 'Если хост картинки не отдаёт её в холст, останутся инициалы. Кольцо скора всё равно на месте.'],
+      ['Данные уходят на сервер Reactive?', 'Нет. Сканы, список и снимки цены лежат в этом устройстве. Общей базы для всех пользователей нет.'],
+      ['Откуда цифры?', 'DexScreener, Rugcheck и GoPlus. Это чтение публичных данных, без доступа к кошельку.']
+    ] : [
+      ['Is this financial advice?', 'No. The score is a rough summary of data already loaded. It does not say to buy or sell.'],
+      ['Why are some rows blurred?', 'Free shows the critical risks and the summary. Details and the full holder list are Premium.'],
+      ['How many free checks?', '20 a day. Premium removes that limit.'],
+      ['Why so few alerts?', 'Free watches 3 coins and shows up to 8 alerts a day: score and liquidity drops. Other types are Premium.'],
+      ['Where did Market go?', 'That tab was removed. Check, List, Info, and Profile remain.'],
+      ['Where do I add a wallet?', 'On Check, in Wallets. If the address holds the coin, the result says so.'],
+      ['What are My checks?', 'Your own block weights and red flags. The general score stays. Saving and turning one on is Premium.'],
+      ['Share image has no token logo?', 'If the image host blocks the canvas, you get initials. The score ring is still there.'],
+      ['Do scans go to a Reactive server?', 'No. Scans, the list, and price snapshots stay on this device. There is no shared database.'],
+      ['Where do the numbers come from?', 'DexScreener, Rugcheck, and GoPlus. Public reads only, with no wallet access.']
+    ]).map(function (q) {
+      return '<details><summary>' + esc(q[0]) + '</summary><p>' + esc(q[1]) + '</p></details>';
+    }).join('');
+    return '<div class="page" id="infoPage">' +
+      '<h1 class="lt">' + esc(ru ? 'Инфо' : 'Info') + '</h1>' +
+      '<h2 class="info-h">' + esc(ru ? 'Новости и обновления' : 'News and updates') + '</h2>' +
+      '<div class="card">' + news + '</div>' +
+      '<h2 class="info-h" id="infoHow">' + esc(ru ? 'Как это работает' : 'How it works') + '</h2>' +
+      '<p class="info-p">' + esc(ru ? 'Reactive экономит время: за полминуты собирает ликвидность, холдеров, создателя, контракт и цену в один скор и короткие строки. Уведомления говорят, когда сохранённая монета стала хуже.' : 'Reactive saves time: in half a minute it folds liquidity, holders, the creator, the contract, and the price into one score and short lines. Alerts say when a saved coin got worse.') + '</p>' +
+      '<div class="card"><p class="set-note">' + esc(ru
+        ? 'Проверка — адрес, свои проверки, кошельки, недавние. Результат — скор, что важно, риски, разбор, для сделки, поделиться. Список — монеты, фильтры, шестерёнка уведомлений. Инфо — эта страница. Профиль — язык, тариф, тест Premium.'
+        : 'Check — the address, your checks, wallets, recents. Result — score, what matters, risks, the read, a trade, share. List — coins, filters, the alerts gear. Info — this page. Profile — language, plan, the Premium test.') + '</p>' +
+      '<p class="set-note">' + esc(ru ? 'Короткие карточки по-прежнему в профиле не нужны: подробности здесь.' : 'The short cards are no longer required: the detail lives here.') + ' <button type="button" class="sh-btn" id="openStory">' + esc(ru ? 'Короткие карточки' : 'Short cards') + '</button></p></div>' +
+      '<h2 class="info-h">' + esc(ru ? 'Free и Premium' : 'Free and Premium') + '</h2>' +
+      '<div class="card" style="overflow:auto"><table class="cmp-table"><thead><tr><th></th><th>Free</th><th>Premium</th></tr></thead><tbody>' +
+      '<tr><td>' + esc(ru ? 'Проверки' : 'Checks') + '</td><td>20/' + (ru ? 'день' : 'day') + '</td><td>' + esc(ru ? 'без лимита' : 'no limit') + '</td></tr>' +
+      '<tr><td>' + esc(ru ? 'Что важно и риски' : 'What matters and risks') + '</td><td>' + esc(ru ? 'критичное видно' : 'critical lines') + '</td><td>' + esc(ru ? 'все строки' : 'every line') + '</td></tr>' +
+      '<tr><td>' + esc(ru ? 'Разбор' : 'Read') + '</td><td>' + esc(ru ? 'сводка и безопасность' : 'summary and safety') + '</td><td>' + esc(ru ? 'полный разбор' : 'full read') + '</td></tr>' +
+      '<tr><td>' + esc(ru ? 'Держатели' : 'Holders') + '</td><td>' + esc(ru ? 'название, список скрыт' : 'title, list hidden') + '</td><td>' + esc(ru ? 'полный список' : 'full list') + '</td></tr>' +
+      '<tr><td>' + esc(ru ? 'Мои проверки' : 'My checks') + '</td><td>' + esc(ru ? 'смотреть' : 'view') + '</td><td>' + esc(ru ? 'сохранять и включать' : 'save and use') + '</td></tr>' +
+      '<tr><td>' + esc(ru ? 'Уведомления' : 'Alerts') + '</td><td>' + FREE_WATCH_N + ' · ' + FREE_ALERTS_DAY + '/' + (ru ? 'день, скор и пул' : 'day, score and pool') + '</td><td>' + esc(ru ? 'все типы, без лимита' : 'every type, no limit') + '</td></tr>' +
+      '</tbody></table></div>' +
+      '<h2 class="info-h">FAQ</h2><div class="card faq">' + faq + '</div>' +
+      '<div class="disclaimer">' + esc(ru
+        ? 'Мы не даём финансовых советов. Скор — грубая оценка всех факторов. В крипте, особенно в мемах, монета с красными флагами может вырасти, а с зелёными — упасть. Решение остаётся за тобой.'
+        : 'We do not give financial advice. The score is a rough read of the factors together. In crypto, especially memes, a coin with red flags can rise, and one with green flags can fall. The decision stays yours.') + '</div></div>';
+  }
+
   /* ---------------- render ---------------- */
   function render() {
     const dock = document.getElementById('dock');
@@ -2802,7 +3138,8 @@
       let html;
       if (S.tab === 'saved') html = viewSaved();
       else if (S.tab === 'profile') html = viewProfile();
-      else if (S.tab === 'alerts') html = viewAlerts();
+      else if (S.tab === 'info') html = viewInfo();
+      else if (S.tab === 'alerts') { S.tab = 'saved'; html = viewSaved(); }
       else if (S.resultOpen) html = viewResultPage();
       else html = viewHome();
       app.innerHTML = html;
@@ -2819,6 +3156,15 @@
     syncDock();
     bind();
     decorate();
+    if (S.infoFocus === 'how') {
+      const how = document.getElementById('infoHow');
+      if (how) how.scrollIntoView({ block: 'start' });
+      S.infoFocus = '';
+    }
+    if (S.resultOpen && S.result && S.result.token) {
+      fillWalletBox(S.result.token.mint);
+      fillCoinHist(S.result.token);
+    }
     if (animateIn) {
       try {
         document.querySelectorAll('.cat-v').forEach(function (el) {
@@ -2905,6 +3251,7 @@
   function syncDock() {
     const labels = {
       scan: t('checkTab'),
+      info: S.lang === 'ru' ? 'Инфо' : 'Info',
       saved: t('savedTab'),
       profile: t('profileTab')
     };
@@ -2917,7 +3264,7 @@
     syncBack();
   }
   function needsBack() {
-    return S.tab === 'alerts' || (S.tab === 'scan' && S.resultOpen);
+    return S.tab === 'scan' && S.resultOpen;
   }
   function syncBack() {
     if (!TG || !TG.BackButton) return;
@@ -2927,7 +3274,7 @@
     } catch (e) {}
   }
   function goBack() {
-    if (S.tab === 'alerts') { S.tab = 'saved'; haptic(); render(); return; }
+    if (S.tab === 'info') { S.tab = 'scan'; haptic(); render(); return; }
     S.resultOpen = false;
     if (S.busy) S.suppressResult = true;
     haptic();
@@ -2958,7 +3305,7 @@
         render();
       };
     });
-    if (document.getElementById('openAlerts')) document.getElementById('openAlerts').onclick = function () { S.tab = 'alerts'; render(); };
+    if (document.getElementById('listGear')) document.getElementById('listGear').onclick = function () { haptic(); showAlertSettings(); };
     const bnrs = $('#bnrs');
     if (bnrs) {
       const dots = document.querySelectorAll('#bnrDots i');
@@ -3210,6 +3557,7 @@
     };
     if ($('#help')) $('#help').onclick = showHelp;
     if ($('#how')) $('#how').onclick = showHow;
+    if ($('#openStory')) $('#openStory').onclick = function () { openStory(false); };
     document.querySelectorAll('.cat[data-bi]').forEach(function (el) {
       el.onclick = function () { showBlock(+el.dataset.bi); };
     });
@@ -3360,6 +3708,7 @@
           write('tc.creators', S.creators);
         }
       } catch (e) {}
+      try { recordScan(S.result); } catch (e) {}
       quotaConsume();
       S.stats.lastCheckAt = Date.now();
       abuse.cache[mint] = { at: Date.now(), result: S.result };
@@ -3377,6 +3726,8 @@
 
   /* ---------------- boot ---------------- */
   S.lang = detectLang();
+  setTimeout(runDue, 8000);
+  setInterval(runDue, 90000);
   applyTheme();
   if (IS_DESKTOP) document.documentElement.classList.add('desktop');
   if (TG) {
