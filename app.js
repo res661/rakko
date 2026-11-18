@@ -6,7 +6,7 @@
   const PLATFORM = (TG && TG.platform) || (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.platform) || 'web';
   const IS_DESKTOP = /tdesktop|macos|web|win/i.test(PLATFORM);
 
-  const APP_VER = 'bc';
+  const APP_VER = 'ios';
 
   const K = {
     ob: 'tc.onboard.v1', saved: 'tc.saved.v1', stats: 'tc.stats.v1',
@@ -17,7 +17,6 @@
     tab: 'scan',
     saved: read(K.saved, []),
     stats: read(K.stats, { scans: 0 }),
-    theme: 'dark',
     lang: null,
     black: read(K.black, { devs: {}, tokens: {} }),
     notify: read('tc.notify', true),
@@ -33,6 +32,8 @@
     ui: read('tc.ui', { trend: true, recent: true, quota: true, anim: true, big: true }),
     planUntil: read('tc.planUntil', 0),
     result: null,
+    resultOpen: false,
+    suppressResult: false,
     busy: false,
     error: '',
     lastMint: ''
@@ -114,6 +115,7 @@
   const app = document.getElementById('app');
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const usd = (n) => {
+    if (S.hideMoney) return '••••';
     n = Number(n); if (!isFinite(n) || n <= 0) return '—';
     if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
     if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
@@ -121,6 +123,7 @@
     return '$' + n.toFixed(2);
   };
   const price = (n) => {
+    if (S.hideMoney) return '••••';
     n = Number(n); if (!isFinite(n) || n <= 0) return '—';
     if (n >= 1) return '$' + n.toFixed(2);
     if (n >= 0.01) return '$' + n.toFixed(4);
@@ -148,11 +151,24 @@
 
   /* ---------------- theme ---------------- */
   function applyTheme() {
-    const dark = S.theme === 'auto' ? (!TG || TG.colorScheme !== 'light') : S.theme === 'dark';
-    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-    document.querySelector('meta[name=theme-color]').setAttribute('content', dark ? '#000000' : '#f5f5f7');
-    if (TG && TG.setHeaderColor) { try { TG.setHeaderColor('#141416'); } catch (e) {} }
-    if (TG && TG.setBackgroundColor) { try { TG.setBackgroundColor(dark ? '#000000' : '#f5f5f7'); } catch (e) {} }
+    document.documentElement.dataset.theme = 'dark';
+    const bg = '#000000';
+    const meta = document.querySelector('meta[name=theme-color]');
+    if (meta) meta.setAttribute('content', bg);
+    if (TG && TG.setHeaderColor) { try { TG.setHeaderColor(bg); } catch (e) {} }
+    if (TG && TG.setBackgroundColor) { try { TG.setBackgroundColor(bg); } catch (e) {} }
+    if (TG && TG.setBottomBarColor) { try { TG.setBottomBarColor(bg); } catch (e) {} }
+  }
+  function applyInsets() {
+    let top = 0;
+    if (TG) {
+      const c = TG.contentSafeAreaInset;
+      if (c && typeof c.top === 'number' && c.top > 8) top = c.top;
+      else if (TG.isFullscreen) top = 100;
+    }
+    document.documentElement.style.setProperty('--top-inset', top + 'px');
+    const bot = (TG && TG.safeAreaInset && TG.safeAreaInset.bottom) || 0;
+    document.documentElement.style.setProperty('--bottom-inset', bot + 'px');
   }
 
   /* ---------------- data ---------------- */
@@ -299,29 +315,27 @@
     const ru = S.lang === 'ru';
     const list = computeAlerts();
     const walletN = (S.wallets || []).length;
-    let out = top('') + '<div class="page">' +
-      '<div class="mk-head"><button class="mk-back" id="alBack">' + (ru ? '‹ Назад' : '‹ Back') + '</button>' +
-      '<button class="trend-all" id="alSet">' + (ru ? 'настроить' : 'settings') + '</button></div>' +
-      '<h1 class="big-t">' + esc(ru ? 'Сторож' : 'Watcher') + '</h1>' +
-      '<p class="big-s">' + esc(ru ? 'События по сохранённым монетам и кошелькам' : 'Events for saved tokens and wallets') + '</p>';
-    out += '<div class="trade" style="margin-bottom:14px">' +
-      '<div class="trade-row flat"><span>' + esc(ru ? 'Кошельков в наблюдении' : 'Wallets watched') + '</span><b>' + walletN + '</b></div>' +
-      '<div class="trade-row flat"><span>' + esc(ru ? 'Событий' : 'Events') + '</span><b>' + list.length + '</b></div>' +
-      '</div>';
-    out += '<button class="refresh-all" id="walletAdd">' + esc(ru ? '+ Добавить кошелёк' : '+ Add wallet') + '</button>';
+    let out = '<div class="page">' + fallbackBack() +
+      '<h1 class="lt">' + esc(ru ? 'Сторож' : 'Watcher') + '</h1>' +
+      '<p class="sub">' + esc(ru ? 'События по сохранённым монетам и кошелькам' : 'Events for saved tokens and wallets') + '</p>';
+    out += '<div class="card">' +
+      '<div class="kv" style="border:0"><span>' + esc(ru ? 'Кошельков в наблюдении' : 'Wallets watched') + '</span><b>' + walletN + '</b></div>' +
+      '<div class="kv"><span>' + esc(ru ? 'Событий' : 'Events') + '</span><b>' + list.length + '</b></div></div>';
+    out += '<button type="button" class="refresh-all" id="walletAdd">' + esc(ru ? 'Добавить кошелёк' : 'Add wallet') + '</button>';
+    out += '<button type="button" class="refresh-all" id="alSet" style="margin-top:8px">' + esc(ru ? 'Какие уведомления' : 'Which alerts') + '</button>';
     if (walletN) {
-      out += '<div class="list" style="margin-bottom:14px">' + S.wallets.map(function (w) {
-        return '<div class="item"><span class="ava">' + esc(w.slice(0, 2)) + '</span><span class="meta"><b>' + esc(w.slice(0, 6) + '…' + w.slice(-4)) + '</b><span>' + (ru ? 'наблюдаем' : 'watching') + '</span></span>' +
-          '<button class="tag tg-trash" data-delw="' + esc(w) + '">×</button></div>';
+      out += '<div class="sh"><b>' + esc(ru ? 'Кошельки' : 'Wallets') + '</b></div><div class="card">' + S.wallets.map(function (w) {
+        return '<div class="row"><span class="ava">' + esc(w.slice(0, 2)) + '</span><span class="tx"><b>' + esc(w.slice(0, 6) + '…' + w.slice(-4)) + '</b><span>' + (ru ? 'наблюдаем' : 'watching') + '</span></span>' +
+          '<button type="button" class="tag tg-trash" data-delw="' + esc(w) + '">×</button></div>';
       }).join('') + '</div>';
     }
-    out += '<h2 class="sec-t">' + esc(ru ? 'События' : 'Events') + '</h2>';
+    out += '<div class="sh"><b>' + esc(ru ? 'События' : 'Events') + '</b></div>';
     if (!list.length) {
-      out += '<div class="trade"><p class="small" style="color:#8e8e93;margin:0">' + esc(ru ? 'Пока тихо. Rakko проверит сохранённые монеты при следующем открытии.' : 'All quiet. Rakko will re-check saved tokens on next open.') + '</p></div>';
+      out += '<div class="card"><p class="plain" style="color:var(--l2);font-size:15px">' + esc(ru ? 'Пока тихо. Reactive проверит сохранённые монеты при следующем открытии.' : 'All quiet. Reactive re-checks saved tokens the next time you open it.') + '</p></div>';
     } else {
-      out += '<div class="alerts">' + list.map(function (x) {
-        const c = x.kind === 'wallet' ? '#6169ee' : x.kind === 'risky' ? 'var(--red)' : 'var(--yellow)';
-        return '<button class="alert-row" data-mint="' + esc(x.mint || '') + '"><span class="al-dot" style="background:' + c + '"></span>' +
+      out += '<div class="card">' + list.map(function (x) {
+        const c = x.kind === 'wallet' ? 'var(--blue)' : x.kind === 'risky' ? 'var(--red)' : 'var(--orange)';
+        return '<button type="button" class="row alert-row" data-mint="' + esc(x.mint || '') + '"><span class="al-dot" style="background:' + c + '"></span>' +
           '<span class="al-txt"><b>' + esc(x.symbol || '') + '</b><i>' + esc(x.text) + '</i></span>' +
           '<span class="al-time">' + (x.at ? ago(x.at) : '') + '</span></button>';
       }).join('') + '</div>';
@@ -330,16 +344,19 @@
     return out;
   }
 
+  
+
   function viewMarket() {
     const ru = S.lang === 'ru';
-    return top('') + '<div class="page">' +
-      '<div class="mk-head"><button class="mk-back" id="mkBack">' + (ru ? '‹ Назад' : '‹ Back') + '</button></div>' +
-      '<h1 class="big-t">' + esc(ru ? 'Рынок Solana' : 'Solana market') + '</h1>' +
-      '<p class="big-s">' + esc(ru ? 'Топ по объёму за 24 часа' : 'Top by 24h volume') + '</p>' +
-      '<div id="mkList" class="mk-list">' + [0, 1, 2, 3, 4].map(function () {
-        return '<div class="mk-row skel-item"><span class="skel-ava"></span><span class="skel-lines"><span class="skel-line"></span><span class="skel-line short"></span></span></div>';
+    return '<div class="page">' +
+      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '">' + esc(ru ? 'Рынок' : 'Market') + '</h1>' +
+      '<p class="sub">' + esc(ru ? 'Топ Solana по объёму за 24 часа' : 'Solana top by 24h volume') + '</p>' +
+      '<div id="mkList" class="card mk-list">' + [0, 1, 2, 3, 4, 5].map(function () {
+        return '<div class="row skel-item"><span class="ava skel-ava"></span><span class="skel-lines"><span class="skel-line"></span><span class="skel-line short"></span></span></div>';
       }).join('') + '</div></div>';
   }
+
+  
 
   async function loadGecko(mint) {
     const c = cacheGet(mint, 'gt');
@@ -657,7 +674,7 @@
     if (tk.ch24 && tk.ch24 < -60) add('bad', ru ? 'Монета потеряла ' + Math.abs(Math.round(tk.ch24)) + '% за сутки — идёт слив.' : 'Down ' + Math.abs(Math.round(tk.ch24)) + '% in 24h.');
     if (tk.creator && S.creators[tk.creator] && S.creators[tk.creator].n > 1) {
       const cn = S.creators[tk.creator].n;
-      add(cn >= 4 ? 'bad' : 'warn', ru ? 'Этого создателя мы уже видели: ' + cn + ' монет в базе Rakko.' : 'This creator appeared before: ' + cn + ' tokens in our base.');
+      add(cn >= 4 ? 'bad' : 'warn', ru ? 'Этого создателя мы уже видели: ' + cn + ' монет.' : 'This creator appeared before: ' + cn + ' tokens.');
     }
     if (S.black.devs[tk.creator]) add('bad', ru ? 'Создатель в твоём чёрном списке — ты уже блокировал его.' : 'Creator is in your blacklist — you blocked them before.');
     if (S.black.tokens[tk.mint]) add('bad', ru ? 'Эта монета в твоём чёрном списке.' : 'This token is in your blacklist.');
@@ -798,231 +815,296 @@
   }
 
   /* ---------------- views ---------------- */
-  function viewAll() {
-    const tk = S.result ? S.result.token : null;
-    const v = S.result ? verdictLabel(S.result.score) : null;
-    const colorOf = (c) => c === 'good' ? 'var(--green)' : c === 'mid' ? 'var(--yellow)' : 'var(--red)';
-
-    let out = top(t('checkTab')) + '<div class="page">';
+  function scoreColor(cls) {
+    return cls === 'good' ? 'var(--green)' : cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
+  }
+  function avaClass(cls) {
+    return cls === 'good' ? 'a-good' : cls === 'mid' ? 'a-mid' : 'a-bad';
+  }
+  function isPrem() {
+    return S.plan === 'premium' && (!S.planUntil || S.planUntil > Date.now());
+  }
+  function insightParts(text) {
+    const s = String(text || '');
+    const i = s.indexOf(':');
+    if (i > 2 && i < 48) return { title: s.slice(0, i), sub: s.slice(i + 1).trim() };
+    const j = s.indexOf(' — ');
+    if (j > 2 && j < 48) return { title: s.slice(0, j), sub: s.slice(j + 3).trim() };
+    return { title: s, sub: '' };
+  }
+  const INS_ICON = {
+    key: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="7" cy="10" r="3.2"/><path d="M10.2 10H17M15 10v2.6M17 10v2" stroke-linecap="round"/></svg>',
+    people: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="7.5" cy="7" r="2.6"/><path d="M2.8 16a4.8 4.8 0 0 1 9.4 0"/><circle cx="14" cy="7.6" r="2"/><path d="M13.2 12.2a3.8 3.8 0 0 1 3.6 3.6"/></svg>',
+    lock: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="9" width="12" height="8" rx="2"/><path d="M7 9V6.6a3 3 0 0 1 6 0V9"/></svg>',
+    down: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.5v12.5M5 11l5 5 5-5"/></svg>',
+    drop: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 2.8c3 3.6 5 6.4 5 8.8a5 5 0 0 1-10 0c0-2.4 2-5.2 5-8.8z"/></svg>',
+    alert: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 3.2 17 16.5H3L10 3.2z"/><path d="M10 8.2v3.6M10 14.2v.2"/></svg>',
+    ok: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><path d="M6.8 10.2 9 12.4 13.4 8"/></svg>'
+  };
+  function insightIcon(x) {
+    const t0 = String(x.text || '').toLowerCase();
+    if (/минт|mint|замороз|freeze|honeypot|ловуш/.test(t0)) return INS_ICON.key;
+    if (/топ-10|холдер|кошел|holder|wallet|держат/.test(t0)) return INS_ICON.people;
+    if (/lp |ликвид|пул|liquid/.test(t0)) return INS_ICON.lock;
+    if (/паден|dump|слив|упал|down |минус/.test(t0)) return INS_ICON.down;
+    if (/налог|tax|комисс/.test(t0)) return INS_ICON.drop;
+    if (x.tone === 'good') return INS_ICON.ok;
+    return INS_ICON.alert;
+  }
+  function fmtLoss(dollars) {
+    const v = Math.abs(Number(dollars) || 0);
+    let s = v >= 100 ? String(Math.round(v)) : v >= 10 ? v.toFixed(0) : v.toFixed(2);
+    if (S.lang === 'ru') s = s.replace('.', ',');
+    return '−$' + s;
+  }
+  function fmtSlip(v) {
+    if (v < 0.1) return S.lang === 'ru' ? '<0,1%' : '<0.1%';
+    let s = v.toFixed(1);
+    if (S.lang === 'ru') s = s.replace('.', ',');
+    return s + '%';
+  }
+  const CHEV = '<svg class="chev" width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M1.5 1.5 6.5 7l-5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function inTelegram() {
+    return !!(TG && TG.BackButton && TG.platform && TG.platform !== 'unknown');
+  }
+  function fallbackBack() {
+    if (inTelegram()) return '';
     const ru = S.lang === 'ru';
-    if (S.ui.trend !== false) {
-      out += '<div class="trend" id="trend">' +
-        '<div class="trend-head"><span class="trend-k">' + esc(ru ? 'РЫНОК SOLANA' : 'SOLANA MARKET') + '</span>' +
-        '<button class="trend-all" id="trendAll">' + esc(ru ? 'все ›' : 'all ›') + '</button></div>' +
-        '<div class="trend-row" id="trendRow"><span class="trend-skel"></span><span class="trend-skel"></span><span class="trend-skel"></span></div></div>';
-    }
-    out += '<h1 class="big-t' + (S.ui.big === false ? ' compact' : '') + '">' + esc(ru ? 'Проверь монету' : 'Check a token') + '</h1>';
-    out += '<p class="big-s">' + esc(ru ? 'Оценка риска за 30 секунд. Solana.' : 'Risk score in 30 seconds. Solana.') + '</p>';
-    out += '<div class="panel">' +
-      '<span class="panel-k">' + esc(ru ? 'АДРЕС КОНТРАКТА' : 'CONTRACT ADDRESS') + '</span>' +
-      '<div class="panel-in"><input id="mint" placeholder="' + esc(t('ph')) + '" autocomplete="off" spellcheck="false">' +
-      '<button class="paste-b" id="paste">' + esc(ru ? 'Вставить' : 'Paste') + '</button></div>' +
-      '<button class="panel-go" id="go"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? '<span class="spinner"></span>' : esc(S.result ? t('again') : t('check'))) + '</button>' +
-      (S.error ? '<p class="err" style="margin:10px 2px 0">' + esc(S.error) + '</p>' : '') +
-      (function () {
-        if (S.result || S.ui.quota === false) return '';
-        const L = quotaLeft();
-        return '<p class="panel-f">' + esc(S.plan === 'premium'
-          ? (ru ? 'Premium · без лимита' : 'Premium · unlimited')
-          : (ru ? 'Осталось ' + L.hour + ' из ' + FREE_PER_HOUR + ' проверок в час' : L.hour + ' of ' + FREE_PER_HOUR + ' checks left')) + '</p>';
-      })() +
-      '</div>';
-    if (S.busy) out += '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
+    return '<button type="button" class="ios-back" id="iosBack"><svg width="11" height="18" viewBox="0 0 8 14" fill="none"><path d="M6.5 1.5 1.5 7l5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' + (ru ? 'Назад' : 'Back') + '</button>';
+  }
 
-    if (S.ui.recent !== false && !S.result && S.saved.length) {
-      out += '<p class="eyebrow" style="margin-top:24px">' + esc(S.lang === 'ru' ? 'НЕДАВНИЕ' : 'RECENT') + '</p>';
+  function viewHome() {
+    const ru = S.lang === 'ru';
+    let out = '<div class="page">';
+    out += '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '">' + esc(t('checkTab')) + '</h1>';
+    out += '<p class="sub">' + esc(ru ? 'Оценка риска монеты Solana за 30 секунд' : 'Solana token risk score in 30 seconds') + '</p>';
+    out += '<div class="card paste">';
+    out += '<label class="inp-wrap"><svg class="inp-ico" viewBox="0 0 28 28" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12.5" cy="12.5" r="7.5"/><path d="m18 18 6 6"/></svg>';
+    out += '<input id="mint" placeholder="' + esc(ru ? 'Вставь адрес монеты' : 'Paste a token address') + '" autocomplete="off" spellcheck="false" enterkeyhint="go"></label>';
+    out += '<button type="button" class="btn paste-go" id="paste"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="1.8"><rect x="4" y="3.5" width="12" height="14" rx="2.5"/><rect x="7" y="2" width="6" height="3.2" rx="1.2"/></svg><span id="pasteLbl">' + esc(ru ? 'Вставить' : 'Paste') + '</span></button>';
+    out += '<p class="clip" id="clipLine" hidden></p>';
+    if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
+    out += '</div>';
+    if (S.ui.quota !== false) {
+      const L = quotaLeft();
+      out += '<p class="foot">' + esc(isPrem()
+        ? (ru ? 'Premium · без лимита' : 'Premium · unlimited')
+        : (ru ? 'Осталось ' + L.hour + ' из ' + FREE_PER_HOUR + ' проверок в этот час' : L.hour + ' of ' + FREE_PER_HOUR + ' checks left this hour')) + '</p>';
+    }
+    if (S.busy && !S.result) out += '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div></div>';
+    if (S.ui.recent !== false && S.saved.length) {
+      out += '<div class="sh"><b>' + esc(ru ? 'Недавние' : 'Recent') + '</b><button type="button" class="sh-btn" id="recentAll">' + esc(ru ? 'Все' : 'All') + '</button></div>';
       if (S.recentLoading) {
-        out += '<div class="list recent-list">' + [0, 1, 2].map(function () {
-          return '<div class="item skel-item"><span class="skel-ava"></span><span class="skel-lines"><span class="skel-line"></span><span class="skel-line short"></span></span></div>';
+        out += '<div class="card">' + [0, 1, 2].map(function () {
+          return '<div class="row it skel-item"><span class="ava skel-ava"></span><span class="skel-lines"><span class="skel-line"></span><span class="skel-line short"></span></span></div>';
         }).join('') + '</div>';
-      } else out += '<div class="list recent-list">' + S.saved.slice(0, 10).map(function (s, i) {
-        const vv = verdictLabel(s.score);
-        const cc = vv.cls === 'good' ? 'var(--green)' : vv.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
-        return '<button class="item" style="--i:' + i + '" data-mint="' + esc(s.mint) + '"><span class="ava" style="background:' + (vv.cls === 'good' ? 'linear-gradient(160deg,#2b6b45,#1c4a30)' : vv.cls === 'mid' ? 'linear-gradient(160deg,#6b5518,#4a3c17)' : 'linear-gradient(160deg,#6b2a30,#4a2026)') + '">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(s.symbol.slice(0, 2))) + '</span><span class="meta"><b>' + esc(s.symbol) + '</b><span>' + usd(s.liq) + '</span></span><span class="num" style="--sc:' + cc + '">' + s.score + '</span></button>';
-      }).join('') + '</div>';
+      } else {
+        out += '<div class="card">' + S.saved.slice(0, 6).map(function (s, i) {
+          const vv = verdictLabel(s.score || 0);
+          return '<button type="button" class="row it item" style="--i:' + i + '" data-mint="' + esc(s.mint) + '">' +
+            '<span class="ava ' + avaClass(vv.cls) + '">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(String(s.symbol || '?').slice(0, 2))) + '</span>' +
+            '<span class="tx meta"><b>' + esc(s.symbol) + '</b><span>' + usd(s.liq) + '</span></span>' +
+            '<span class="snum num" style="color:' + scoreColor(vv.cls) + '">' + s.score + '</span></button>';
+        }).join('') + '</div>';
+      }
     }
-    if (tk && S.result) {
-      out += '<div class="res">';
-      const chCol = (tk.ch24 || 0) >= 0 ? 'var(--green)' : 'var(--red)';
-      const ageTxt = (function () {
-        if (!tk.created) return '—';
-        const h = (Date.now() - tk.created) / 36e5;
-        return h < 1 ? Math.round(h * 60) + 'm' : h < 48 ? Math.round(h) + 'h' : Math.round(h / 24) + 'd';
-      })();
-      const scCol = v.cls === 'good' ? 'var(--green)' : v.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
-      out += '<div class="tk-card">' +
-        '<div class="tk-top">' +
-        '<span class="tk-ava">' + (tk.image ? '<img src="' + esc(tk.image) + '" alt="">' : esc(tk.symbol.slice(0, 2))) + '</span>' +
-        '<span class="tk-id"><b>' + esc(tk.symbol) + '</b><span>' + esc(tk.name || '') + '</span></span>' +
-        '<span class="tk-score" style="color:' + scCol + '"><b>' + S.result.score + '</b><i>/100</i></span>' +
-        '</div>' +
-        '<div class="tk-priceline"><b>' + esc(price(tk.price)) + '</b>' +
-        '<span style="color:' + chCol + '">' + (tk.ch24 ? pct(tk.ch24) : '') + '</span></div>' +
-        '<div class="tk-bar"><i style="width:' + Math.round(S.result.score) + '%;background:' + scCol + '"></i></div>' +
-        '<div class="tk-stats">' +
-        '<div><span>MC</span><b>' + usd(tk.mc) + '</b></div>' +
-        '<div><span>' + esc(S.lang === 'ru' ? 'Ликв.' : 'Liq') + '</span><b>' + usd(tk.liq) + '</b></div>' +
-        '<div><span>' + esc(S.lang === 'ru' ? 'Объём' : 'Vol') + '</span><b>' + usd(tk.vol) + '</b></div>' +
-        '<div><span>' + esc(S.lang === 'ru' ? 'Возраст' : 'Age') + '</span><b>' + esc(ageTxt) + '</b></div>' +
-        '</div>' +
-        '<div class="tk-upd">' + esc((S.lang === 'ru' ? 'обновлено ' : 'updated ') + ago(S.updatedAt || Date.now())) + (S.result.partial ? ' · ' + (S.lang === 'ru' ? 'догружаю…' : 'loading…') : '') + '</div>' +
-        '<div class="tk-links">' +
-        (tk.url ? '<a class="tkl" href="' + esc(tk.url) + '" target="_blank" rel="noopener" aria-label="DEX"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18l6-6 4 3 6-8"/><path d="M16 7h4v4"/></svg></a>' : '') +
-        (tk.socials || []).map(function (s) {
-          const u = String(s.url || '');
-          const t2 = String(s.type || '').toLowerCase();
-          let ic = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c3 3 3 13 0 16M12 4c-3 3-3 13 0 16"/></svg>';
-          if (t2.indexOf('twitter') > -1 || t2 === 'x' || u.indexOf('x.com') > -1 || u.indexOf('twitter.com') > -1) ic = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 3h3l-6.6 7.6L21.7 21h-5.9l-4.6-6-5.3 6H3l7-8.1L2.7 3h6l4.2 5.5L17.5 3zm-1 16h1.6L7.6 4.7H5.9L16.5 19z"/></svg>';
-          else if (t2.indexOf('telegram') > -1 || u.indexOf('t.me') > -1) ic = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.5 4.3 2.9 11.4c-1 .4-1 1.7.1 2l4.6 1.4 1.8 5.5c.3.9 1.4 1.1 2 .4l2.5-2.6 4.6 3.4c.8.6 1.9.1 2.1-.8l3-14.2c.2-1-.8-1.8-1.7-1.4zM8.7 14.3l8.6-5.4-6.6 6.5-.2 3-1.8-4.1z"/></svg>';
-          return '<a class="tkl" href="' + esc(u) + '" target="_blank" rel="noopener">' + ic + '</a>';
-        }).join('') +
-        (tk.sites || []).map(function (u) {
-          return '<a class="tkl" href="' + esc(u) + '" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c3 3 3 13 0 16M12 4c-3 3-3 13 0 16"/></svg></a>';
-        }).join('') +
-        '</div>' +
-        '<div class="tk-meta">' + esc((tk.dex || '').toUpperCase()) +
-        (tk.holders ? ' · ' + num(tk.holders) + ' holders' : '') +
-        (tk.buys || tk.sells ? ' · ' + tk.buys + '/' + tk.sells : '') +
-        '</div></div>';
-      // insights
-      const insights = buildInsights(tk);
-      if (insights.length) {
-        out += '<p class="eyebrow" style="margin-top:20px">' + esc(S.lang === 'ru' ? 'Что важно' : 'Key findings') + '</p>';
-        out += '<div class="ins">' + insights.map(function (x, i) {
-          const c = x.tone === 'bad' ? 'var(--red)' : x.tone === 'warn' ? 'var(--yellow)' : x.tone === 'good' ? 'var(--green)' : 'var(--text-3)';
-          return '<div class="ins-row" style="--i:' + i + '"><span class="ins-dot" style="background:' + c + '"></span><span>' + esc(x.text) + '</span></div>';
-        }).join('') + '</div>';
-        if (S.plan !== 'premium' && insights.length > 3) {
-          out += '<button class="locked-row" id="lockIns"><span>🔒</span><span>' + esc(S.lang === 'ru' ? 'Ещё ' + (insights.length - 3) + ' инсайтов — в Premium' : (insights.length - 3) + ' more insights in Premium') + '</span></button>';
-        }
-      }
-
-      // trade check
-      if (tk.liq > 0) {
-        const slip = function (usdAmt) { return (usdAmt / tk.liq) * 100; };
-        const slipColor = function (v) { return v < 1 ? 'var(--green)' : v < 3 ? 'var(--yellow)' : 'var(--red)'; };
-        const top10 = (tk.top || []).slice(0, 10).reduce(function (s, h) { return s + (h.pct || 0); }, 0);
-        const rowsT = [
-          ['$100', slip(100), slipColor(slip(100))],
-          ['$500', slip(500), slipColor(slip(500))],
-          ['$1 000', slip(1000), slipColor(slip(1000))]
-        ];
-        '<p class="eyebrow" style="margin-top:20px">' + esc(S.lang === 'ru' ? 'ДЛЯ СДЕЛКИ' : 'TRADE CHECK') + '</p>';
-        out += '<div class="trade">' +
-          '<div class="trade-h">' + esc(S.lang === 'ru' ? 'Проскальзывание при входе' : 'Slippage on entry') + '</div>' +
-          rowsT.map(function (r) {
-            return '<div class="trade-row"><span>' + r[0] + '</span>' +
-              '<span class="trade-bar"><i style="width:' + Math.min(100, Math.max(3, r[1] * 12)) + '%;background:' + r[2] + '"></i></span>' +
-              '<b style="color:' + r[2] + '">≈' + (r[1] < 0.1 ? '<0.1' : r[1].toFixed(1)) + '%</b></div>';
-          }).join('') +
-          '<div class="trade-sep"></div>' +
-          '<div class="trade-row flat"><span>' + esc(S.lang === 'ru' ? 'Налог вход/выход' : 'Buy/sell tax') + '</span><b>' +
-            (tk.gp ? (tk.gp.buyTax || '0') + '% / ' + (tk.gp.sellTax || '0') + '%' : '—') + '</b></div>' +
-          '<div class="trade-row flat"><span>' + esc(S.lang === 'ru' ? 'LP заблокирован' : 'LP locked') + '</span><b>' +
-            (tk.lpLocked === null || tk.lpLocked === undefined ? '—' : Math.round(tk.lpLocked) + '%') + '</b></div>' +
-          '<div class="trade-row flat"><span>' + esc(S.lang === 'ru' ? 'У создателя' : 'Dev holds') + '</span><b>' +
-            (tk.creatorBalance && tk.creatorBalance.pct ? tk.creatorBalance.pct.toFixed(1) + '%' : '—') + '</b></div>' +
-          '<div class="trade-row flat"><span>' + esc(S.lang === 'ru' ? 'Топ-10 держат' : 'Top-10 hold') + '</span><b>' +
-            (top10 ? Math.round(top10) + '%' : '—') + '</b></div>' +
-          '</div>';
-      }
-
-      // info grid
-      const rows = [
-        [t('priceL'), price(tk.price), tk.ch24 ? pct(tk.ch24) : ''],
-        ['MC', usd(tk.mc), ''],
-        ['FDV', usd(tk.fdv), ''],
-        [t('liqL'), usd(tk.liq), ''],
-        [t('volL'), usd(tk.vol), ''],
-        ['Buys / Sells', String(tk.buys) + ' / ' + String(tk.sells), ''],
-        ['Holders', tk.holders ? num(tk.holders) : '—', ''],
-        ['DEX', (tk.dex || '—').toUpperCase(), ''],
-        ['FDV / MC', (tk.mc && tk.fdv ? (tk.fdv / tk.mc).toFixed(2) + '×' : '—'), ''],
-        ['1h / 6h', (tk.ch1 ? pct(tk.ch1) : '—') + ' / ' + (tk.ch6 ? pct(tk.ch6) : '—'), ''],
-        ['Creator', tk.creator ? tk.creator.slice(0, 6) + '…' + tk.creator.slice(-4) : '—', ''],
-        ['Pair', tk.pairAddr ? tk.pairAddr.slice(0, 6) + '…' + tk.pairAddr.slice(-4) : '—', ''],
-        ['Holders (GP)', tk.gp && tk.gp.holders ? num(tk.gp.holders) : '—', ''],
-        ['LP holders', tk.gp && tk.gp.lp ? String(tk.gp.lp) : '—', ''],
-        ['Honeypot', tk.gp ? (tk.gp.honeypot ? 'да' : 'нет') : '—', ''],
-        ['Mint / Freeze', tk.gp ? ((tk.gp.mintable ? 'open' : 'revoked') + ' / ' + (tk.gp.freezable ? 'open' : 'revoked')) : '—', ''],
-        ['Buy / Sell tax', tk.gp ? ((tk.gp.buyTax || '0') + '% / ' + (tk.gp.sellTax || '0') + '%') : '—', ''],
-        ['Reserve (GT)', tk.gtReserve ? usd(tk.gtReserve) : (S.gtLoading ? '…' : '—'), ''],
-        ['Creator %', tk.creatorBalance && tk.creatorBalance.pct ? tk.creatorBalance.pct.toFixed(2) + '%' : '—', ''],
-        ['Top-1 holder', tk.top1 ? tk.top1.toFixed(2) + '%' : '—', ''],
-        ['Transfer fee', tk.transferFee === null ? '—' : tk.transferFee.toFixed(1) + '%', ''],
-        ['LP locked', tk.lpLocked === null || tk.lpLocked === undefined ? '—' : Math.round(tk.lpLocked) + '%', '']
-      ];
-      const rowHtml = (r) => '<div class="info-row"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + (r[2] ? ' <i style="color:' + (String(r[2]).startsWith('-') ? 'var(--red)' : 'var(--green)') + '">' + esc(r[2]) + '</i>' : '') + '</b></div>';
-      const primary = rows.slice(0, 4);
-      const extra = rows.slice(4);
-      out += '<div class="info">' + primary.map(rowHtml).join('');
-      if (extra.length) {
-        out += '<button class="info-toggle" id="infoMore"><span>' + esc(S.lang === 'ru' ? 'Ещё ' + extra.length + ' показателей' : extra.length + ' more metrics') + '</span>' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>' +
-          '<div class="info-extra" id="infoExtra">' + extra.map(rowHtml).join('') + '</div>';
-      }
-      out += '</div>';
-
-      // risks from rugcheck
-      if (tk.risks && tk.risks.length) {
-        out += '<p class="eyebrow" style="margin-top:18px">' + esc(S.lang === 'ru' ? 'РИСКИ' : 'RISKS') + '</p><div class="risk-list">' + tk.risks.map((r) => {
-          const low = /warn|medium|low/i.test(r.level);
-          return '<div class="risk"><span class="dot" style="background:' + (low ? 'var(--yellow)' : 'var(--red)') + '"></span><span><b>' + esc(riskRu(r.name)) + '</b></span></div>';
-        }).join('') + '</div>';
-      }
-
-      // checks blocks
-      out += '<div class="sec-head"><p class="eyebrow">' + esc(t('checksK')) + '</p><button class="help" id="help">?</button></div>';
-      out += '<div class="cats">' + S.result.blocks.map((x, bi) => {
-        const c = x.s >= 0.7 ? 'green' : x.s >= 0.4 ? 'yellow' : 'red';
-        const col = 'var(--' + c + ')';
-        const p = Math.round(x.s * 100);
-        return '<button class="cat ' + c + '" data-bi="' + bi + '" style="--c:' + col + '">' +
-          '<div class="cat-top"><span class="cat-ico">' + (BICON[x.k] || '') + '</span>' +
-          '<span class="cat-v">' + p + '<i>%</i></span></div>' +
-          '<span class="cat-t">' + esc(t(x.k)) + '</span>' +
-          '<span class="cat-pb"><i style="width:' + p + '%"></i></span>' +
-          '<span class="cat-s">' + esc(x.info) + '</span></button>';
-      }).join('') + (S.result.partial ? pendingBlocks(S.result.blocks.map(function (x) { return x.k; }), S.lang) : '') + '</div>';
-      out += '<div id="block-detail"></div>';
-      // top holders
-      if (tk.top && tk.top.length) {
-        const maxPct = Math.max.apply(null, tk.top.map(function (h) { return h.pct; }).concat([1]));
-        if (S.plan !== 'premium') {
-          out += '<button class="locked-row" id="lockHold"><span>🔒</span><span>' + esc(S.lang === 'ru' ? 'Топ держателей — в Premium' : 'Top holders in Premium') + '</span></button>';
-        } else {
-        out += '<details class="holders"><summary>' + esc(S.lang === 'ru' ? 'Топ держателей' : 'Top holders') + '<i>' + tk.top.length + '</i></summary><div class="hold-list">' + tk.top.map(function (h, hi) {
-          const w = Math.max(3, Math.round(h.pct / maxPct * 100));
-          const tone = h.pct > 20 ? 'var(--red)' : h.pct > 10 ? 'var(--yellow)' : 'var(--text-3)';
-          return '<div class="hold-row"><span class="hold-n">' + (hi + 1) + '</span>' +
-            '<span class="hold-mid"><span class="hold-bar"><i style="width:' + w + '%;background:' + tone + '"></i></span>' +
-            '<span class="hold-addr">' + esc(h.addr ? h.addr.slice(0, 5) + '…' + h.addr.slice(-4) : '—') + '</span></span>' +
-            '<b>' + esc(h.pct.toFixed(2)) + '%</b></div>';
-        }).join('') + '</div></details>';
-        }
-      }
-
-      // actions
-      if (S.result.blocks.length < 8) out += '<p class="tiny" style="margin-top:16px">' + esc(S.lang === 'ru' ? 'Часть данных недоступна — оценка по ' + S.result.blocks.length + ' из 8 блоков.' : 'Some data unavailable — scored on ' + S.result.blocks.length + ' of 8 blocks.') + '</p>';
-      out += '<div id="similar"></div>';
-      const inList = (S.saved || []).some(function (x) { return x.mint === tk.mint; });
-      out += '<div class="actions-main"><button class="btn' + (inList ? ' saved' : '') + '" id="save">' +
-        (inList ? '<svg class="ok-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4.5 4.5L19 7"/></svg><span>' + esc(S.lang === 'ru' ? 'В списке' : 'Saved') + '</span>' : esc(t('save'))) +
-        '</button></div>';
-      if (tk.creator) {
-        const blocked = !!S.black.devs[tk.creator];
-        out += '<button class="ghost-action' + (blocked ? ' on' : '') + '" id="blkDev">' +
-          '<span class="ga-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><path d="M6.5 6.5l11 11"/></svg></span>' +
-          '<span>' + esc(blocked ? (S.lang === 'ru' ? 'Создатель заблокирован' : 'Creator blocked') : (S.lang === 'ru' ? 'Заблокировать создателя' : 'Block creator')) + '</span>' +
-          '</button>';
-      }
-      if (S.black.tokens[tk.mint]) out += '<p class="tiny" style="margin-top:10px;color:var(--red)">' + esc(S.lang === 'ru' ? 'Монета в чёрном списке' : 'Token is blacklisted') + '</p>';
-      out += '<p class="tiny copy-a" id="copyMint" style="margin-top:14px">' + esc(tk.mint) + ' <span class="cp">' + (S.lang === 'ru' ? 'копировать' : 'copy') + '</span></p>';
-      out += '<p class="tiny">' + esc(t('about')) + '</p></div>';
+    if (S.ui.trend !== false) {
+      out += '<div id="trend"><div class="sh"><b>' + esc(ru ? 'Рынок Solana' : 'Solana market') + '</b><button type="button" class="sh-btn" id="trendAll">' + esc(ru ? 'Топ-25' : 'Top 25') + '</button></div>';
+      out += '<div class="trow" id="trendRow"><span class="trend-skel"></span><span class="trend-skel"></span><span class="trend-skel"></span></div></div>';
     }
     out += '</div>';
     return out;
   }
+
+  function viewResultPage() {
+    const ru = S.lang === 'ru';
+    const back = fallbackBack();
+    if (!S.result || !S.result.token) {
+      return '<div class="page">' + back + '<div class="skel-wrap"><div class="skel tall"></div><div class="skel"></div><div class="skel"></div></div></div>';
+    }
+    const tk = S.result.token;
+    const v = verdictLabel(S.result.score);
+    const scCol = scoreColor(v.cls);
+    const chCol = (Number(tk.ch24) || 0) >= 0 ? 'var(--green)' : 'var(--red)';
+    const ageTxt = (function () {
+      if (!tk.created) return '—';
+      const h = (Date.now() - tk.created) / 36e5;
+      return h < 1 ? Math.round(h * 60) + 'm' : h < 48 ? Math.round(h) + 'h' : Math.round(h / 24) + 'd';
+    })();
+    let out = '<div class="page res">' + back;
+    out += '<div class="tk-card">' +
+      '<div class="tk-top">' +
+      '<span class="tk-ava ' + avaClass(v.cls) + '">' + (tk.image ? '<img src="' + esc(tk.image) + '" alt="">' : esc(String(tk.symbol || '?').slice(0, 2))) + '</span>' +
+      '<span class="tk-id"><b>' + esc(tk.symbol) + '</b><span>' + esc(tk.name || '') + '</span></span>' +
+      '<span class="tk-score" style="color:' + scCol + '"><b>' + S.result.score + '</b><i>/100</i></span>' +
+      '</div>' +
+      '<div class="tk-priceline"><b>' + esc(price(tk.price)) + '</b>' +
+      '<span style="color:' + chCol + '">' + (tk.ch24 ? pct(tk.ch24) : '') + '</span></div>' +
+      '<div class="tk-bar"><i style="width:' + Math.round(S.result.score) + '%;background:' + scCol + '"></i></div>' +
+      '<div class="tk-stats">' +
+      '<div><span>MC</span><b>' + usd(tk.mc) + '</b></div>' +
+      '<div><span>' + esc(ru ? 'Ликв.' : 'Liq') + '</span><b>' + usd(tk.liq) + '</b></div>' +
+      '<div><span>' + esc(ru ? 'Объём' : 'Vol') + '</span><b>' + usd(tk.vol) + '</b></div>' +
+      '<div><span>' + esc(ru ? 'Возраст' : 'Age') + '</span><b>' + esc(ageTxt) + '</b></div>' +
+      '</div>' +
+      '<div class="tk-foot"><div class="tk-links">' +
+      (tk.url ? '<a class="tkl" href="' + esc(tk.url) + '" target="_blank" rel="noopener" aria-label="DEX"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18l6-6 4 3 6-8"/><path d="M16 7h4v4"/></svg></a>' : '') +
+      (tk.socials || []).map(function (s) {
+        const u = String(s.url || '');
+        const t2 = String(s.type || '').toLowerCase();
+        let ic = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c3 3 3 13 0 16M12 4c-3 3-3 13 0 16"/></svg>';
+        if (t2.indexOf('twitter') > -1 || t2 === 'x' || u.indexOf('x.com') > -1 || u.indexOf('twitter.com') > -1) ic = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 3h3l-6.6 7.6L21.7 21h-5.9l-4.6-6-5.3 6H3l7-8.1L2.7 3h6l4.2 5.5L17.5 3zm-1 16h1.6L7.6 4.7H5.9L16.5 19z"/></svg>';
+        else if (t2.indexOf('telegram') > -1 || u.indexOf('t.me') > -1) ic = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.5 4.3 2.9 11.4c-1 .4-1 1.7.1 2l4.6 1.4 1.8 5.5c.3.9 1.4 1.1 2 .4l2.5-2.6 4.6 3.4c.8.6 1.9.1 2.1-.8l3-14.2c.2-1-.8-1.8-1.7-1.4zM8.7 14.3l8.6-5.4-6.6 6.5-.2 3-1.8-4.1z"/></svg>';
+        return '<a class="tkl" href="' + esc(u) + '" target="_blank" rel="noopener">' + ic + '</a>';
+      }).join('') +
+      (tk.sites || []).map(function (u) {
+        return '<a class="tkl" href="' + esc(u) + '" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c3 3 3 13 0 16M12 4c-3 3-3 13 0 16"/></svg></a>';
+      }).join('') +
+      '</div><div class="tk-upd">' + esc((ru ? 'обновлено ' : 'updated ') + ago(S.updatedAt || Date.now())) + (S.result.partial ? ' · ' + (ru ? 'догружаю…' : 'loading…') : '') + '</div></div>' +
+      '<div class="tk-meta">' + esc((tk.dex || '').toUpperCase()) +
+      (tk.holders ? ' · ' + num(tk.holders) + ' holders' : '') +
+      (tk.buys || tk.sells ? ' · ' + tk.buys + '/' + tk.sells : '') +
+      '</div></div>';
+    if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
+
+    const insights = buildInsights(tk);
+    const vis = isPrem() ? insights : insights.slice(0, 3);
+    if (vis.length) {
+      const rc = (tk.risks || []).length;
+      out += '<div class="sh"><b>' + esc(ru ? 'Что важно' : 'What matters') + '</b>' +
+        (rc ? '<span class="muted">Rugcheck · ' + rc + '</span>' : '') + '</div>';
+      out += '<div class="card ins">' + vis.map(function (x, i) {
+        const p = insightParts(x.text);
+        const tone = x.tone === 'bad' ? 'b-r' : x.tone === 'warn' ? 'b-o' : x.tone === 'good' ? 'b-g' : 'b-n';
+        return '<div class="row" style="--i:' + i + '"><div class="ic ' + tone + '">' + insightIcon(x) + '</div>' +
+          '<div class="tx"><b>' + esc(p.title) + '</b>' + (p.sub ? '<span>' + esc(p.sub) + '</span>' : '') + '</div></div>';
+      }).join('') + '</div>';
+      if (!isPrem() && insights.length > 3) {
+        out += '<button type="button" class="locked-row" id="lockIns"><span>🔒</span><span>' + esc(ru ? 'Ещё ' + (insights.length - 3) + ' — в Premium' : (insights.length - 3) + ' more in Premium') + '</span></button>';
+      }
+    }
+
+    if (tk.liq > 0) {
+      const slip = function (usdAmt) { return (usdAmt / tk.liq) * 100; };
+      const tone = function (v) { return v < 1 ? 'var(--green)' : v < 3 ? 'var(--orange)' : 'var(--red)'; };
+      const cols = [100, 500, 1000].map(function (amt) {
+        const p = slip(amt);
+        const loss = amt * p / 100;
+        return '<div><div class="k">$' + (amt === 1000 ? '1000' : amt) + '</div><div class="v" style="color:' + tone(p) + '">' + fmtLoss(loss) + '</div><div class="s">' + fmtSlip(p) + '</div></div>';
+      }).join('');
+      let tax = '—';
+      if (tk.gp) {
+        const b = String(tk.gp.buyTax || '0');
+        const s = String(tk.gp.sellTax || '0');
+        tax = b === s ? (b + '%') : (b + '% / ' + s + '%');
+      }
+      let dev = '—';
+      let devCol = '';
+      if (tk.creatorBalance && tk.creatorBalance.pct) {
+        dev = (S.lang === 'ru' ? tk.creatorBalance.pct.toFixed(1).replace('.', ',') : tk.creatorBalance.pct.toFixed(1)) + '%';
+        if (tk.creatorBalance.pct > 5) devCol = ' style="color:var(--orange)"';
+      }
+      out += '<div class="sh"><b>' + esc(ru ? 'Для сделки' : 'For a trade') + '</b><span class="muted">' + esc(ru ? 'потеря на входе' : 'entry loss') + '</span></div>';
+      out += '<div class="card"><div class="deal">' + cols + '</div>' +
+        '<div class="kv"><span>' + esc(ru ? 'Налог · доля дева' : 'Tax · dev share') + '</span><b>' + esc(tax) + ' · <span' + devCol + '>' + esc(dev) + '</span></b></div></div>';
+    }
+
+    const rows = [
+      [t('priceL'), price(tk.price), tk.ch24 ? pct(tk.ch24) : ''],
+      ['MC', usd(tk.mc), ''],
+      ['FDV', usd(tk.fdv), ''],
+      [t('liqL'), usd(tk.liq), ''],
+      [t('volL'), usd(tk.vol), ''],
+      ['Buys / Sells', String(tk.buys) + ' / ' + String(tk.sells), ''],
+      ['Holders', tk.holders ? num(tk.holders) : '—', ''],
+      ['DEX', (tk.dex || '—').toUpperCase(), ''],
+      ['FDV / MC', (tk.mc && tk.fdv ? (tk.fdv / tk.mc).toFixed(2) + '×' : '—'), ''],
+      ['1h / 6h', (tk.ch1 ? pct(tk.ch1) : '—') + ' / ' + (tk.ch6 ? pct(tk.ch6) : '—'), ''],
+      ['Creator', tk.creator ? tk.creator.slice(0, 6) + '…' + tk.creator.slice(-4) : '—', ''],
+      ['Pair', tk.pairAddr ? tk.pairAddr.slice(0, 6) + '…' + tk.pairAddr.slice(-4) : '—', ''],
+      ['Holders (GP)', tk.gp && tk.gp.holders ? num(tk.gp.holders) : '—', ''],
+      ['LP holders', tk.gp && tk.gp.lp ? String(tk.gp.lp) : '—', ''],
+      ['Honeypot', tk.gp ? (tk.gp.honeypot ? 'да' : 'нет') : '—', ''],
+      ['Mint / Freeze', tk.gp ? ((tk.gp.mintable ? 'open' : 'revoked') + ' / ' + (tk.gp.freezable ? 'open' : 'revoked')) : '—', ''],
+      ['Buy / Sell tax', tk.gp ? ((tk.gp.buyTax || '0') + '% / ' + (tk.gp.sellTax || '0') + '%') : '—', ''],
+      ['Reserve (GT)', tk.gtReserve ? usd(tk.gtReserve) : (S.gtLoading ? '…' : '—'), ''],
+      ['Creator %', tk.creatorBalance && tk.creatorBalance.pct ? tk.creatorBalance.pct.toFixed(2) + '%' : '—', ''],
+      ['Top-1 holder', tk.top1 ? tk.top1.toFixed(2) + '%' : '—', ''],
+      ['Transfer fee', tk.transferFee === null || tk.transferFee === undefined ? '—' : tk.transferFee.toFixed(1) + '%', ''],
+      ['LP locked', tk.lpLocked === null || tk.lpLocked === undefined ? '—' : Math.round(tk.lpLocked) + '%', '']
+    ];
+    const rowHtml = function (r) {
+      return '<div class="info-row"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + (r[2] ? ' <i style="color:' + (String(r[2]).charAt(0) === '-' ? 'var(--red)' : 'var(--green)') + '">' + esc(r[2]) + '</i>' : '') + '</b></div>';
+    };
+    out += '<div class="card" style="margin-top:10px"><button type="button" class="plain" id="infoMore">' +
+      '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="5.5" height="5.5" rx="1.3"/><rect x="11.5" y="3" width="5.5" height="5.5" rx="1.3"/><rect x="3" y="11.5" width="5.5" height="5.5" rx="1.3"/><rect x="11.5" y="11.5" width="5.5" height="5.5" rx="1.3"/></svg>' +
+      '<span>' + esc(ru ? 'Все метрики' : 'All metrics') + '</span><span class="cnt">' + rows.length + '</span>' + CHEV + '</button>' +
+      '<div class="info-extra" id="infoExtra">' + rows.map(rowHtml).join('') + '</div></div>';
+
+    out += '<div class="sh"><b>' + esc(t('checksK')) + '</b><button type="button" class="help" id="help">?</button></div>';
+    out += '<div class="cats">' + S.result.blocks.map(function (x, bi) {
+      const c = x.s >= 0.7 ? 'green' : x.s >= 0.4 ? 'yellow' : 'red';
+      const col = 'var(--' + c + ')';
+      const p = Math.round(x.s * 100);
+      return '<button type="button" class="cat ' + c + '" data-bi="' + bi + '" style="--c:' + col + '">' +
+        '<div class="cat-top"><span class="cat-ico">' + (BICON[x.k] || '') + '</span>' +
+        '<span class="cat-v">' + p + '<i>%</i></span></div>' +
+        '<span class="cat-t">' + esc(t(x.k)) + '</span>' +
+        '<span class="cat-pb"><i style="width:' + p + '%"></i></span>' +
+        '<span class="cat-s">' + esc(x.info) + '</span></button>';
+    }).join('') + (S.result.partial ? pendingBlocks(S.result.blocks.map(function (x) { return x.k; }), S.lang) : '') + '</div>';
+    out += '<div id="block-detail"></div>';
+
+    if (tk.top && tk.top.length) {
+      if (!isPrem()) {
+        out += '<button type="button" class="locked-row" id="lockHold"><span>🔒</span><span>' + esc(ru ? 'Топ держателей — в Premium' : 'Top holders in Premium') + '</span></button>';
+      } else {
+        const maxPct = Math.max.apply(null, tk.top.map(function (h) { return h.pct; }).concat([1]));
+        out += '<details class="card holders" style="margin-top:10px"><summary class="plain">' + esc(ru ? 'Топ держателей' : 'Top holders') + '<span class="cnt">' + tk.top.length + '</span>' + CHEV + '</summary><div class="hold-list">' + tk.top.map(function (h, hi) {
+          const w = Math.max(3, Math.round(h.pct / maxPct * 100));
+          const ht = h.pct > 20 ? 'var(--red)' : h.pct > 10 ? 'var(--orange)' : 'var(--l3)';
+          return '<div class="hold-row"><span class="hold-n">' + (hi + 1) + '</span>' +
+            '<span class="hold-mid"><span class="hold-bar"><i style="width:' + w + '%;background:' + ht + '"></i></span>' +
+            '<span class="hold-addr">' + esc(h.addr ? h.addr.slice(0, 5) + '…' + h.addr.slice(-4) : '—') + '</span></span>' +
+            '<b>' + esc(h.pct.toFixed(2)) + '%</b></div>';
+        }).join('') + '</div></details>';
+      }
+    }
+
+    if (S.result.blocks.length < 8) out += '<p class="tiny" style="margin-top:12px">' + esc(ru ? 'Часть данных недоступна — оценка по ' + S.result.blocks.length + ' из 8 блоков.' : 'Some data unavailable — scored on ' + S.result.blocks.length + ' of 8 blocks.') + '</p>';
+    out += '<div id="similar"></div>';
+
+    const inList = (S.saved || []).some(function (x) { return x.mint === tk.mint; });
+    out += '<div class="actions-main"><button type="button" class="btn' + (inList ? ' saved' : '') + '" id="save">' +
+      (inList ? '<svg class="ok-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4.5 4.5L19 7"/></svg><span>' + esc(ru ? 'В списке' : 'Saved') + '</span>' : esc(t('save'))) +
+      '</button></div>';
+    out += '<div class="card" style="margin-top:10px">';
+    if (tk.creator) {
+      const blocked = !!S.black.devs[tk.creator];
+      out += '<button type="button" class="plain ghost-action' + (blocked ? ' on' : '') + '" id="blkDev">' +
+        '<span class="ga-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M6.5 6.5l11 11"/></svg></span>' +
+        '<span>' + esc(blocked ? (ru ? 'Создатель заблокирован' : 'Creator blocked') : (ru ? 'Заблокировать создателя' : 'Block creator')) + '</span></button>';
+    }
+    const tokBlocked = !!S.black.tokens[tk.mint];
+    out += '<button type="button" class="plain ghost-action' + (tokBlocked ? ' on' : '') + '" id="blkTok">' +
+      '<span class="ga-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M6.5 6.5l11 11"/></svg></span>' +
+      '<span>' + esc(tokBlocked ? (ru ? 'Монета в чёрном списке' : 'Token blacklisted') : (ru ? 'В чёрный список' : 'Blacklist token')) + '</span></button>';
+    out += '</div>';
+
+    if (tk.risks && tk.risks.length) {
+      out += '<div class="sh"><b>' + esc(ru ? 'Риски Rugcheck' : 'Rugcheck risks') + '</b><span class="muted">' + tk.risks.length + '</span></div>';
+      out += '<div class="card risk-list">' + tk.risks.map(function (r) {
+        const low = /warn|medium|low/i.test(r.level);
+        return '<div class="risk"><span class="dot" style="background:' + (low ? 'var(--orange)' : 'var(--red)') + '"></span><span><b>' + esc(riskRu(r.name)) + '</b></span></div>';
+      }).join('') + '</div>';
+    }
+
+    out += '<p class="tiny copy-a" id="copyMint" style="margin-top:14px"><span class="mint">' + esc(tk.mint) + '</span><span class="cp">' + (ru ? 'копировать' : 'copy') + '</span></p>';
+    out += '<p class="tiny">' + esc(t('about')) + '</p></div>';
+    return out;
+  }
+
+  
 
   function viewScan() {
     if (S.result) return viewResult();
@@ -1105,24 +1187,26 @@
 
   function viewSaved() {
     const ru = S.lang === 'ru';
+    const sort = S.listSort || 'score';
+    const sortLbl = sort === 'score' ? (ru ? 'Скор' : 'Score') : sort === 'change' ? '24ч' : (ru ? 'Дата' : 'Date');
+    const cmpIco = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4v16M16 4v16M4 8h8M12 16h8"/></svg>';
     if (!S.saved.length) {
-      return top(t('savedTab')) + '<div class="page"><div class="empty">' +
-        '<div class="radar"><span class="r-dot"></span><i class="r r1"></i><i class="r r2"></i><i class="r r3"></i></div>' +
-        '<b>' + esc(t('emptyTitle')) + '</b><span>' + esc(t('emptyText')) + '</span></div></div>';
+      return '<div class="page"><h1 class="lt">' + esc(t('savedTab')) + '</h1>' +
+        '<p class="sub">' + esc(ru ? 'Обновляется каждые 45 секунд' : 'Refreshes every 45 seconds') + '</p>' +
+        '<div class="empty"><b>' + esc(t('emptyTitle')) + '</b><span>' + esc(t('emptyText')) + '</span></div>' +
+        '<button type="button" class="refresh-all" id="openAlerts">' + esc(ru ? 'Сторож' : 'Watcher') + '</button></div>';
     }
 
     const avg = Math.round(S.saved.reduce(function (x, s) { return x + (s.score || 0); }, 0) / S.saved.length);
-    const clean = S.saved.filter(function (s) { return (s.score || 0) >= 70; }).length;
     const risky = S.saved.filter(function (s) { return (s.score || 0) < 40; }).length;
-
     const filter = S.listFilter || 'all';
-    const sort = S.listSort || 'score';
+    if (filter === 'clean' || filter === 'risky') S.listFilter = 'all';
 
     let list = S.saved.filter(function (s) {
-      if (filter === 'clean') return (s.score || 0) >= 70;
-      if (filter === 'risky') return (s.score || 0) < 40;
-      if (filter === 'hold') return s.tag === 'hold';
-      if (filter === 'watch') return s.tag !== 'hold' && s.tag !== 'trash';
+      const f = S.listFilter || 'all';
+      if (f === 'hold') return s.tag === 'hold';
+      if (f === 'trash') return s.tag === 'trash';
+      if (f === 'watch') return s.tag !== 'hold' && s.tag !== 'trash';
       return true;
     });
     list = list.slice().sort(function (x, y) {
@@ -1131,11 +1215,24 @@
       return (y.score || 0) - (x.score || 0);
     });
 
-    const alerts = S.saved.filter(function (s) { return alertOf(s).length > 0; });
+    const attn = [];
+    S.saved.forEach(function (s) {
+      if (typeof s.prevScore === 'number' && s.prevScore - s.score >= 10) {
+        const d = s.prevScore - s.score;
+        attn.push({ mint: s.mint, tone: 'bad', icon: 'down', title: s.symbol + (ru ? ' · скор ' : ' · score ') + s.prevScore + ' → ' + s.score, sub: ru ? 'Упал на ' + d + ' с прошлой проверки' : 'Down ' + d + ' since the last check' });
+      } else if (typeof s.prevLiq === 'number' && s.prevLiq > 0 && (s.liq - s.prevLiq) / s.prevLiq <= -0.3) {
+        const p = Math.abs(Math.round((s.liq - s.prevLiq) / s.prevLiq * 100));
+        attn.push({ mint: s.mint, tone: 'warn', icon: 'drop', title: s.symbol + (ru ? ' · ликвидность −' : ' · liquidity −') + p + '%', sub: (ru ? 'С ' : 'From ') + usd(s.prevLiq) + (ru ? ' до ' : ' to ') + usd(s.liq) });
+      } else if (Number(s.ch24) <= -40) {
+        attn.push({ mint: s.mint, tone: 'bad', icon: 'down', title: s.symbol + (ru ? ' · цена ' : ' · price ') + Math.round(Number(s.ch24)) + '%', sub: ru ? 'Сильное падение за 24 часа' : 'Sharp drop over 24 hours' });
+      } else if ((s.score || 0) < 40) {
+        attn.push({ mint: s.mint, tone: 'bad', icon: 'alert', title: s.symbol + (ru ? ' · скор ' : ' · score ') + (s.score || 0), sub: ru ? 'Ниже 40 — высокий риск' : 'Below 40 — high risk' });
+      }
+    });
 
     const row = function (s) {
-      const v = verdict(s.score);
-      const color = v.cls === 'good' ? 'var(--green)' : v.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
+      const vv = verdictLabel(s.score || 0);
+      const color = scoreColor(vv.cls);
       const ch = Number(s.ch24) || 0;
       const chCol = ch >= 0 ? 'var(--green)' : 'var(--red)';
       const d = (typeof s.prevScore === 'number') ? (s.score - s.prevScore) : 0;
@@ -1144,23 +1241,21 @@
       const tag = s.tag || 'watch';
       const isSel = (S.compare || []).indexOf(s.mint) > -1;
       const open = (S.expanded || []).indexOf(s.mint) > -1;
-
-      let h = '<div class="row-item' + (isSel ? ' sel' : '') + (open ? ' open' : '') + '">' +
-        '<button class="item" data-mint="' + esc(s.mint) + '">' +
+      return '<div class="row-item' + (isSel ? ' sel' : '') + (open ? ' open' : '') + '">' +
+        '<button type="button" class="row it item" data-mint="' + esc(s.mint) + '">' +
         (S.compareMode ? '<span class="cbx' + (isSel ? ' on' : '') + '"></span>' : '') +
-        '<span class="ava">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(s.symbol.slice(0, 2))) + '</span>' +
-        '<span class="meta"><b>' + esc(s.symbol) + delta + '</b><span>' + usd(s.liq) + (s.at ? ' · ' + ago(s.at) : '') + '</span></span>' +
+        '<span class="ava ' + avaClass(vv.cls) + '">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(String(s.symbol || '?').slice(0, 2))) + '</span>' +
+        '<span class="tx meta"><b>' + esc(s.symbol) + delta + '</b><span>' + usd(s.liq) + (s.at ? ' · ' + ago(s.at) : '') + '</span></span>' +
         sparkSvg(s) +
         '<span class="ch" style="color:' + chCol + '">' + (ch ? pct(ch) : '') + '</span>' +
-        '<span class="num" style="--sc:' + color + '">' + s.score + '</span>' +
+        '<span class="snum num" style="color:' + color + '">' + s.score + '</span>' +
         '</button>' +
         '<div class="row-foot">' +
-        '<button class="tag tg-' + tag + '" data-tag="' + esc(s.mint) + '">' + esc(tagLabel(tag)) + '</button>' +
+        '<button type="button" class="tag tg-' + tag + '" data-tag="' + esc(s.mint) + '">' + esc(tagLabel(tag)) + '</button>' +
         (al.length ? '<span class="al-flag">' + esc(al[0]) + '</span>' : '') +
-        '<button class="row-more" data-exp="' + esc(s.mint) + '">' + (ru ? 'подробнее' : 'details') + ' ▾</button>' +
+        '<button type="button" class="row-more" data-exp="' + esc(s.mint) + '">' + (open ? (ru ? 'Скрыть' : 'Hide') : (ru ? 'История' : 'History')) + '</button>' +
         '</div>' +
-        (open ? '<div class="row-exp">' +
-          '<div class="re-grid">' +
+        (open ? '<div class="row-exp"><div class="re-grid">' +
           '<div><span>MC</span><b>' + usd(s.mc) + '</b></div>' +
           '<div><span>' + (ru ? 'ликвидность' : 'liquidity') + '</span><b>' + usd(s.liq) + '</b></div>' +
           '<div><span>24h</span><b style="color:' + chCol + '">' + (ch ? pct(ch) : '—') + '</b></div>' +
@@ -1169,45 +1264,52 @@
           (s.hist && s.hist.length > 1 ? '<div class="hist">' + (ru ? 'История скора: ' : 'Score history: ') + s.hist.map(function (x) { return x.s; }).join(' → ') + '</div>' : '') +
           '</div>' : '') +
         '</div>';
-      return h;
     };
 
-    const alertCount = computeAlerts().length;
-    let head = '<div class="alerts-link"><button id="openAlerts">' + (ru ? 'Сторож' : 'Watcher') + (alertCount ? ' · ' + alertCount : '') + '</button></div>' +
-      '<div class="saved-stats">' +
-      '<div class="ss"><b>' + S.saved.length + '</b><span>' + (ru ? 'монет' : 'tokens') + '</span></div>' +
-      '<div class="ss"><b>' + avg + '</b><span>' + (ru ? 'средний' : 'avg') + '</span></div>' +
-      '<div class="ss"><b style="color:var(--green)">' + clean + '</b><span>' + (ru ? 'чистых' : 'clean') + '</span></div>' +
-      '<div class="ss"><b style="color:var(--red)">' + risky + '</b><span>' + (ru ? 'опасных' : 'risky') + '</span></div>' +
+    let head = '<div class="lt' + (S.ui.big === false ? ' compact' : '') + '"><span>' + esc(t('savedTab')) + '</span><span class="lt-acts">' +
+      '<button type="button" class="lt-txt" id="sortBtn">' + esc(sortLbl) + '</button>' +
+      '<button type="button" class="lt-txt" id="refreshAll">' + esc(ru ? 'Обновить' : 'Refresh') + '</button>' +
+      '<button type="button" class="lt-ico' + (S.compareMode ? ' on' : '') + '" id="cmpBtn" aria-label="' + (ru ? 'Сравнить' : 'Compare') + '">' + cmpIco + '</button>' +
+      '</span></div>';
+    head += '<p class="sub">' + esc(ru ? 'Обновляется каждые 45 секунд' : 'Refreshes every 45 seconds') + '</p>';
+    head += '<div class="sum">' +
+      '<div><b>' + S.saved.length + '</b><span>' + (ru ? 'монет' : 'tokens') + '</span></div>' +
+      '<div><b>' + avg + '</b><span>' + (ru ? 'средний скор' : 'avg score') + '</span></div>' +
+      '<div><b style="color:var(--red)">' + risky + '</b><span>' + (ru ? 'опасных' : 'risky') + '</span></div>' +
       '</div>';
 
-    if (alerts.length) {
-      head += '<div class="attn"><div class="attn-h"><span class="attn-dot"></span>' + esc(ru ? 'Требует внимания · ' + alerts.length : 'Needs attention · ' + alerts.length) + '</div>' +
-        alerts.slice(0, 4).map(function (s) {
-          return '<button class="attn-row" data-mint="' + esc(s.mint) + '"><b>' + esc(s.symbol) + '</b><span>' + esc(alertOf(s).join(' · ')) + '</span></button>';
-        }).join('') + '</div>';
+    if (attn.length) {
+      head += '<div class="sh"><b>' + esc(ru ? 'Требует внимания' : 'Needs attention') + '</b><button type="button" class="sh-btn" id="openAlerts">' + attn.length + '</button></div>';
+      head += '<div class="card ins">' + attn.slice(0, 4).map(function (a) {
+        const tone = a.tone === 'warn' ? 'b-o' : 'b-r';
+        const ic = a.icon === 'drop' ? INS_ICON.drop : INS_ICON.down;
+        return '<button type="button" class="row attn-row" data-mint="' + esc(a.mint) + '"><div class="ic ' + tone + '">' + ic + '</div><div class="tx"><b>' + esc(a.title) + '</b><span>' + esc(a.sub) + '</span></div>' + CHEV + '</button>';
+      }).join('') + '</div>';
+    } else {
+      head += '<div class="sh"><b>' + esc(ru ? 'Сторож' : 'Watcher') + '</b></div>';
+      head += '<button type="button" class="card plain" id="openAlerts" style="width:100%"><span class="tx"><b>' + esc(ru ? 'Сторож' : 'Watcher') + '</b><span>' + esc(ru ? 'Кошельки и события' : 'Wallets and events') + '</span></span>' + CHEV + '</button>';
     }
 
-    head += '<div class="list-filters">' +
-      ['all', 'watch', 'hold', 'clean', 'risky'].map(function (f) {
-        const lbl = f === 'all' ? (ru ? 'Все' : 'All') : f === 'watch' ? (ru ? 'Слежу' : 'Watching') : f === 'hold' ? (ru ? 'В позиции' : 'Holding') : f === 'clean' ? (ru ? 'Чистые' : 'Clean') : (ru ? 'Опасные' : 'Risky');
-        return '<button class="lf' + (filter === f ? ' on' : '') + '" data-f="' + f + '">' + lbl + '</button>';
-      }).join('') +
-      '<button class="lf icon" id="sortBtn">' + (sort === 'score' ? '↓ скор' : sort === 'change' ? '↓ 24ч' : '↓ дата') + '</button>' +
-      '<button class="lf icon' + (S.compareMode ? ' on' : '') + '" id="cmpBtn">' + (ru ? 'сравнить' : 'compare') + '</button>' +
-      '</div>';
+    const filters = [
+      ['all', ru ? 'Все' : 'All'],
+      ['watch', ru ? 'Слежу' : 'Watching'],
+      ['hold', ru ? 'В позиции' : 'Holding'],
+      ['trash', ru ? 'Мусор' : 'Trash']
+    ];
+    head += '<div class="seg">' + filters.map(function (f) {
+      return '<button type="button" class="lf' + ((S.listFilter || 'all') === f[0] ? ' on' : '') + '" data-f="' + f[0] + '">' + f[1] + '</button>';
+    }).join('') + '</div>';
 
-    head += '<button class="refresh-all" id="refreshAll">' + (ru ? 'Обновить все данные' : 'Refresh all') + '</button>';
-
-    let body = '<div class="list">' + list.map(row).join('') + '</div>';
-    if (!list.length) body = '<p class="tiny" style="text-align:center;padding:24px 0">' + esc(ru ? 'Ничего не найдено по фильтру' : 'Nothing matches the filter') + '</p>';
-
+    let body = list.length
+      ? '<div class="card wl list">' + list.map(row).join('') + '</div>'
+      : '<p class="tiny" style="text-align:center;padding:24px 0">' + esc(ru ? 'Ничего не найдено по фильтру' : 'Nothing matches the filter') + '</p>';
     const cmpBar = (S.compareMode && (S.compare || []).length >= 2)
-      ? '<div class="cmp-bar"><button id="doCmp">' + esc(ru ? 'Сравнить ' + S.compare.length : 'Compare ' + S.compare.length) + '</button></div>'
+      ? '<div class="cmp-bar"><button type="button" id="doCmp">' + esc(ru ? 'Сравнить ' + S.compare.length : 'Compare ' + S.compare.length) + '</button></div>'
       : '';
-
-    return top(t('savedTab')) + '<div class="page">' + head + body + cmpBar + '</div>';
+    return '<div class="page">' + head + body + cmpBar + '</div>';
   }
+
+  
 
   function showCompare() {
     const ru = S.lang === 'ru';
@@ -1238,32 +1340,43 @@
   }
 
   function viewProfile() {
+    const ru = S.lang === 'ru';
     const u = TG && TG.initDataUnsafe ? TG.initDataUnsafe.user : null;
     const name = u ? [u.first_name, u.last_name].filter(Boolean).join(' ') : t('guest');
     const handle = u && u.username ? '@' + u.username : t('noUser');
     const pfp = u && u.photo_url ? '<img src="' + esc(u.photo_url) + '" alt="">' : esc(name.slice(0, 1).toUpperCase());
-    const themeLabel = S.theme === 'auto' ? t('themeAuto') : S.theme === 'dark' ? t('themeDark') : t('themeLight');
-    return top(t('profileTab')) +
-      '<div class="page">' +
-      '<div class="phead"><span class="pfp">' + pfp + '</span><span><b>' + esc(name) + '</b><span>' + esc(handle) + '</span></span></div>' +
+    const prem = isPrem();
+    const row = function (id, label, val, extra) {
+      return '<button type="button" class="set-row' + (extra || '') + '" id="' + id + '">' + esc(label) +
+        (val != null ? '<span class="val' + (id === 'plan' && prem ? ' prem' : '') + '">' + val + '</span>' : '') + CHEV + '</button>';
+    };
+    return '<div class="page">' +
+      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '">' + esc(t('profileTab')) + '</h1>' +
+      '<div class="card phead"><span class="pfp">' + pfp + '</span><span><b>' + esc(name) + '</b><span>' + esc(handle) + '</span></span></div>' +
       '<div class="stats"><div class="stat"><b>' + (S.stats.scans || 0) + '</b><span>' + esc(t('scanned')) + '</span></div>' +
       '<div class="stat"><b>' + S.saved.length + '</b><span>' + esc(t('savedN')) + '</span></div></div>' +
-      '<div style="height:22px"></div>' +
-      '<div class="set-card">' +
-      '<button class="set-row" id="lang">' + esc(t('langRow')) + '<span class="val">' + (S.lang === 'ru' ? 'Русский' : 'English') + '</span></button>' +
-      '<button class="set-row" id="plan">' + esc(S.lang === 'ru' ? 'Тариф' : 'Plan') + '<span class="val ' + (S.plan === 'premium' && (!S.planUntil || S.planUntil > Date.now()) ? 'prem' : '') + '">' + (S.plan === 'premium' && (!S.planUntil || S.planUntil > Date.now())
-        ? (S.lang === 'ru' ? 'Premium · ' + Math.max(1, Math.ceil((S.planUntil - Date.now()) / 864e5)) + ' дн.' : 'Premium · ' + Math.max(1, Math.ceil((S.planUntil - Date.now()) / 864e5)) + 'd')
-        : (S.lang === 'ru' ? 'Free · 10/час' : 'Free · 10/h')) + '</span></button>' +
-      '<button class="set-row" id="how">' + esc(S.lang === 'ru' ? 'Как это работает' : 'How it works') + '<span class="val">›</span></button>' +
-      '<button class="set-row" id="notify">' + esc(S.lang === 'ru' ? 'Уведомления' : 'Notifications') + '<span class="val">' + (S.notify ? (S.lang === 'ru' ? 'вкл' : 'on') : (S.lang === 'ru' ? 'выкл' : 'off')) + '</span></button>' +
-      '<button class="set-row" id="auto">' + esc(S.lang === 'ru' ? 'Автообновление раз в минуту' : 'Auto-refresh every minute') + '<span class="val">' + (S.autoUpd === false ? (S.lang === 'ru' ? 'выкл' : 'off') : (S.lang === 'ru' ? 'вкл' : 'on')) + '</span></button>' +
-      '<button class="set-row" id="hide">' + esc(S.lang === 'ru' ? 'Скрывать суммы' : 'Hide amounts') + '<span class="val">' + (S.hideMoney ? (S.lang === 'ru' ? 'вкл' : 'on') : (S.lang === 'ru' ? 'выкл' : 'off')) + '</span></button>' +
-      '<button class="set-row" id="cache">' + esc(S.lang === 'ru' ? 'Очистить кэш' : 'Clear cache') + '<span class="val">›</span></button>' +
-      '<button class="set-row" id="clear">' + esc(t('clear')) + '</button>' +
+      '<p class="grp">' + esc(ru ? 'Приложение' : 'App') + '</p>' +
+      '<div class="card">' +
+      row('lang', t('langRow'), S.lang === 'ru' ? 'Русский' : 'English') +
+      row('plan', ru ? 'Тариф' : 'Plan', prem
+        ? (ru ? 'Premium · ' + Math.max(1, Math.ceil((S.planUntil - Date.now()) / 864e5)) + ' дн.' : 'Premium · ' + Math.max(1, Math.ceil((S.planUntil - Date.now()) / 864e5)) + 'd')
+        : (ru ? 'Free · 10/час' : 'Free · 10/h')) +
+      row('how', ru ? 'Как это работает' : 'How it works', null) +
+      row('notify', ru ? 'Уведомления' : 'Notifications', S.notify ? (ru ? 'вкл' : 'on') : (ru ? 'выкл' : 'off')) +
+      row('auto', ru ? 'Автообновление' : 'Auto-refresh', S.autoUpd === false ? (ru ? 'выкл' : 'off') : (ru ? 'вкл' : 'on')) +
+      row('hide', ru ? 'Скрывать суммы' : 'Hide amounts', S.hideMoney ? (ru ? 'вкл' : 'on') : (ru ? 'выкл' : 'off')) +
+      row('screen', ru ? 'Экран проверки' : 'Check screen', null) +
       '</div>' +
-      '<p class="tiny" style="margin-top:18px">' + esc(t('about')) + ' · v' + APP_VER + '</p>' +
+      '<p class="grp">' + esc(ru ? 'Данные' : 'Data') + '</p>' +
+      '<div class="card">' +
+      row('cache', ru ? 'Очистить кэш' : 'Clear cache', null) +
+      '<button type="button" class="set-row danger" id="clear">' + esc(t('clear')) + '</button>' +
+      '</div>' +
+      '<p class="foot">' + esc(t('about')) + ' · v' + APP_VER + '</p>' +
       '</div>';
   }
+
+  
 
   function viewOnboard() {
     const slides = [
@@ -1559,7 +1672,7 @@
     wrap.className = 'modal';
     wrap.innerHTML = '<div class="modal-card sheet-help" style="max-height:60vh">' +
       '<div class="modal-head"><b>' + (ru ? 'Добавить кошелёк' : 'Add wallet') + '</b><button class="modal-x" id="mx">✕</button></div>' +
-      '<div class="help-list"><p class="small" style="color:#8e8e93">' + (ru ? 'Вставь адрес кошелька Solana. Rakko будет проверять его сделки при открытии.' : 'Paste a Solana wallet address.') + '</p>' +
+      '<div class="help-list"><p class="small">' + (ru ? 'Вставь адрес кошелька Solana. Reactive проверит его сделки при открытии.' : 'Paste a Solana wallet address. Reactive checks its trades when you open the app.') + '</p>' +
       '<div class="panel-in" style="margin-top:10px"><input id="waddr" placeholder="' + (ru ? 'Адрес кошелька' : 'Wallet address') + '"></div>' +
       '<button class="panel-go" id="wsave" style="margin-top:12px">' + (ru ? 'Добавить' : 'Add') + '</button>' +
       '<p class="tiny" id="werr" style="color:#ff453a"></p></div></div>';
@@ -1881,29 +1994,44 @@
   /* ---------------- render ---------------- */
   function render() {
     if (!read(K.ob, false)) return viewOnboard();
-    document.getElementById('dock').style.display = '';
+    const dock = document.getElementById('dock');
+    if (dock) dock.style.display = '';
+    document.documentElement.lang = S.lang === 'en' ? 'en' : 'ru';
+    const kept = app.scrollTop;
     try {
-      app.innerHTML = S.tab === 'saved' ? viewSaved() : S.tab === 'profile' ? viewProfile() : S.tab === 'market' ? viewMarket() : S.tab === 'alerts' ? viewAlerts() : viewAll();
+      let html;
+      if (S.tab === 'saved') html = viewSaved();
+      else if (S.tab === 'profile') html = viewProfile();
+      else if (S.tab === 'market') html = viewMarket();
+      else if (S.tab === 'alerts') html = viewAlerts();
+      else if (S.resultOpen) html = viewResultPage();
+      else html = viewHome();
+      app.innerHTML = html;
     } catch (err) {
       showFatal(err);
       return;
     }
+    const animKey = S.tab + (S.resultOpen ? ':r:' + (S.result && S.result.token ? S.result.token.mint : '') : '');
+    const animateIn = S.ui.anim !== false && S._animKey !== animKey;
+    S._animKey = animKey;
+    app.classList.toggle('enter', animateIn);
+    if (animateIn) app.scrollTop = 0; else app.scrollTop = kept;
     syncDock();
     bind();
-    const bar = $('.dial .bar');
-    if (bar) requestAnimationFrame(() => { bar.style.strokeDashoffset = bar.dataset.to; });
     decorate();
-    try {
-      document.querySelectorAll('.cat-v').forEach(function (el) {
-        const to = parseInt(el.textContent, 10) || 0;
-        const suffix = '<i>%</i>';
-        countUp(el, to, 500, suffix);
-      });
-      countUp(document.querySelector('.tk-score b'), S.result ? S.result.score : 0, 600);
-      countUp(document.querySelector('.gauge-mid b'), S.result ? S.result.score : 0, 600);
-    } catch (e) {}
-    const en = document.getElementById('infoMore');
-    if (en) en.addEventListener('click', function () { hang(); });
+    if (animateIn) {
+      try {
+        document.querySelectorAll('.cat-v').forEach(function (el) {
+          countUp(el, parseInt(el.textContent, 10) || 0, 420, '<i>%</i>');
+        });
+        countUp(document.querySelector('.tk-score b'), S.result ? S.result.score : 0, 520);
+        document.querySelectorAll('.tk-bar i').forEach(function (bar) {
+          const w = bar.style.width;
+          bar.style.width = '0%';
+          requestAnimationFrame(function () { bar.style.width = w; });
+        });
+      } catch (e) {}
+    }
   }
 
   function hang() {}
@@ -1956,7 +2084,7 @@
         });
         if (changed) { write(K.saved, S.saved); render(); }
       }
-      if (S.result && S.tab === 'scan') {
+      if (S.result && S.resultOpen && S.tab === 'scan') {
         const res = await getJson('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(S.result.token.mint), 6000);
         const p = bestPair(res);
         if (p) {
@@ -1975,11 +2103,36 @@
   }
 
   function syncDock() {
-    document.querySelectorAll('.dbtn, .dscan').forEach((b) => b.classList.toggle('on', b.dataset.tab === S.tab));
-    const l1 = document.querySelector('[data-label="saved"]');
-    const l2 = document.querySelector('[data-label="profile"]');
-    if (l1) l1.textContent = t('savedTab');
-    if (l2) l2.textContent = t('profileTab');
+    const labels = {
+      scan: t('checkTab'),
+      market: S.lang === 'ru' ? 'Рынок' : 'Market',
+      saved: t('savedTab'),
+      profile: t('profileTab')
+    };
+    document.querySelectorAll('#dock [data-tab]').forEach(function (b) {
+      const tab = b.dataset.tab;
+      b.classList.toggle('on', tab === S.tab || (S.tab === 'alerts' && tab === 'saved'));
+      const s = b.querySelector('span');
+      if (s && labels[tab]) s.textContent = labels[tab];
+    });
+    syncBack();
+  }
+  function needsBack() {
+    return S.tab === 'alerts' || (S.tab === 'scan' && S.resultOpen);
+  }
+  function syncBack() {
+    if (!TG || !TG.BackButton) return;
+    try {
+      if (needsBack()) TG.BackButton.show();
+      else TG.BackButton.hide();
+    } catch (e) {}
+  }
+  function goBack() {
+    if (S.tab === 'alerts') { S.tab = 'saved'; haptic(); render(); return; }
+    S.resultOpen = false;
+    if (S.busy) S.suppressResult = true;
+    haptic();
+    render();
   }
 
   function bind() { try { bindInner(); } catch (e) { console.warn(e); } }
@@ -1991,9 +2144,11 @@
       b.onclick = function () { S.wallets = S.wallets.filter(function (w) { return w !== b.dataset.delw; }); write('tc.wallets', S.wallets); render(); };
     });
     document.querySelectorAll('.alert-row[data-mint]').forEach(function (b) {
-      b.onclick = function () { if (!b.dataset.mint) return; S.lastMint = b.dataset.mint; S.tab = 'scan'; render(); setTimeout(runCheck, 80); };
+      b.onclick = function () { if (!b.dataset.mint) return; S.lastMint = b.dataset.mint; S.result = null; S.resultOpen = false; S.tab = 'scan'; render(); setTimeout(runCheck, 80); };
     });
-    if (document.getElementById('trendAll')) document.getElementById('trendAll').onclick = function () { S.tab = 'market'; render(); };
+    if (document.getElementById('iosBack')) document.getElementById('iosBack').onclick = goBack;
+    if (document.getElementById('recentAll')) document.getElementById('recentAll').onclick = function () { S.tab = 'saved'; haptic(); render(); };
+    if (document.getElementById('trendAll')) document.getElementById('trendAll').onclick = function () { S.tab = 'market'; haptic(); render(); };
     if (document.getElementById('openAlerts')) document.getElementById('openAlerts').onclick = function () { S.tab = 'alerts'; render(); };
     if (document.getElementById('mkBack')) document.getElementById('mkBack').onclick = function () { S.tab = 'scan'; render(); };
     const mk = document.getElementById('mkList');
@@ -2004,14 +2159,14 @@
         if (!items.length) { el.innerHTML = '<p class="tiny">' + (S.lang === 'ru' ? 'Нет данных' : 'No data') + '</p>'; return; }
         el.innerHTML = items.map(function (x, i) {
           const up = x.ch >= 0;
-          return '<button class="mk-row" data-mint="' + esc(x.mint) + '" style="--i:' + i + '">' +
+          return '<button type="button" class="row mk-row" data-mint="' + esc(x.mint) + '" style="--i:' + i + '">' +
             '<span class="mk-sym"><b>' + esc(x.symbol) + '</b><i>' + usd(x.vol) + '</i></span>' +
             '<span class="mk-price">' + price(x.price) + '</span>' +
             '<span class="mk-ch" style="color:' + (up ? 'var(--green)' : 'var(--red)') + '">' + (up ? '+' : '') + x.ch.toFixed(1) + '%</span>' +
             '</button>';
         }).join('');
         el.querySelectorAll('.mk-row[data-mint]').forEach(function (b) {
-          b.onclick = function () { S.lastMint = b.dataset.mint; S.tab = 'scan'; render(); setTimeout(runCheck, 80); };
+          b.onclick = function () { S.lastMint = b.dataset.mint; S.result = null; S.resultOpen = false; S.tab = 'scan'; render(); setTimeout(runCheck, 80); };
         });
       });
     }
@@ -2022,9 +2177,9 @@
         trendRow.innerHTML = items.map(function (x) {
           const up = x.ch >= 0;
           const c = up ? 'var(--green)' : 'var(--red)';
-          return '<button class="tr-chip ' + (up ? 'up' : 'down') + '" data-mint="' + esc(x.mint) + '">' +
+          return '<button type="button" class="tr-chip ' + (up ? 'up' : 'down') + '" data-mint="' + esc(x.mint) + '">' +
             '<span class="tr-sym">' + esc(x.symbol) + '</span>' +
-            '<span class="tr-pct">' + (up ? '▲' : '▼') + ' ' + Math.abs(x.ch).toFixed(1) + '%</span></button>';
+            '<span class="tr-pct">' + (up ? '+' : '') + x.ch.toFixed(1) + '%</span></button>';
         }).join('');
         trendRow.querySelectorAll('.tr-chip').forEach(function (b) {
           b.onclick = function () {
@@ -2057,6 +2212,14 @@
     if ($('#mint')) {
       const input = $('#mint');
       if (S.lastMint) input.value = S.lastMint;
+      const syncLbl = function () {
+        const lbl = document.getElementById('pasteLbl');
+        if (!lbl) return;
+        const has = input.value.trim().length > 0;
+        lbl.textContent = has ? (S.lang === 'ru' ? 'Проверить' : 'Check') : (S.lang === 'ru' ? 'Вставить' : 'Paste');
+      };
+      syncLbl();
+      input.addEventListener('input', syncLbl);
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') runCheck(); });
       const tgClipboard = () => new Promise((resolve) => {
         if (!TG || typeof TG.readTextFromClipboard !== 'function') return resolve('');
@@ -2081,6 +2244,7 @@
         return true;
       };
       $('#paste').onclick = async () => {
+        if (isAddr(input.value.trim())) { runCheck(); return; }
         if (await tryPaste()) return;
         // fallback: native paste via execCommand into focused field
         try {
@@ -2150,7 +2314,7 @@
     document.querySelectorAll('.lf[data-f]').forEach(function (b) {
       b.onclick = function () { S.listFilter = b.dataset.f; render(); haptic(); };
     });
-    document.querySelectorAll('.tag').forEach(function (b) {
+    document.querySelectorAll('.tag[data-tag]').forEach(function (b) {
       b.onclick = function (e) {
         e.stopPropagation();
         const m = b.dataset.tag;
@@ -2171,7 +2335,7 @@
       };
     });
     document.querySelectorAll('.attn-row').forEach(function (b) {
-      b.onclick = function () { S.tab = 'scan'; S.lastMint = b.dataset.mint; render(); setTimeout(runCheck, 80); };
+      b.onclick = function () { S.tab = 'scan'; S.lastMint = b.dataset.mint; S.result = null; S.resultOpen = false; render(); setTimeout(runCheck, 80); };
     });
     if ($('#sortBtn')) $('#sortBtn').onclick = function () {
       S.listSort = S.listSort === 'score' ? 'change' : S.listSort === 'change' ? 'date' : 'score';
@@ -2219,7 +2383,7 @@
       it.addEventListener('pointermove', cancel);
     });
     document.querySelectorAll('.item').forEach((it) => it.onclick = () => {
-      S.tab = 'scan'; S.lastMint = it.dataset.mint; S.result = null; render(); setTimeout(runCheck, 80);
+      S.tab = 'scan'; S.lastMint = it.dataset.mint; S.result = null; S.resultOpen = false; render(); setTimeout(runCheck, 80);
     });
     if ($('#plan')) $('#plan').onclick = showPaywall;
     document.querySelectorAll('#lockIns, #lockHold').forEach(function (b) { b.onclick = showPaywall; });
@@ -2228,6 +2392,7 @@
     if ($('#hide')) $('#hide').onclick = function () { S.hideMoney = !S.hideMoney; write('tc.hide', S.hideMoney); render(); };
     if ($('#cache')) $('#cache').onclick = function () { try { localStorage.clear(); } catch (e) {} toast(S.lang === 'ru' ? 'Кэш очищен' : 'Cache cleared'); };
     if ($('#lang')) $('#lang').onclick = () => { S.lang = S.lang === 'ru' ? 'en' : 'ru'; write(K.lang, S.lang); render(); };
+    if ($('#screen')) $('#screen').onclick = showScreenSettings;
     if ($('#clear')) $('#clear').onclick = () => { S.saved = []; write(K.saved, []); render(); toast(t('cleared')); };
     const more = $('#infoMore');
     if (more) more.onclick = function () {
@@ -2256,7 +2421,7 @@
     };
     if ($('#help')) $('#help').onclick = showHelp;
     if ($('#how')) $('#how').onclick = showHow;
-    document.querySelectorAll('.cat').forEach(function (el) {
+    document.querySelectorAll('.cat[data-bi]').forEach(function (el) {
       el.onclick = function () { showBlock(+el.dataset.bi); };
     });
     if ($('#blkTok') && S.result) $('#blkTok').onclick = function () {
@@ -2291,19 +2456,20 @@
         .slice(0, 4);
       if (!list.length) return;
       const ru = S.lang === 'ru';
-      slot.innerHTML = '<p class="eyebrow" style="margin-top:20px">' + (ru ? 'ПОХОЖИЕ ТИКЕРЫ' : 'SIMILAR TICKERS') + '</p>' +
-        '<div class="sim-list">' + list.map(function (p) {
-          return '<button class="sim-row" data-mint="' + esc(p.baseToken.address) + '">' +
+      slot.innerHTML = '<div class="sh"><b>' + (ru ? 'Похожие тикеры' : 'Similar tickers') + '</b></div>' +
+        '<div class="card">' + list.map(function (p) {
+          return '<button type="button" class="row sim-row" data-mint="' + esc(p.baseToken.address) + '">' +
             '<span class="sim-sym">' + esc(p.baseToken.symbol) + '</span>' +
             '<span class="sim-liq">' + usd(p.liquidity && p.liquidity.usd) + '</span>' +
             '<span class="sim-ch" style="color:' + ((Number(p.priceChange && p.priceChange.h24) || 0) >= 0 ? 'var(--green)' : 'var(--red)') + '">' +
             (Number(p.priceChange && p.priceChange.h24) ? pct(p.priceChange.h24) : '') + '</span></button>';
         }).join('') + '</div>' +
-        '<p class="tiny" style="margin:8px 2px 0">' + (ru ? 'Другие контракты с таким же тикером — проверь, не копия ли.' : 'Other contracts with the same ticker.') + '</p>';
+        '<p class="foot">' + (ru ? 'Другие контракты с таким же тикером — проверь, не копия ли.' : 'Other contracts with the same ticker.') + '</p>';
       slot.querySelectorAll('.sim-row').forEach(function (b) {
         b.onclick = function () {
           S.lastMint = b.dataset.mint;
           S.result = null;
+          S.resultOpen = false;
           render();
           setTimeout(runCheck, 80);
         };
@@ -2313,51 +2479,61 @@
 
   async function runCheck() {
     const input = $('#mint');
-    const mint = (input && input.value || '').trim();
+    const mint = ((input && input.value) || S.lastMint || '').trim();
+    const fail = function (msg) {
+      S.error = msg;
+      S.resultOpen = false;
+      S.busy = false;
+      render();
+      haptic('err');
+    };
     if (/^0x[0-9a-fA-F]{40}$/.test(mint)) {
-      S.error = (S.lang === 'ru'
+      fail(S.lang === 'ru'
         ? 'Это адрес EVM-сети (ETH/BSC/Base). Сейчас Reactive проверяет только Solana — другие сети будут в Premium.'
         : 'This is an EVM address. Reactive checks Solana for now; other chains come with Premium.');
-      render(); haptic('err'); return;
+      return;
     }
-    if (!isAddr(mint)) { S.error = t('errAddr'); render(); haptic('err'); return; }
-    // anti-script: burst detection
+    if (!isAddr(mint)) { fail(t('errAddr')); return; }
     const nowTs = Date.now();
     if (nowTs < abuse.cooldownUntil) {
       const left = Math.ceil((abuse.cooldownUntil - nowTs) / 1000);
-      S.error = S.lang === 'ru' ? 'Слишком часто. Подожди ' + left + ' с.' : 'Too fast. Wait ' + left + 's.';
-      render(); haptic('err'); return;
+      fail(S.lang === 'ru' ? 'Слишком часто. Подожди ' + left + ' с.' : 'Too fast. Wait ' + left + 's.');
+      return;
     }
     abuse.stamps = abuse.stamps.filter(function (t) { return nowTs - t < BURST_WINDOW; });
     abuse.stamps.push(nowTs);
     if (abuse.stamps.length > BURST_LIMIT) {
       abuse.cooldownUntil = nowTs + 60000;
-      S.error = S.lang === 'ru' ? 'Похоже на автоматические запросы. Пауза 60 секунд.' : 'Automated requests detected. 60s cooldown.';
-      render(); haptic('err'); return;
+      fail(S.lang === 'ru' ? 'Похоже на автоматические запросы. Пауза 60 секунд.' : 'Automated requests detected. 60s cooldown.');
+      return;
     }
-    // min interval between checks
     const lastCheck = (S.stats.lastCheckAt || 0);
     const minGap = S.plan === 'premium' ? MIN_INTERVAL_PREM : MIN_INTERVAL_FREE;
     if (nowTs - lastCheck < minGap) {
       const left = Math.ceil((minGap - (nowTs - lastCheck)) / 1000);
-      S.error = S.lang === 'ru' ? 'Подожди ' + left + ' с перед следующей проверкой.' : 'Wait ' + left + 's before the next check.';
-      render(); haptic('err'); return;
+      fail(S.lang === 'ru' ? 'Подожди ' + left + ' с перед следующей проверкой.' : 'Wait ' + left + 's before the next check.');
+      return;
     }
-    // per-mint cache
     const cached = abuse.cache[mint];
     if (cached && nowTs - cached.at < CACHE_TTL) {
       S.result = cached.result;
+      S.resultOpen = true;
+      S.error = '';
+      S.lastMint = mint;
       S.stats.lastCheckAt = nowTs;
       render();
       return;
     }
     if (quotaBlocked()) {
       const L = quotaLeft();
-      S.error = (S.lang === 'ru'
+      fail(S.lang === 'ru'
         ? 'Лимит бесплатных проверок исчерпан. Сброс через ' + L.resetMin + ' мин. Premium снимает лимит.'
         : 'Free checks limit reached. Resets in ' + L.resetMin + ' min. Premium removes the limit.');
-      render(); haptic('err'); return;
+      return;
     }
+    S.suppressResult = false;
+    S.resultOpen = true;
+    S.result = null;
     S.busy = true; S.error = ''; S.lastMint = mint; render();
     try {
       const fast = await loadFast(mint);
@@ -2365,6 +2541,7 @@
         S.result = scoreToken(fast);
         S.result.partial = true;
         S.updatedAt = Date.now();
+        if (!S.suppressResult) S.resultOpen = true;
         render();
       }
       const raw = await loadSlow(mint, fast);
@@ -2400,34 +2577,42 @@
       haptic('ok');
     } catch (e) {
       S.error = t('fail') + (e && e.message ? e.message : '');
+      if (!S.result) S.resultOpen = false;
       haptic('err');
     }
+    if (S.suppressResult) S.resultOpen = false;
+    else if (S.result) S.resultOpen = true;
     S.busy = false; render();
   }
 
   /* ---------------- boot ---------------- */
   S.lang = detectLang();
+  applyTheme();
   if (IS_DESKTOP) document.documentElement.classList.add('desktop');
   if (TG) {
     try {
       TG.ready();
-      document.documentElement.style.setProperty('--top-inset', TG.isFullscreen ? '58px' : '4px');
       if (!IS_DESKTOP) {
         TG.expand();
         if (TG.requestFullscreen) TG.requestFullscreen();
         if (TG.lockOrientation) TG.lockOrientation();
         if (TG.disableVerticalSwipes) TG.disableVerticalSwipes();
       }
-      if (TG.setHeaderColor) TG.setHeaderColor('#141416');
-      if (TG.setBottomBarColor) TG.setBottomBarColor('#000000');
+      applyInsets();
+      applyTheme();
+      if (TG.BackButton && TG.BackButton.onClick) TG.BackButton.onClick(goBack);
     } catch (e) {}
     try {
-      const onFs = () => document.documentElement.style.setProperty('--fs', TG.isFullscreen ? '1' : '0');
-      if (TG.onEvent) TG.onEvent('fullscreenChanged', onFs);
-      if (TG.onEvent) TG.onEvent('viewportChanged', () => { if (TG.expand) TG.expand(); document.documentElement.style.setProperty('--top-inset', TG.isFullscreen ? '58px' : '4px'); });
-      onFs();
+      if (TG.onEvent) {
+        TG.onEvent('fullscreenChanged', applyInsets);
+        TG.onEvent('safeAreaChanged', applyInsets);
+        TG.onEvent('contentSafeAreaChanged', applyInsets);
+        TG.onEvent('themeChanged', applyTheme);
+        TG.onEvent('viewportChanged', function () { if (TG.expand) TG.expand(); applyInsets(); });
+      }
     } catch (e) {}
   }
+  applyInsets();
   function ensureFullscreen() {
     if (!TG || IS_DESKTOP) return;
     try { if (!TG.isFullscreen && TG.requestFullscreen) TG.requestFullscreen(); } catch (e) {}
@@ -2435,10 +2620,20 @@
   }
   document.addEventListener('pointerdown', ensureFullscreen, { once: false });
   document.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-tab]');
+    const btn = e.target.closest('#dock [data-tab]');
     if (!btn) return;
-    S.tab = btn.dataset.tab;
-    haptic(); render();
+    const next = btn.dataset.tab;
+    if (next === 'scan' && S.tab === 'scan' && S.resultOpen) {
+      S.resultOpen = false;
+      if (S.busy) S.suppressResult = true;
+      haptic();
+      render();
+      return;
+    }
+    if (next === S.tab && S.tab !== 'alerts') return;
+    S.tab = next;
+    haptic();
+    render();
   });
   // block pinch-zoom / double-tap zoom (make it feel native)
   ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (ev) {
@@ -2459,17 +2654,13 @@
       }
       txt = String(txt || '').trim();
       if (!isAddr(txt)) return;
-      const inp = document.getElementById('mint');
-      if (!inp) return;
-      inp.value = txt;
-      S.lastMint = txt;
-      const ph = document.querySelector('.paste-hint');
-      if (ph) ph.remove();
-      const hint = document.createElement('div');
-      hint.className = 'paste-hint';
-      hint.innerHTML = (S.lang === 'ru' ? 'Адрес из буфера: <b>' + txt.slice(0, 6) + '…' + ' Нажми «Проверить».' : 'Clipboard address detected — tap Check.');
-      inp.parentElement.insertAdjacentElement('afterend', hint);
-      setTimeout(function () { hint.remove(); }, 6000);
+      const line = document.getElementById('clipLine');
+      if (!line) return;
+      const short = esc(txt.slice(0, 4) + '…' + txt.slice(-4));
+      line.hidden = false;
+      line.innerHTML = S.lang === 'ru'
+        ? 'В буфере <code>' + short + '</code> — проверим сразу после вставки'
+        : 'Clipboard <code>' + short + '</code> — we’ll check right after paste';
     } catch (e) {}
   }, 400);
 
