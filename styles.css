@@ -1802,3 +1802,20 @@ body::before {
 @media (max-width: 759px) {
   .page { padding-top: calc(72px + env(safe-area-inset-top, 0px)) !important; }
 }
+
+/* ===== saved screen v2 ===== */
+.saved-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.ss { background: #2c2c2e; border-radius: 14px; padding: 10px 8px; text-align: center; }
+.ss b { display: block; font-size: 20px; font-weight: 750; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.ss span { display: block; font-size: 10px; color: #8e8e93; margin-top: 2px; }
+.list-filters { display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; scrollbar-width: none; }
+.list-filters::-webkit-scrollbar { display: none; }
+.lf {
+  flex: none; height: 34px; padding: 0 14px; border: 0; border-radius: 999px;
+  background: #2c2c2e; color: #a1a1a6; font: inherit; font-size: 13px; font-weight: 600;
+}
+.lf.on { background: #6169ee; color: #fff; }
+.lf.refresh { margin-left: auto; background: transparent; color: #6169ee; }
+.item .meta b em { font-style: normal; font-size: 11px; margin-left: 6px; font-weight: 700; }
+.item .meta b em.up { color: #30d158; }
+.item .meta b em.down { color: #ff453a; }
