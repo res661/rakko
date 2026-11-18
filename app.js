@@ -883,6 +883,8 @@
     return s + '%';
   }
   const CHEV = '<svg class="chev" width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M1.5 1.5 6.5 7l-5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const BELL = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.2 16.2V10a5.8 5.8 0 0 1 11.6 0v6.2L19.2 18H4.8l1.4-1.8z"/><path d="M10 18.6a2 2 0 0 0 4 0"/></svg>';
+  const CHANNEL = 'https://t.me/reactive_family';
   const LOCK_SVG = '<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="9" width="12" height="8" rx="2"/><path d="M7 9V6.6a3 3 0 0 1 6 0V9" stroke-linecap="round"/></svg>';
   const SVG_X = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.25 2.25l7.5 7.5M9.75 2.25L2.25 9.75" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
   const SVG_HELP = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6.05 6.1a2 2 0 1 1 3.15 1.65c-.55.3-.85.7-.85 1.3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8.35" cy="11.65" r=".85" fill="currentColor"/></svg>';
@@ -906,44 +908,58 @@
     return '<button type="button" class="ios-back" id="iosBack"><svg width="11" height="18" viewBox="0 0 8 14" fill="none"><path d="M6.5 1.5 1.5 7l5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' + (ru ? 'Назад' : 'Back') + '</button>';
   }
 
-  function viewHome() {
+  function activeCheckName() {
     const ru = S.lang === 'ru';
     const c = customState();
-    const activeId = isPrem() ? (c.active || 'reactive') : 'reactive';
-    const picks = [{ id: 'reactive', name: ru ? 'Reactive (общий)' : 'Reactive (general)' }].concat((c.items || []).map(function (x) { return { id: x.id, name: x.name }; }));
-    const hints = ru ? ['Ликвидность', 'Холдеры', 'Дев', 'Минт', 'Объём', 'Возраст'] : ['Liquidity', 'Holders', 'Dev', 'Mint', 'Volume', 'Age'];
+    const id = isPrem() ? (c.active || 'reactive') : 'reactive';
+    if (id === 'reactive') return ru ? 'Reactive (общий)' : 'Reactive (general)';
+    const item = (c.items || []).find(function (x) { return x.id === id; });
+    return item ? item.name : (ru ? 'Reactive (общий)' : 'Reactive (general)');
+  }
+  function feedbackDue() {
+    if ((S.stats.scans || 0) < 3) return false;
+    return Date.now() > Number(read('tc.fb.until', 0) || 0);
+  }
+  function hideFeedback() {
+    write('tc.fb.until', Date.now() + 21 * 864e5);
+  }
+  function openChannel() {
+    haptic();
+    if (TG && typeof TG.openTelegramLink === 'function') {
+      try { TG.openTelegramLink(CHANNEL); return; } catch (e) {}
+    }
+    window.open(CHANNEL, '_blank', 'noopener');
+  }
+  function viewHome() {
+    const ru = S.lang === 'ru';
     let out = '<div class="page home">';
-    out += '<div class="hero-row"><img class="hero-logo" src="assets/reactive-icon-512.png?v=20261118ios11" alt="">';
-    out += '<div class="hero-tx"><h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '">' + esc(t('checkTab')) + '</h1>';
+    out += '<div class="hero-tx" style="margin:4px 2px 16px"><h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '">' + esc(t('checkTab')) + '</h1>';
     out += '<p class="sub">' + esc(ru ? 'Оценка риска монеты Solana за 30 секунд' : 'Solana token risk score in 30 seconds') + '</p></div>';
-    out += '<button type="button" class="gear" id="myChecks" aria-label="' + esc(ru ? 'Мои проверки' : 'My checks') + '"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6.1 6.1l1.6 1.6M16.3 16.3l1.6 1.6M17.9 6.1l-1.6 1.6M7.7 16.3l-1.6 1.6"/></svg><span class="pro-badge">PRO</span></button></div>';
     out += '<div class="card paste">';
     out += '<label class="inp-wrap"><svg class="inp-ico" viewBox="0 0 28 28" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12.5" cy="12.5" r="7.5"/><path d="m18 18 6 6"/></svg>';
-    out += '<input id="mint" placeholder="' + esc(ru ? 'Вставь адрес монеты' : 'Paste a token address') + '" autocomplete="off" spellcheck="false" enterkeyhint="go"></label>';
-    out += '<button type="button" class="btn paste-go" id="paste"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="1.8"><rect x="4" y="3.5" width="12" height="14" rx="2.5"/><rect x="7" y="2" width="6" height="3.2" rx="1.2"/></svg><span id="pasteLbl">' + esc(ru ? 'Вставить' : 'Paste') + '</span></button>';
-    out += '<p class="clip" id="clipLine" hidden></p>';
+    out += '<input id="mint" placeholder="' + esc(ru ? 'Адрес монеты' : 'Token address') + '" autocomplete="off" spellcheck="false" enterkeyhint="go">';
+    out += '<button type="button" class="paste-side" id="paste">' + esc(ru ? 'Вставить' : 'Paste') + '</button></label>';
+    out += '<button type="button" class="btn paste-go" id="go"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? '<span class="spinner"></span>' : esc(ru ? 'Проверить' : 'Check')) + '</button>';
+    if (!isPrem() && S.ui.quota !== false) {
+      const L = quotaLeft();
+      out += '<p class="left-line">' + esc(ru
+        ? 'Осталось ' + L.day + ' из ' + FREE_PER_DAY + ' проверок сегодня'
+        : L.day + ' of ' + FREE_PER_DAY + ' checks left today') + '</p>';
+    }
     if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
     out += '</div>';
-    out += '<div class="picks" id="picks">' + picks.map(function (p) {
-      return '<button type="button" class="pick' + (p.id === activeId ? ' on' : '') + '" data-check="' + esc(p.id) + '">' + esc(p.name) + '</button>';
-    }).join('') + '</div>';
-    out += '<div class="hints">' + hints.map(function (h) { return '<span>' + esc(h) + '</span>'; }).join('') + '</div>';
-    out += '<div class="sh"><b>' + esc(ru ? 'Кошельки' : 'Wallets') + '</b><button type="button" class="sh-btn" id="walletAdd">' + esc(ru ? 'Добавить' : 'Add') + '</button></div>';
+    out += '<div class="card check-pick"><button type="button" class="set-row" id="checkPick">' + esc(ru ? 'Проверка' : 'Check') +
+      '<span class="val">' + esc(activeCheckName()) + '</span>' + CHEV + '</button></div>';
+    if (S.busy && !S.result) out += '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div></div>';
+    out += '<div class="sec"><span>' + esc(ru ? 'Кошельки' : 'Wallets') + '</span><button type="button" class="sh-btn" id="walletAdd">' + esc(ru ? 'Добавить' : 'Add') + '</button></div>';
     out += '<div class="card">';
     if (!(S.wallets || []).length) out += '<p class="set-note">' + esc(ru ? 'Добавь адрес Solana. Если он держит проверенную монету, это появится в результате.' : 'Add a Solana address. If it holds a coin you check, the result will say so.') + '</p>';
     else out += (S.wallets || []).map(function (w) {
       return '<div class="row"><span class="tx"><b>' + esc(w.slice(0, 4) + '…' + w.slice(-4)) + '</b><span>' + esc(ru ? 'смотрим баланс' : 'watching balance') + '</span></span><button type="button" class="tag tg-trash" data-delw="' + esc(w) + '">' + SVG_X + '</button></div>';
     }).join('');
     out += '</div>';
-    if (S.ui.quota !== false) {
-      const L = quotaLeft();
-      out += '<p class="quota-pill">' + esc(isPrem()
-        ? (ru ? 'Premium · без лимита' : 'Premium · unlimited')
-        : (L.day + '/' + FREE_PER_DAY)) + (isPrem() ? '' : '<i>' + esc(ru ? 'бесплатных сегодня' : 'free today') + '</i>') + '</p>';
-    }
-    if (S.busy && !S.result) out += '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div></div>';
     if (S.ui.recent !== false && S.saved.length) {
-      out += '<div class="sh"><b>' + esc(ru ? 'Недавние' : 'Recent') + '</b><button type="button" class="sh-btn" id="recentAll">' + esc(ru ? 'Все' : 'All') + '</button></div>';
+      out += '<div class="sec"><span>' + esc(ru ? 'Недавние' : 'Recent') + '</span><button type="button" class="sh-btn" id="recentAll">' + esc(ru ? 'Все' : 'All') + '</button></div>';
       if (S.recentLoading) {
         out += '<div class="card">' + [0, 1, 2].map(function () {
           return '<div class="row it skel-item"><span class="ava skel-ava"></span><span class="skel-lines"><span class="skel-line"></span><span class="skel-line short"></span></span></div>';
@@ -958,8 +974,44 @@
         }).join('') + '</div>';
       }
     }
+    if (feedbackDue()) {
+      out += '<div class="ask"><button type="button" class="ask-go" id="askGo">' + esc(ru ? 'Чего не хватает в Reactive? Напиши нам' : 'What is missing in Reactive? Write to us') + '</button>' +
+        '<button type="button" class="ask-x" id="askX" aria-label="' + esc(ru ? 'Скрыть' : 'Hide') + '">×</button></div>';
+    }
     out += '</div>';
     return out;
+  }
+  function openCheckSheet() {
+    const ru = S.lang === 'ru';
+    const c = customState();
+    const activeId = isPrem() ? (c.active || 'reactive') : 'reactive';
+    const items = [{ id: 'reactive', name: ru ? 'Reactive (общий)' : 'Reactive (general)' }].concat((c.items || []).map(function (x) { return { id: x.id, name: x.name }; }));
+    const mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4.5 4.5L19 7"/></svg>';
+    const wrap = document.createElement('div');
+    wrap.className = 'modal';
+    wrap.innerHTML = '<div class="modal-card sheet-help">' +
+      '<div class="modal-head"><b>' + (ru ? 'Проверка' : 'Check') + '</b><button type="button" class="modal-x" id="mx" aria-label="Close">' + SVG_X + '</button></div>' +
+      '<div class="card" style="margin:0 16px 10px">' + items.map(function (p) {
+        return '<button type="button" class="set-row" data-pick="' + esc(p.id) + '"><span>' + esc(p.name) + '</span>' +
+          (p.id === activeId ? '<span class="val" style="color:var(--blue)">' + mark + '</span>' : '') + '</button>';
+      }).join('') + '</div>' +
+      '<div class="card" style="margin:0 16px 16px"><button type="button" class="set-row" id="pickEdit">' + esc(ru ? 'Настроить проверки' : 'Edit checks') + CHEV + '</button></div></div>';
+    document.body.appendChild(wrap);
+    const close = function () { wrap.remove(); };
+    wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
+    wrap.querySelector('#mx').onclick = close;
+    wrap.querySelectorAll('[data-pick]').forEach(function (b) {
+      b.onclick = function () {
+        const id = b.dataset.pick;
+        if (id !== 'reactive' && !isPrem()) { close(); showPaywall(); return; }
+        S.custom.active = id;
+        saveCustom();
+        haptic();
+        close();
+        render();
+      };
+    });
+    wrap.querySelector('#pickEdit').onclick = function () { close(); openCustomEditor(); };
   }
 
   function numLabel(n, ru, d) {
@@ -1051,7 +1103,7 @@
     if (window.REACTIVE_EXPLAIN || S._explainLoading) return;
     S._explainLoading = true;
     const s = document.createElement('script');
-    s.src = 'explain.js?v=20261118ios11';
+    s.src = 'explain.js?v=20261118ios12';
     s.async = true;
     s.onload = function () { S._explainLoading = false; render(); };
     s.onerror = function () { S._explainLoading = false; };
@@ -1423,9 +1475,8 @@
     const ru = S.lang === 'ru';
     const sort = S.listSort || 'score';
     const sortLbl = sort === 'score' ? (ru ? 'Скор' : 'Score') : sort === 'change' ? '24ч' : (ru ? 'Дата' : 'Date');
-    const cmpIco = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4v16M16 4v16M4 8h8M12 16h8"/></svg>';
     if (!S.saved.length) {
-      return '<div class="page"><div class="lt"><span>' + esc(t('savedTab')) + '</span><button type="button" class="lt-ico" id="listGear" aria-label="' + (ru ? 'Уведомления' : 'Alerts') + '"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2" stroke-linecap="round"/></svg></button></div>' +
+      return '<div class="page"><div class="lt"><span>' + esc(t('savedTab')) + '</span><button type="button" class="lt-ico" id="listGear" aria-label="' + (ru ? 'Уведомления' : 'Alerts') + '">' + BELL + '</button></div>' +
         '<p class="sub">' + esc(ru ? 'Обновляется каждые 45 секунд' : 'Refreshes every 45 seconds') + '</p>' +
         '<div class="empty"><b>' + esc(t('emptyTitle')) + '</b><span>' + esc(t('emptyText')) + '</span></div>' +
         '<p class="set-note">' + esc(alertLimitText()) + '</p></div>';
@@ -1479,11 +1530,9 @@
       const delta = d ? (d > 0 ? '<em class="up">▲' + d + '</em>' : '<em class="down">▼' + Math.abs(d) + '</em>') : '';
       const al = alertOf(s);
       const tag = s.tag || 'watch';
-      const isSel = (S.compare || []).indexOf(s.mint) > -1;
       const open = (S.expanded || []).indexOf(s.mint) > -1;
-      return '<div class="row-item' + (isSel ? ' sel' : '') + (open ? ' open' : '') + '">' +
+      return '<div class="row-item' + (open ? ' open' : '') + '">' +
         '<button type="button" class="row it item" data-mint="' + esc(s.mint) + '">' +
-        (S.compareMode ? '<span class="cbx' + (isSel ? ' on' : '') + '"></span>' : '') +
         '<span class="ava ' + avaClass(vv.cls) + '">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(String(s.symbol || '?').slice(0, 2))) + '</span>' +
         '<span class="tx meta"><b>' + esc(s.symbol) + delta + '</b><span>' + usd(s.liq) + (s.at ? ' · ' + ago(s.at) : '') + '</span></span>' +
         sparkSvg(s) +
@@ -1509,8 +1558,7 @@
     let head = '<div class="lt' + (S.ui.big === false ? ' compact' : '') + '"><span>' + esc(t('savedTab')) + '</span><span class="lt-acts">' +
       '<button type="button" class="lt-txt" id="sortBtn">' + esc(sortLbl) + '</button>' +
       '<button type="button" class="lt-txt" id="refreshAll">' + esc(ru ? 'Обновить' : 'Refresh') + '</button>' +
-      '<button type="button" class="lt-ico" id="listGear" aria-label="' + (ru ? 'Уведомления' : 'Alerts') + '"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2" stroke-linecap="round"/></svg></button>' +
-      '<button type="button" class="lt-ico' + (S.compareMode ? ' on' : '') + '" id="cmpBtn" aria-label="' + (ru ? 'Сравнить' : 'Compare') + '">' + cmpIco + '</button>' +
+      '<button type="button" class="lt-ico" id="listGear" aria-label="' + (ru ? 'Уведомления' : 'Alerts') + '">' + BELL + '</button>' +
       '</span></div>';
     head += '<p class="sub">' + esc(ru ? 'Обновляется каждые 45 секунд' : 'Refreshes every 45 seconds') + '</p>';
     head += '<div class="sum">' +
@@ -1543,40 +1591,7 @@
     let body = list.length
       ? '<div class="card wl list">' + list.map(row).join('') + '</div>'
       : '<p class="tiny" style="text-align:center;padding:24px 0">' + esc(ru ? 'Ничего не найдено по фильтру' : 'Nothing matches the filter') + '</p>';
-    const cmpBar = (S.compareMode && (S.compare || []).length >= 2)
-      ? '<div class="cmp-bar"><button type="button" id="doCmp">' + esc(ru ? 'Сравнить ' + S.compare.length : 'Compare ' + S.compare.length) + '</button></div>'
-      : '';
-    return '<div class="page">' + head + body + cmpBar + '</div>';
-  }
-
-  
-
-  function showCompare() {
-    const ru = S.lang === 'ru';
-    const picks = (S.compare || []).map(function (m) {
-      return S.saved.find(function (s) { return s.mint === m; });
-    }).filter(Boolean);
-    if (picks.length < 2) return;
-    const rows = [
-      [ru ? 'Скор' : 'Score', function (s) { return String(s.score); }],
-      [ru ? 'Ликвидность' : 'Liquidity', function (s) { return usd(s.liq); }],
-      ['MC', function (s) { return usd(s.mc); }],
-      ['24h', function (s) { return Number(s.ch24) ? pct(s.ch24) : '—'; }],
-      [ru ? 'Проверено' : 'Checked', function (s) { return s.at ? ago(s.at) : '—'; }]
-    ];
-    const wrap = document.createElement('div');
-    wrap.className = 'modal';
-    wrap.innerHTML = '<div class="modal-card sheet-help" style="max-height:86vh">' +
-      '<div class="modal-head"><b>' + (ru ? 'Сравнение' : 'Comparison') + '</b><button type="button" class="modal-x" id="mx" aria-label="Close">' + SVG_X + '</button></div>' +
-      '<div class="help-list"><table class="cmp-table"><thead><tr><th></th>' +
-      picks.map(function (s) { return '<th>' + esc(s.symbol) + '</th>'; }).join('') + '</tr></thead><tbody>' +
-      rows.map(function (r) {
-        return '<tr><td>' + esc(r[0]) + '</td>' + picks.map(function (s) { return '<td>' + esc(r[1](s)) + '</td>'; }).join('') + '</tr>';
-      }).join('') + '</tbody></table></div></div>';
-    document.body.appendChild(wrap);
-    const close = function () { wrap.remove(); };
-    wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
-    wrap.querySelector('#mx').onclick = close;
+    return '<div class="page">' + head + body + '</div>';
   }
 
   function viewProfile() {
@@ -1591,12 +1606,14 @@
         (val != null ? '<span class="val' + (id === 'plan' && prem ? ' prem' : '') + '">' + val + '</span>' : '') + CHEV + '</button>';
     };
     return '<div class="page">' +
-      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png?v=20261118ios11" alt="">' + esc(t('profileTab')) + '</h1>' +
+      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '">' + esc(t('profileTab')) + '</h1>' +
       '<div class="card phead"><span class="pfp">' + pfp + '</span><span><b>' + esc(name) + '</b><span>' + esc(handle) + '</span></span></div>' +
       '<div class="stats"><div class="stat"><b>' + (S.stats.scans || 0) + '</b><span>' + esc(t('scanned')) + '</span></div>' +
       '<div class="stat"><b>' + S.saved.length + '</b><span>' + esc(t('savedN')) + '</span></div></div>' +
       '<p class="grp">' + esc(ru ? 'Приложение' : 'App') + '</p>' +
       '<div class="card">' +
+      row('aboutApp', ru ? 'Инфо' : 'Info', null) +
+      row('channel', ru ? 'Наш канал' : 'Our channel', '@reactive_family') +
       row('lang', t('langRow'), S.lang === 'ru' ? 'Русский' : 'English') +
       row('plan', ru ? 'Тариф' : 'Plan', prem
         ? (ru ? 'Premium · ' + Math.max(1, Math.ceil((S.planUntil - Date.now()) / 864e5)) + ' дн.' : 'Premium · ' + Math.max(1, Math.ceil((S.planUntil - Date.now()) / 864e5)) + 'd')
@@ -1692,7 +1709,7 @@
   function bannerSlides() {
     const ru = S.lang === 'ru';
     const welcome = '<div class="bn-ill" style="background:#1E2622">' +
-      '<img class="bn-logo" src="assets/reactive-icon-512.png?v=20261118ios11" alt="">' +
+      '<img class="bn-logo" src="assets/reactive-icon-512.png?v=20261118ios12" alt="">' +
       '<div class="bn-fl bn-tk" style="left:18px;top:16px;width:188px;transform:rotate(-5deg)">' +
       '<div class="bn-top"><span class="bn-ava">MO</span><span class="bn-id"><b>MOODENG</b><span>Moo Deng</span></span><span class="bn-score" style="color:var(--green)"><b>81</b><i>/100</i></span></div>' +
       '<div class="bn-pl"><b>$0.2134</b><span style="color:var(--green)">+4.8%</span></div><div class="bn-bar"><i style="width:81%;background:var(--green)"></i></div>' +
@@ -1709,7 +1726,7 @@
       '<div class="bn-rw"><span class="bn-ava">GR</span><span class="bn-id"><b>GRASS</b><span>$312.7K</span></span><svg width="40" height="16"><polyline points="1,8 14,7 26,9 39,8" fill="none" stroke="#30D158" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">57</b></div>' +
       '<div class="bn-rw"><span class="bn-ava">WI</span><span class="bn-id"><b>WIFX</b><span>$198.5K</span></span><svg width="40" height="16"><polyline points="1,4 14,7 26,11 39,14" fill="none" stroke="#FF453A" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">52</b></div></div>' +
       '<div class="bn-fl bn-limit" style="right:12px;top:18px;transform:rotate(4deg)"><div style="color:var(--blue);font-size:22px;line-height:1">∞</div><b>' + (ru ? 'Без лимита' : 'Unlimited') + '</b><span>' + (ru ? 'проверок в час' : 'checks per hour') + '</span></div>' +
-      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png?v=20261118ios11" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
+      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png?v=20261118ios12" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
     const wallets = '<div class="bn-ill" style="background:#1D222B">' +
       '<div class="bn-fl" style="left:12px;top:28px;width:176px;padding:4px 0;transform:rotate(-3deg)">' +
       '<div class="bn-rw"><span class="bn-ava" style="color:var(--green)">7x</span><span class="bn-id"><b>7xKX…9fPq</b><span>' + (ru ? 'купил ' : 'bought ') + '<em style="color:var(--green);font-style:normal">$1.2K</em></span></span></div>' +
@@ -1794,7 +1811,7 @@
         '<div class="sa-line"><span class="ava a-bad">PX</span><span><b>PEPEX</b><i>' + (ru ? '2 кошелька в монете' : '2 wallets in this coin') + '</i></span><em style="color:var(--red)">34</em></div></div>',
       prem: '<div class="sa-stack"><div class="sa-line sa-blur"><span class="ava">H1</span><span><b>9AhK…sbkw</b><i>12.4%</i></span></div><div class="sa-line sa-blur"><span class="ava">H2</span><span><b>3kLm…91Qa</b><i>8.1%</i></span></div><div class="sa-lock">' + LOCK_SVG + ' Premium</div></div>',
       custom: '<div class="sa-stack"><div class="sa-line"><span class="ic b-n">≡</span><span><b>' + (ru ? 'Снайпер' : 'Sniper') + '</b><i>' + (ru ? 'давление 22 · возраст 4' : 'pressure 22 · age 4') + '</i></span><em style="color:var(--blue)">72</em></div><div class="sa-line"><span class="ic b-r">!</span><span><b>' + (ru ? 'Дев больше 3%' : 'Dev above 3%') + '</b><i>' + (ru ? 'красный флаг' : 'red flag') + '</i></span></div><div class="sa-line"><span class="ic b-g">R</span><span><b>Reactive</b><i>' + (ru ? 'общий скор рядом' : 'general score stays') + '</i></span><em style="color:var(--green)">81</em></div></div>',
-      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png?v=20261118ios11" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
+      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png?v=20261118ios12" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
     };
     return [
       { art: art.check, t: ru ? 'Проверка за 30 секунд' : 'A check in 30 seconds', p: ru ? 'Вставь адрес — Reactive покажет скор, риски простыми словами и сколько потеряешь на входе.' : 'Paste an address — Reactive shows the score, the risks in plain words, and what you lose on entry.' },
@@ -2175,7 +2192,7 @@
     canvasRound(ctx, 48, foot, W - 96, 128, 24);
     ctx.fillStyle = '#000';
     ctx.fill();
-    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png?v=20261118ios11', location.href).href);
+    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png?v=20261118ios12', location.href).href);
     if (logo) {
       canvasRound(ctx, 72, foot + 18, 44, 44, 12);
       ctx.save();
@@ -2962,7 +2979,7 @@
     const ru = S.lang === 'ru';
     if (!NEWS && !S._newsLoading) {
       S._newsLoading = true;
-      fetch('news.json?v=20261118ios11').then(function (r) { return r.json(); }).then(function (d) { NEWS = d; S._newsLoading = false; if (S.tab === 'info') render(); }).catch(function () { S._newsLoading = false; });
+      fetch('news.json?v=20261118ios12').then(function (r) { return r.json(); }).then(function (d) { NEWS = d; S._newsLoading = false; if (S.tab === 'info') render(); }).catch(function () { S._newsLoading = false; });
     }
     const news = (NEWS || []).map(function (n) {
       return '<div class="news-item"><time>' + esc(n.at) + '</time><p>' + esc(ru ? n.ru : n.en) + '</p></div>';
@@ -2972,7 +2989,7 @@
       ['Почему часть строк размыта?', 'Бесплатно видны критичные риски и сводка. Подробности и полный список держателей открывает Premium.'],
       ['Сколько проверок бесплатно?', '20 в день. Premium снимает этот лимит.'],
       ['Почему уведомлений мало?', 'Free следит за 3 монетами и показывает до 8 уведомлений в день: падение скора и ликвидности. Остальные типы — Premium.'],
-      ['Куда делся Рынок?', 'Вкладку убрали. Проверка, Список, Инфо и Профиль.'],
+      ['Куда делся Рынок?', 'Вкладку убрали. Снизу остались Проверка, Список и Профиль. Инфо открывается в Профиле.'],
       ['Где добавить кошелёк?', 'На экране Проверки, блок «Кошельки». Если адрес держит монету, это пишется в результате.'],
       ['Что такое Мои проверки?', 'Свои веса блоков и красные флаги. Общий скор остаётся. Сохранить и включить можно в Premium.'],
       ['Картинка для шеринга без логотипа монеты?', 'Если хост картинки не отдаёт её в холст, останутся инициалы. Кольцо скора всё равно на месте.'],
@@ -2983,7 +3000,7 @@
       ['Why are some rows blurred?', 'Free shows the critical risks and the summary. Details and the full holder list are Premium.'],
       ['How many free checks?', '20 a day. Premium removes that limit.'],
       ['Why so few alerts?', 'Free watches 3 coins and shows up to 8 alerts a day: score and liquidity drops. Other types are Premium.'],
-      ['Where did Market go?', 'That tab was removed. Check, List, Info, and Profile remain.'],
+      ['Where did Market go?', 'That tab was removed. Check, List, and Profile stay. Info opens from Profile.'],
       ['Where do I add a wallet?', 'On Check, in Wallets. If the address holds the coin, the result says so.'],
       ['What are My checks?', 'Your own block weights and red flags. The general score stays. Saving and turning one on is Premium.'],
       ['Share image has no token logo?', 'If the image host blocks the canvas, you get initials. The score ring is still there.'],
@@ -2993,14 +3010,15 @@
       return '<details><summary>' + esc(q[0]) + '</summary><p>' + esc(q[1]) + '</p></details>';
     }).join('');
     return '<div class="page" id="infoPage">' +
+      '<button type="button" class="ios-back" id="infoBack"><svg width="11" height="18" viewBox="0 0 8 14" fill="none"><path d="M6.5 1.5 1.5 7l5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' + esc(ru ? 'Профиль' : 'Profile') + '</button>' +
       '<h1 class="lt">' + esc(ru ? 'Инфо' : 'Info') + '</h1>' +
       '<h2 class="info-h">' + esc(ru ? 'Новости и обновления' : 'News and updates') + '</h2>' +
       '<div class="card">' + news + '</div>' +
       '<h2 class="info-h" id="infoHow">' + esc(ru ? 'Как это работает' : 'How it works') + '</h2>' +
       '<p class="info-p">' + esc(ru ? 'Reactive экономит время: за полминуты собирает ликвидность, холдеров, создателя, контракт и цену в один скор и короткие строки. Уведомления говорят, когда сохранённая монета стала хуже.' : 'Reactive saves time: in half a minute it folds liquidity, holders, the creator, the contract, and the price into one score and short lines. Alerts say when a saved coin got worse.') + '</p>' +
       '<div class="card"><p class="set-note">' + esc(ru
-        ? 'Проверка — адрес, свои проверки, кошельки, недавние. Результат — скор, что важно, риски, разбор, для сделки, поделиться. Список — монеты, фильтры, шестерёнка уведомлений. Инфо — эта страница. Профиль — язык, тариф, тест Premium.'
-        : 'Check — the address, your checks, wallets, recents. Result — score, what matters, risks, the read, a trade, share. List — coins, filters, the alerts gear. Info — this page. Profile — language, plan, the Premium test.') + '</p>' +
+        ? 'Проверка — адрес, свои проверки, кошельки, недавние. Результат — скор, что важно, риски, разбор, для сделки, поделиться. Список — монеты, фильтры, колокольчик уведомлений. Эта страница открывается из Профиля.'
+        : 'Check — the address, your checks, wallets, recents. Result — score, what matters, risks, the read, a trade, share. List — coins, filters, the alerts bell. This page opens from Profile.') + '</p>' +
       '<p class="set-note">' + esc(ru ? 'Короткие карточки по-прежнему в профиле не нужны: подробности здесь.' : 'The short cards are no longer required: the detail lives here.') + ' <button type="button" class="sh-btn" id="openStory">' + esc(ru ? 'Короткие карточки' : 'Short cards') + '</button></p></div>' +
       '<h2 class="info-h">' + esc(ru ? 'Free и Premium' : 'Free and Premium') + '</h2>' +
       '<div class="card" style="overflow:auto"><table class="cmp-table"><thead><tr><th></th><th>Free</th><th>Premium</th></tr></thead><tbody>' +
@@ -3137,20 +3155,20 @@
   function syncDock() {
     const labels = {
       scan: t('checkTab'),
-      info: S.lang === 'ru' ? 'Инфо' : 'Info',
       saved: t('savedTab'),
       profile: t('profileTab')
     };
     document.querySelectorAll('#dock [data-tab]').forEach(function (b) {
       const tab = b.dataset.tab;
-      b.classList.toggle('on', tab === S.tab || (S.tab === 'alerts' && tab === 'saved'));
+      const on = tab === S.tab || (S.tab === 'alerts' && tab === 'saved') || (S.tab === 'info' && tab === 'profile');
+      b.classList.toggle('on', on);
       const s = b.querySelector('span');
       if (s && labels[tab]) s.textContent = labels[tab];
     });
     syncBack();
   }
   function needsBack() {
-    return S.tab === 'scan' && S.resultOpen;
+    return (S.tab === 'scan' && S.resultOpen) || S.tab === 'info';
   }
   function syncBack() {
     if (!TG || !TG.BackButton) return;
@@ -3160,7 +3178,7 @@
     } catch (e) {}
   }
   function goBack() {
-    if (S.tab === 'info') { S.tab = 'scan'; haptic(); render(); return; }
+    if (S.tab === 'info') { S.tab = 'profile'; haptic(); render(); return; }
     S.resultOpen = false;
     if (S.busy) S.suppressResult = true;
     haptic();
@@ -3180,17 +3198,17 @@
     });
     if (document.getElementById('iosBack')) document.getElementById('iosBack').onclick = goBack;
     if (document.getElementById('recentAll')) document.getElementById('recentAll').onclick = function () { S.tab = 'saved'; haptic(); render(); };
-    if (document.getElementById('myChecks')) document.getElementById('myChecks').onclick = function () { haptic(); openCustomEditor(); };
-    document.querySelectorAll('.pick').forEach(function (b) {
-      b.onclick = function () {
-        const id = b.dataset.check;
-        if (id !== 'reactive' && !isPrem()) { showPaywall(); return; }
-        S.custom.active = id;
-        saveCustom();
-        haptic();
-        render();
-      };
-    });
+    if (document.getElementById('checkPick')) document.getElementById('checkPick').onclick = function () { haptic(); openCheckSheet(); };
+    if (document.getElementById('aboutApp')) document.getElementById('aboutApp').onclick = function () { S.tab = 'info'; haptic(); render(); };
+    if (document.getElementById('channel')) document.getElementById('channel').onclick = openChannel;
+    if (document.getElementById('infoBack')) document.getElementById('infoBack').onclick = goBack;
+    if (document.getElementById('askGo')) document.getElementById('askGo').onclick = function () { hideFeedback(); openChannel(); };
+    if (document.getElementById('askX')) document.getElementById('askX').onclick = function (e) {
+      e.stopPropagation();
+      hideFeedback();
+      haptic();
+      render();
+    };
     if (document.getElementById('listGear')) document.getElementById('listGear').onclick = function () { haptic(); showAlertSettings(); };
     const bnrs = $('#bnrs');
     if (bnrs) {
@@ -3212,56 +3230,45 @@
     if ($('#mint')) {
       const input = $('#mint');
       if (S.lastMint) input.value = S.lastMint;
-      const syncLbl = function () {
-        const lbl = document.getElementById('pasteLbl');
-        if (!lbl) return;
-        const has = input.value.trim().length > 0;
-        lbl.textContent = has ? (S.lang === 'ru' ? 'Проверить' : 'Check') : (S.lang === 'ru' ? 'Вставить' : 'Paste');
-      };
-      syncLbl();
-      input.addEventListener('input', syncLbl);
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') runCheck(); });
-      const tgClipboard = () => new Promise((resolve) => {
-        if (!TG || typeof TG.readTextFromClipboard !== 'function') return resolve('');
-        try {
-          TG.readTextFromClipboard(function (text) { resolve(String(text || '')); });
-        } catch (e) { resolve(''); }
-      });
-
-      const tryPaste = async () => {
-        // 1) Telegram native clipboard (no permission prompt)
-        let txt = await tgClipboard();
-        // 2) browser clipboard
-        if (!txt) {
-          try { txt = await navigator.clipboard.readText(); } catch (e) {}
-        }
-        txt = String(txt || '').trim();
-        if (!txt) return false;
-        input.value = txt;
-        haptic();
-        // auto-run the check right away when it looks like a Solana address
-        if (isAddr(txt)) setTimeout(runCheck, 120);
-        return true;
+      const pullAddr = function (raw) {
+        const s = String(raw || '').trim();
+        if (isAddr(s)) return s;
+        const m = s.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);
+        return m && isAddr(m[0]) ? m[0] : '';
       };
-      $('#paste').onclick = async () => {
-        if (isAddr(input.value.trim())) { runCheck(); return; }
-        if (await tryPaste()) return;
-        // fallback: native paste via execCommand into focused field
+      const readClip = async function () {
+        let denied = false;
         try {
-          input.focus();
-          const ok = document.execCommand && document.execCommand('paste');
-          if (ok) { haptic(); return; }
-        } catch (e) {}
-        input.focus();
-        const oldHint = document.querySelector('.paste-hint');
-        if (oldHint) oldHint.remove();
-        const hint = document.createElement('div');
-        hint.className = 'paste-hint';
-        hint.innerHTML = (S.lang === 'ru'
-          ? 'Браузер не дал доступ к буферу. Нажми в поле и удерживай — появится <b>«Вставить»</b>.'
-          : 'Browser blocked clipboard access. Press and hold the field and tap <b>Paste</b>.');
-        input.parentElement.insertAdjacentElement('afterend', hint);
-        setTimeout(function () { hint.remove(); }, 5000);
+          if (navigator.clipboard && navigator.clipboard.readText) {
+            const t = await navigator.clipboard.readText();
+            if (t && String(t).trim()) return String(t);
+          }
+        } catch (e) { denied = true; }
+        if (TG && typeof TG.readTextFromClipboard === 'function') {
+          try {
+            const t = await new Promise(function (resolve) {
+              try { TG.readTextFromClipboard(function (text) { resolve(String(text || '')); }); }
+              catch (err) { resolve(''); }
+            });
+            if (t && String(t).trim()) return String(t);
+          } catch (e) {}
+        }
+        toast(denied
+          ? (S.lang === 'ru' ? 'Нет доступа к буферу' : 'Clipboard access was blocked')
+          : (S.lang === 'ru' ? 'Буфер пуст' : 'Clipboard is empty'));
+        return '';
+      };
+      if ($('#paste')) $('#paste').onclick = async function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const raw = await readClip();
+        if (!raw) return;
+        const addr = pullAddr(raw);
+        input.value = addr || raw.trim();
+        haptic();
+        if (addr) setTimeout(runCheck, 80);
+        else toast(S.lang === 'ru' ? 'Это не адрес Solana' : 'That is not a Solana address');
       };
     }
     if ($('#go')) $('#go').onclick = runCheck;
@@ -3341,24 +3348,6 @@
       S.listSort = S.listSort === 'score' ? 'change' : S.listSort === 'change' ? 'date' : 'score';
       haptic(); render();
     };
-    if ($('#cmpBtn')) $('#cmpBtn').onclick = function () {
-      S.compareMode = !S.compareMode;
-      if (!S.compareMode) S.compare = [];
-      haptic(); render();
-    };
-    if ($('#doCmp')) $('#doCmp').onclick = function () { showCompare(); };
-    document.querySelectorAll('.item').forEach(function (it) {
-      it.addEventListener('click', function (e) {
-        if (!S.compareMode) return;
-        e.preventDefault();
-        e.stopPropagation();
-        const m = it.dataset.mint;
-        S.compare = S.compare || [];
-        const i = S.compare.indexOf(m);
-        if (i > -1) S.compare.splice(i, 1); else if (S.compare.length < 4) S.compare.push(m);
-        haptic(); render();
-      }, true);
-    });
     if ($('#refreshAll')) $('#refreshAll').onclick = function () { haptic(); refreshLive(true); };
     document.querySelectorAll('.item').forEach(function (it) {
       let timer = null;
