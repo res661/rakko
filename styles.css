@@ -1949,3 +1949,10 @@ body::before {
 }
 .personal b { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #a9b0ff; margin-bottom: 6px; }
 .personal span { display: block; font-size: 13.5px; line-height: 1.4; color: #e6e6f0; }
+
+/* ===== personal card compact ===== */
+.personal { display: block; }
+.p-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.p-top b { font-size: 10.5px; letter-spacing: .1em; color: #a9b0ff; margin: 0; }
+.p-top em { margin-left: auto; font-style: normal; font-size: 18px; font-weight: 750; color: #fff; letter-spacing: -.02em; }
+.personal span { font-size: 12.5px; line-height: 1.35; color: #d8d8e6; }
