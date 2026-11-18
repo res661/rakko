@@ -26,6 +26,7 @@
     plan: read('tc.plan', 'free'),
     wallets: read('tc.wallets', []),
     checks: read('tc.checks', []),
+    custom: read('tc.custom.v1', { active: 'reactive', items: [], seen: false }),
     alertPrefs: read('tc.alertPrefs', { score: true, liq: true, price: true, risky: true, wallet: true }),
     creators: read('tc.creators', {}),
     walletAlerts: read('tc.walletAlerts', []),
@@ -50,11 +51,11 @@
       pasteTitle: 'Проверь монету', pasteSub: 'Вставь адрес — получишь оценку от 0 до 100 и поймёшь, стоит ли рисковать.',
       ph: 'Адрес контракта Solana', paste: 'Вставить', check: 'Проверить', checking: 'Проверяю…',
       howTitle: 'Как читать оценку',
-      how: '70–100 — чисто. 40–69 — рискованно. 0–39 — опасно. Оценка не гарантия: раг случается и с чистыми монетами.',
+      how: '70–100 — низкий риск. 40–69 — средний. 0–39 — высокий. Оценка не гарантия.',
       result: 'Результат', why: 'Почему такой балл', save: 'В список', again: 'Проверить другую',
       liq: 'Ликвидность', holders: 'Распределение', dev: 'Дев и бандлы', contract: 'Контракт',
       activity: 'Активность', age: 'Возраст', price: 'Цена за 24ч', links: 'Ссылки',
-      good: 'Чисто', mid: 'Рискованно', bad: 'Опасно', of100: 'из 100',
+      good: 'Низкий риск', mid: 'Средний риск', bad: 'Высокий риск', of100: 'из 100',
       priceL: 'цена', liqL: 'ликвидность', volL: 'объём 24ч',
       emptyTitle: 'Список пуст', emptyText: 'Проверь монету и сохрани её — оценка останется здесь.',
       tapCoin: 'Нажми, чтобы проверить заново',
@@ -70,7 +71,7 @@
       ob2t: 'Восемь проверок\nв одном числе.', ob2p: 'Ликвидность, холдеры, дев-кошелёк, контракт, активность, возраст, цена, ссылки.',
       ob3t: 'Сохраняй\nи перепроверяй.', ob3p: 'Список монет с оценками — чтобы видеть, что изменилось за день.',
       obCardK: 'ОЦЕНКА', obCardS: 'из 8 блоков',
-      verdictK: 'Вердикт', vCan: 'Можно', vRisk: 'Рискованно', vNo: 'Нельзя',
+      verdictK: 'Уровень', vCan: 'Низкий риск', vRisk: 'Средний риск', vNo: 'Высокий риск',
       checksK: 'Проверки', scanning: 'Проверяю монету…'
     },
     en: {
@@ -78,11 +79,11 @@
       pasteTitle: 'Check a token', pasteSub: 'Paste the address — get a score from 0 to 100 and know whether it is worth the risk.',
       ph: 'Solana contract address', paste: 'Paste', check: 'Check', checking: 'Checking…',
       howTitle: 'How to read the score',
-      how: '70–100 — clean. 40–69 — risky. 0–39 — dangerous. The score is not a guarantee: rugs happen to clean tokens too.',
+      how: '70–100 — low risk. 40–69 — medium. 0–39 — high. The score is not a guarantee.',
       result: 'Result', why: 'Why this score', save: 'Save', again: 'Check another',
       liq: 'Liquidity', holders: 'Distribution', dev: 'Dev & bundles', contract: 'Contract',
       activity: 'Activity', age: 'Age', price: '24h price', links: 'Links',
-      good: 'Clean', mid: 'Risky', bad: 'Dangerous', of100: 'of 100',
+      good: 'Low risk', mid: 'Medium risk', bad: 'High risk', of100: 'of 100',
       priceL: 'price', liqL: 'liquidity', volL: '24h volume',
       emptyTitle: 'Nothing saved', emptyText: 'Check a token and save it — the score stays here.',
       tapCoin: 'Tap to re-check',
@@ -98,7 +99,7 @@
       ob2t: 'Eight checks\nin one number.', ob2p: 'Liquidity, holders, dev wallet, contract, activity, age, price, links.',
       ob3t: 'Save it.\nRe-check it.', ob3p: 'A list of tokens with scores, so you can see what changed.',
       obCardK: 'SCORE', obCardS: 'across 8 blocks',
-      verdictK: 'Verdict', vCan: 'Safe', vRisk: 'Risky', vNo: 'Avoid',
+      verdictK: 'Level', vCan: 'Low risk', vRisk: 'Medium risk', vNo: 'High risk',
       checksK: 'Checks', scanning: 'Checking the token…'
     }
   };
@@ -235,97 +236,6 @@
     await Promise.all(jobs);
     return into;
   }
-
-  const marketCache = { at: 0, items: [] };
-  async function loadMarket() {
-    if (Date.now() - marketCache.at < 5 * 60000 && marketCache.items.length) return marketCache.items;
-    try {
-      const d = await getJson('https://api.dexscreener.com/latest/dex/search?q=SOL', 6000);
-      const pairs = (d && d.pairs) || [];
-      const seen = {};
-      const items = pairs.filter(function (p) {
-        return p.chainId === 'solana' && p.baseToken && p.liquidity && p.liquidity.usd > 150000;
-      }).sort(function (x, y) {
-        return (Number(y.volume && y.volume.h24) || 0) - (Number(x.volume && x.volume.h24) || 0);
-      }).filter(function (p) {
-        const ad = p.baseToken.address;
-        if (seen[ad]) return false;
-        seen[ad] = 1; return true;
-      }).slice(0, 25).map(function (p) {
-        return {
-          mint: p.baseToken.address,
-          symbol: p.baseToken.symbol,
-          name: p.baseToken.name,
-          price: Number(p.priceUsd) || 0,
-          ch: Number(p.priceChange && p.priceChange.h24) || 0,
-          vol: Number(p.volume && p.volume.h24) || 0,
-          liq: Number(p.liquidity && p.liquidity.usd) || 0
-        };
-      });
-      marketCache.items = items; marketCache.at = Date.now();
-      return items;
-    } catch (e) { return marketCache.items || []; }
-  }
-
-  function computeAlerts() {
-    const out = [];
-    const P = S.alertPrefs || {};
-    (S.saved || []).forEach(function (s) {
-      if (P.score !== false && typeof s.prevScore === 'number' && s.prevScore - s.score >= 10) out.push({ mint: s.mint, symbol: s.symbol, kind: 'score', text: (S.lang === 'ru' ? 'скор упал на ' + (s.prevScore - s.score) : 'score −' + (s.prevScore - s.score)), at: s.at || Date.now() });
-      if (P.liq !== false && typeof s.prevLiq === 'number' && s.prevLiq > 0 && (s.liq - s.prevLiq) / s.prevLiq <= -0.3) out.push({ mint: s.mint, symbol: s.symbol, kind: 'liq', text: (S.lang === 'ru' ? 'ликвидность −' + Math.abs(Math.round((s.liq - s.prevLiq) / s.prevLiq * 100)) + '%' : 'liquidity −' + Math.abs(Math.round((s.liq - s.prevLiq) / s.prevLiq * 100)) + '%'), at: s.at || Date.now() });
-      if (P.price !== false && Number(s.ch24) <= -40) out.push({ mint: s.mint, symbol: s.symbol, kind: 'price', text: (S.lang === 'ru' ? 'цена ' + Math.round(Number(s.ch24)) + '% за 24ч' : 'price ' + Math.round(Number(s.ch24)) + '% 24h'), at: s.at || Date.now() });
-      if (P.risky !== false && (s.score || 0) < 40) out.push({ mint: s.mint, symbol: s.symbol, kind: 'risky', text: (S.lang === 'ru' ? 'скор ниже 40' : 'score below 40'), at: s.at || Date.now() });
-    });
-    if (P.wallet !== false) (S.walletAlerts || []).forEach(function (w) { out.push(w); });
-    return out.sort(function (x, y) { return (y.at || 0) - (x.at || 0); });
-  }
-
-  function viewAlerts() {
-    const ru = S.lang === 'ru';
-    const list = computeAlerts();
-    const walletN = (S.wallets || []).length;
-    let out = '<div class="page">' + fallbackBack() +
-      '<h1 class="lt">' + esc(ru ? 'Сторож' : 'Watcher') + '</h1>' +
-      '<p class="sub">' + esc(ru ? 'События по сохранённым монетам и кошелькам' : 'Events for saved tokens and wallets') + '</p>';
-    out += '<div class="card">' +
-      '<div class="kv" style="border:0"><span>' + esc(ru ? 'Кошельков в наблюдении' : 'Wallets watched') + '</span><b>' + walletN + '</b></div>' +
-      '<div class="kv"><span>' + esc(ru ? 'Событий' : 'Events') + '</span><b>' + list.length + '</b></div></div>';
-    out += '<button type="button" class="refresh-all" id="walletAdd">' + esc(ru ? 'Добавить кошелёк' : 'Add wallet') + '</button>';
-    out += '<button type="button" class="refresh-all" id="alSet" style="margin-top:8px">' + esc(ru ? 'Какие уведомления' : 'Which alerts') + '</button>';
-    if (walletN) {
-      out += '<div class="sh"><b>' + esc(ru ? 'Кошельки' : 'Wallets') + '</b></div><div class="card">' + S.wallets.map(function (w) {
-        return '<div class="row"><span class="ava">' + esc(w.slice(0, 2)) + '</span><span class="tx"><b>' + esc(w.slice(0, 6) + '…' + w.slice(-4)) + '</b><span>' + (ru ? 'наблюдаем' : 'watching') + '</span></span>' +
-          '<button type="button" class="tag tg-trash ico" data-delw="' + esc(w) + '" aria-label="remove">' + SVG_X + '</button></div>';
-      }).join('') + '</div>';
-    }
-    out += '<div class="sh"><b>' + esc(ru ? 'События' : 'Events') + '</b></div>';
-    if (!list.length) {
-      out += '<div class="card"><p class="plain" style="color:var(--l2);font-size:15px">' + esc(ru ? 'Пока тихо. Reactive проверит сохранённые монеты при следующем открытии.' : 'All quiet. Reactive re-checks saved tokens the next time you open it.') + '</p></div>';
-    } else {
-      out += '<div class="card">' + list.map(function (x) {
-        const c = x.kind === 'wallet' ? 'var(--blue)' : x.kind === 'risky' ? 'var(--red)' : 'var(--orange)';
-        return '<button type="button" class="row alert-row" data-mint="' + esc(x.mint || '') + '"><span class="al-dot" style="background:' + c + '"></span>' +
-          '<span class="al-txt"><b>' + esc(x.symbol || '') + '</b><i>' + esc(x.text) + '</i></span>' +
-          '<span class="al-time">' + (x.at ? ago(x.at) : '') + '</span></button>';
-      }).join('') + '</div>';
-    }
-    out += '</div>';
-    return out;
-  }
-
-  
-
-  function viewMarket() {
-    const ru = S.lang === 'ru';
-    return '<div class="page">' +
-      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '">' + esc(ru ? 'Рынок' : 'Market') + '</h1>' +
-      '<p class="sub">' + esc(ru ? 'Топ Solana по объёму за 24 часа' : 'Solana top by 24h volume') + '</p>' +
-      '<div id="mkList" class="card mk-list">' + [0, 1, 2, 3, 4, 5].map(function () {
-        return '<div class="row skel-item"><span class="ava skel-ava"></span><span class="skel-lines"><span class="skel-line"></span><span class="skel-line short"></span></span></div>';
-      }).join('') + '</div></div>';
-  }
-
-  
 
   async function loadGecko(mint) {
     const c = cacheGet(mint, 'gt');
@@ -467,6 +377,7 @@
           return bps > 0 ? bps / 100 : 0;
         })(),
         top1: (rug.topHolders && rug.topHolders[0]) ? Number(rug.topHolders[0].pct) || 0 : 0,
+        top10: holders.slice(0, 10).reduce((a, h) => a + (Number(h.pct) || 0), 0),
         socials: (info.socials || []).map((s) => ({ type: s.type, url: s.url })),
         sites: (info.websites || []).map((s) => s.url),
         url: (pair && pair.url) || '',
@@ -810,6 +721,76 @@
   function isPrem() {
     return S.plan === 'premium' && (!S.planUntil || S.planUntil > Date.now());
   }
+  const CHECK_BLOCKS = ['liq', 'holders', 'dev', 'contract', 'activity', 'age', 'price', 'links', 'pressure'];
+  function customState() {
+    const c = S.custom || { active: 'reactive', items: [], seen: false };
+    if (!c.items) c.items = [];
+    if (!c.active) c.active = 'reactive';
+    return c;
+  }
+  function saveCustom() { write('tc.custom.v1', S.custom); }
+  function blockMeta() {
+    const ru = S.lang === 'ru';
+    return [
+      ['liq', ru ? 'Ликвидность' : 'Liquidity'],
+      ['holders', ru ? 'Холдеры и топ-10' : 'Holders and top-10'],
+      ['dev', ru ? 'Дев' : 'Dev'],
+      ['contract', ru ? 'Минт и заморозка' : 'Mint and freeze'],
+      ['activity', ru ? 'Объём' : 'Volume'],
+      ['age', ru ? 'Возраст' : 'Age'],
+      ['price', ru ? 'Импульс цены' : 'Price momentum'],
+      ['links', ru ? 'Ссылки' : 'Links'],
+      ['pressure', ru ? 'Покупки и продажи' : 'Buy and sell pressure']
+    ];
+  }
+  function checkPresets() {
+    const ru = S.lang === 'ru';
+    return [
+      { name: ru ? 'Снайпер' : 'Sniper', weights: { liq: 24, holders: 8, dev: 12, contract: 20, activity: 18, age: 4, price: 16, links: 0, pressure: 22 }, rules: { devPct: 10, liqUsd: 5000, top10: 75, ageMin: 0 } },
+      { name: ru ? 'Осторожный' : 'Careful', weights: { liq: 24, holders: 24, dev: 24, contract: 24, activity: 6, age: 16, price: 4, links: 6, pressure: 6 }, rules: { devPct: 3, liqUsd: 50000, top10: 40, ageMin: 360 } },
+      { name: ru ? 'Холд' : 'Hold', weights: { liq: 20, holders: 24, dev: 16, contract: 20, activity: 4, age: 26, price: 4, links: 10, pressure: 4 }, rules: { devPct: 5, liqUsd: 100000, top10: 35, ageMin: 1440 } }
+    ];
+  }
+  function activeCustom() {
+    if (!isPrem()) return null;
+    const c = customState();
+    if (!c.active || c.active === 'reactive') return null;
+    return (c.items || []).find(function (x) { return x.id === c.active; }) || null;
+  }
+  function runCustom(result, check) {
+    if (!result || !check) return null;
+    const tk = result.token || {};
+    const by = {};
+    (result.blocks || []).forEach(function (b) { by[b.k] = b.s; });
+    const buys = Number(tk.buys) || 0, sells = Number(tk.sells) || 0, tot = buys + sells;
+    if (tot > 0) {
+      const buy = buys / tot;
+      by.pressure = buy >= 0.6 ? 0.9 : buy >= 0.45 ? 0.65 : 0.3;
+    }
+    const wts = check.weights || {};
+    let num = 0, den = 0;
+    CHECK_BLOCKS.forEach(function (k) {
+      const w = Number(wts[k]) || 0;
+      if (w <= 0 || by[k] == null) return;
+      num += by[k] * w;
+      den += w;
+    });
+    let score = den ? Math.round(num / den * 100) : result.score;
+    const rules = check.rules || {};
+    const ru = S.lang === 'ru';
+    const fired = [];
+    const dev = tk.creatorBalance && tk.creatorBalance.pct ? tk.creatorBalance.pct : 0;
+    if (Number(rules.devPct) > 0 && dev > Number(rules.devPct)) fired.push(ru ? 'Дев держит ' + dev.toFixed(1) + '% · порог ' + rules.devPct + '%' : 'Dev holds ' + dev.toFixed(1) + '% · limit ' + rules.devPct + '%');
+    if (Number(rules.liqUsd) > 0 && tk.liq > 0 && tk.liq < Number(rules.liqUsd)) fired.push(ru ? 'Ликвидность ' + usd(tk.liq) + ' · порог $' + rules.liqUsd : 'Liquidity ' + usd(tk.liq) + ' · limit $' + rules.liqUsd);
+    const t10 = Number(tk.top10) || 0;
+    if (Number(rules.top10) > 0 && t10 > Number(rules.top10)) fired.push(ru ? 'Топ-10 ' + Math.round(t10) + '% · порог ' + rules.top10 + '%' : 'Top-10 ' + Math.round(t10) + '% · limit ' + rules.top10 + '%');
+    if (Number(rules.ageMin) > 0 && tk.created) {
+      const mins = (Date.now() - tk.created) / 60000;
+      if (mins < Number(rules.ageMin)) fired.push(ru ? 'Возраст ' + Math.round(mins) + ' мин · порог ' + rules.ageMin + ' мин' : 'Age ' + Math.round(mins) + ' min · limit ' + rules.ageMin + ' min');
+    }
+    if (fired.length) score = Math.min(score, 24);
+    return { name: check.name, score: score, fired: fired };
+  }
   function insightParts(text) {
     const s = String(text || '');
     const i = s.indexOf(':');
@@ -867,9 +848,15 @@
 
   function viewHome() {
     const ru = S.lang === 'ru';
-    let out = '<div class="page">';
-    out += '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '">' + esc(t('checkTab')) + '</h1>';
-    out += '<p class="sub">' + esc(ru ? 'Оценка риска монеты Solana за 30 секунд' : 'Solana token risk score in 30 seconds') + '</p>';
+    const c = customState();
+    const activeId = isPrem() ? (c.active || 'reactive') : 'reactive';
+    const picks = [{ id: 'reactive', name: ru ? 'Reactive (общий)' : 'Reactive (general)' }].concat((c.items || []).map(function (x) { return { id: x.id, name: x.name }; }));
+    const hints = ru ? ['Ликвидность', 'Холдеры', 'Дев', 'Минт', 'Объём', 'Возраст'] : ['Liquidity', 'Holders', 'Dev', 'Mint', 'Volume', 'Age'];
+    let out = '<div class="page home">';
+    out += '<div class="hero-row"><img class="hero-logo" src="assets/reactive-icon-512.png?v=20261118ios7" alt="">';
+    out += '<div class="hero-tx"><h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '">' + esc(t('checkTab')) + '</h1>';
+    out += '<p class="sub">' + esc(ru ? 'Оценка риска монеты Solana за 30 секунд' : 'Solana token risk score in 30 seconds') + '</p></div>';
+    out += '<button type="button" class="gear" id="myChecks" aria-label="' + esc(ru ? 'Мои проверки' : 'My checks') + '"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6.1 6.1l1.6 1.6M16.3 16.3l1.6 1.6M17.9 6.1l-1.6 1.6M7.7 16.3l-1.6 1.6"/></svg><span class="pro-badge">PRO</span></button></div>';
     out += '<div class="card paste">';
     out += '<label class="inp-wrap"><svg class="inp-ico" viewBox="0 0 28 28" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12.5" cy="12.5" r="7.5"/><path d="m18 18 6 6"/></svg>';
     out += '<input id="mint" placeholder="' + esc(ru ? 'Вставь адрес монеты' : 'Paste a token address') + '" autocomplete="off" spellcheck="false" enterkeyhint="go"></label>';
@@ -877,11 +864,15 @@
     out += '<p class="clip" id="clipLine" hidden></p>';
     if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
     out += '</div>';
+    out += '<div class="picks" id="picks">' + picks.map(function (p) {
+      return '<button type="button" class="pick' + (p.id === activeId ? ' on' : '') + '" data-check="' + esc(p.id) + '">' + esc(p.name) + '</button>';
+    }).join('') + '</div>';
+    out += '<div class="hints">' + hints.map(function (h) { return '<span>' + esc(h) + '</span>'; }).join('') + '</div>';
     if (S.ui.quota !== false) {
       const L = quotaLeft();
-      out += '<p class="foot">' + esc(isPrem()
+      out += '<p class="quota-pill">' + esc(isPrem()
         ? (ru ? 'Premium · без лимита' : 'Premium · unlimited')
-        : (ru ? 'Осталось ' + L.day + ' из ' + FREE_PER_DAY + ' проверок сегодня' : L.day + ' of ' + FREE_PER_DAY + ' checks left today')) + '</p>';
+        : (L.day + '/' + FREE_PER_DAY)) + (isPrem() ? '' : '<i>' + esc(ru ? 'бесплатных сегодня' : 'free today') + '</i>') + '</p>';
     }
     if (S.busy && !S.result) out += '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div></div>';
     if (S.ui.recent !== false && S.saved.length) {
@@ -891,7 +882,7 @@
           return '<div class="row it skel-item"><span class="ava skel-ava"></span><span class="skel-lines"><span class="skel-line"></span><span class="skel-line short"></span></span></div>';
         }).join('') + '</div>';
       } else {
-        out += '<div class="card">' + S.saved.slice(0, 6).map(function (s, i) {
+        out += '<div class="card">' + S.saved.slice(0, 5).map(function (s, i) {
           const vv = verdictLabel(s.score || 0);
           return '<button type="button" class="row it item" style="--i:' + i + '" data-mint="' + esc(s.mint) + '">' +
             '<span class="ava ' + avaClass(vv.cls) + '">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(String(s.symbol || '?').slice(0, 2))) + '</span>' +
@@ -929,6 +920,7 @@
       '<div class="tk-priceline"><b>' + esc(price(tk.price)) + '</b>' +
       '<span style="color:' + chCol + '">' + (tk.ch24 ? pct(tk.ch24) : '') + '</span></div>' +
       '<div class="tk-bar"><i style="width:' + Math.round(S.result.score) + '%;background:' + scCol + '"></i></div>' +
+      '<p class="score-note">' + esc(ru ? 'Скор — грубая общая оценка по данным. В Reactive можно создать свои проверки.' : 'The score is a rough overall read of the data. In Reactive you can build your own checks.') + '</p>' +
       '<div class="tk-stats">' +
       '<div><span>MC</span><b>' + usd(tk.mc) + '</b></div>' +
       '<div><span>' + esc(ru ? 'Ликв.' : 'Liq') + '</span><b>' + usd(tk.liq) + '</b></div>' +
@@ -953,6 +945,13 @@
       (tk.holders ? ' · ' + num(tk.holders) + ' holders' : '') +
       (tk.buys || tk.sells ? ' · ' + tk.buys + '/' + tk.sells : '') +
       '</div></div>';
+    const mine = runCustom(S.result, activeCustom());
+    if (mine) {
+      const mv = verdictLabel(mine.score);
+      out += '<div class="custom-score"><div class="cs-top"><span>' + esc(ru ? 'Проверка: ' + mine.name : 'Check: ' + mine.name) + '</span><b style="color:' + scoreColor(mv.cls) + '">' + mine.score + '</b></div>' +
+        (mine.fired.length ? '<div class="cs-flags">' + mine.fired.map(function (f) { return '<span>' + esc(f) + '</span>'; }).join('') + '</div>' : '<p class="tiny">' + esc(ru ? 'Красные флаги не сработали' : 'No red flags fired') + '</p>') +
+        '</div>';
+    }
     if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
 
     const insights = buildInsights(tk);
@@ -1352,7 +1351,7 @@
         (val != null ? '<span class="val' + (id === 'plan' && prem ? ' prem' : '') + '">' + val + '</span>' : '') + CHEV + '</button>';
     };
     return '<div class="page">' +
-      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png?v=20261118ios6" alt="">' + esc(t('profileTab')) + '</h1>' +
+      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png?v=20261118ios7" alt="">' + esc(t('profileTab')) + '</h1>' +
       '<div class="card phead"><span class="pfp">' + pfp + '</span><span><b>' + esc(name) + '</b><span>' + esc(handle) + '</span></span></div>' +
       '<div class="stats"><div class="stat"><b>' + (S.stats.scans || 0) + '</b><span>' + esc(t('scanned')) + '</span></div>' +
       '<div class="stat"><b>' + S.saved.length + '</b><span>' + esc(t('savedN')) + '</span></div></div>' +
@@ -1453,7 +1452,7 @@
   function bannerSlides() {
     const ru = S.lang === 'ru';
     const welcome = '<div class="bn-ill" style="background:#1E2622">' +
-      '<img class="bn-logo" src="assets/reactive-icon-512.png?v=20261118ios6" alt="">' +
+      '<img class="bn-logo" src="assets/reactive-icon-512.png?v=20261118ios7" alt="">' +
       '<div class="bn-fl bn-tk" style="left:18px;top:16px;width:188px;transform:rotate(-5deg)">' +
       '<div class="bn-top"><span class="bn-ava">MO</span><span class="bn-id"><b>MOODENG</b><span>Moo Deng</span></span><span class="bn-score" style="color:var(--green)"><b>81</b><i>/100</i></span></div>' +
       '<div class="bn-pl"><b>$0.2134</b><span style="color:var(--green)">+4.8%</span></div><div class="bn-bar"><i style="width:81%;background:var(--green)"></i></div>' +
@@ -1470,7 +1469,7 @@
       '<div class="bn-rw"><span class="bn-ava">GR</span><span class="bn-id"><b>GRASS</b><span>$312.7K</span></span><svg width="40" height="16"><polyline points="1,8 14,7 26,9 39,8" fill="none" stroke="#30D158" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">57</b></div>' +
       '<div class="bn-rw"><span class="bn-ava">WI</span><span class="bn-id"><b>WIFX</b><span>$198.5K</span></span><svg width="40" height="16"><polyline points="1,4 14,7 26,11 39,14" fill="none" stroke="#FF453A" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">52</b></div></div>' +
       '<div class="bn-fl bn-limit" style="right:12px;top:18px;transform:rotate(4deg)"><div style="color:var(--blue);font-size:22px;line-height:1">∞</div><b>' + (ru ? 'Без лимита' : 'Unlimited') + '</b><span>' + (ru ? 'проверок в час' : 'checks per hour') + '</span></div>' +
-      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png?v=20261118ios6" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
+      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png?v=20261118ios7" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
     const wallets = '<div class="bn-ill" style="background:#1D222B">' +
       '<div class="bn-fl" style="left:12px;top:28px;width:176px;padding:4px 0;transform:rotate(-3deg)">' +
       '<div class="bn-rw"><span class="bn-ava" style="color:var(--green)">7x</span><span class="bn-id"><b>7xKX…9fPq</b><span>' + (ru ? 'купил ' : 'bought ') + '<em style="color:var(--green);font-style:normal">$1.2K</em></span></span></div>' +
@@ -1554,11 +1553,13 @@
         '<div class="sa-line"><span class="ava" style="color:var(--red)">Hq</span><span><b>Hq9w…3TzB</b><i>' + (ru ? 'продал $860' : 'sold $860') + '</i></span></div>' +
         '<div class="sa-line"><span class="ava a-bad">PX</span><span><b>PEPEX</b><i>' + (ru ? '2 кошелька в монете' : '2 wallets in this coin') + '</i></span><em style="color:var(--red)">34</em></div></div>',
       prem: '<div class="sa-stack"><div class="sa-line sa-blur"><span class="ava">H1</span><span><b>9AhK…sbkw</b><i>12.4%</i></span></div><div class="sa-line sa-blur"><span class="ava">H2</span><span><b>3kLm…91Qa</b><i>8.1%</i></span></div><div class="sa-lock">' + LOCK_SVG + ' Premium</div></div>',
-      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png?v=20261118ios6" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
+      custom: '<div class="sa-stack"><div class="sa-line"><span class="ic b-n">≡</span><span><b>' + (ru ? 'Снайпер' : 'Sniper') + '</b><i>' + (ru ? 'давление 22 · возраст 4' : 'pressure 22 · age 4') + '</i></span><em style="color:var(--blue)">72</em></div><div class="sa-line"><span class="ic b-r">!</span><span><b>' + (ru ? 'Дев больше 3%' : 'Dev above 3%') + '</b><i>' + (ru ? 'красный флаг' : 'red flag') + '</i></span></div><div class="sa-line"><span class="ic b-g">R</span><span><b>Reactive</b><i>' + (ru ? 'общий скор рядом' : 'general score stays') + '</i></span><em style="color:var(--green)">81</em></div></div>',
+      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png?v=20261118ios7" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
     };
     return [
       { art: art.check, t: ru ? 'Проверка за 30 секунд' : 'A check in 30 seconds', p: ru ? 'Вставь адрес — Reactive покажет скор, риски простыми словами и сколько потеряешь на входе.' : 'Paste an address — Reactive shows the score, the risks in plain words, and what you lose on entry.' },
-      { art: art.score, t: ru ? 'Скор от 0 до 100' : 'A score from 0 to 100', p: ru ? 'Восемь блоков в одном числе. Зелёный — чисто, жёлтый — рискованно, красный — опасно.' : 'Eight blocks in one number. Green — clean, yellow — risky, red — dangerous.' },
+      { art: art.score, t: ru ? 'Скор от 0 до 100' : 'A score from 0 to 100', p: ru ? 'Восемь блоков в одном числе. Зелёный — низкий риск, жёлтый — средний, красный — высокий.' : 'Eight blocks in one number. Green — low risk, yellow — medium, red — high.' },
+      { art: art.custom, t: ru ? 'Свои проверки' : 'Your own checks', p: ru ? 'Задай веса блоков и красные флаги. Общий скор Reactive остаётся рядом, а твоя проверка считается отдельно.' : 'Set block weights and red flags. The general Reactive score stays beside a score that follows your rules.' },
       { art: art.risks, t: ru ? 'Что важно и риски' : 'What matters, and the risks', p: ru ? 'Не таблица, а фразы: минт открыт, топ-10 держат много, LP не заблокирован.' : 'Not a table — sentences: mint is open, top-10 hold too much, LP isn’t locked.' },
       { art: art.trade, t: ru ? 'Для сделки' : 'For a trade', p: ru ? 'Три суммы: $100, $500 и $1000. Сколько долларов и процентов сгорит на входе.' : 'Three sizes: $100, $500 and $1000. How many dollars and percent you lose on entry.' },
       { art: art.list, t: ru ? 'Список и сторож' : 'List and watcher', p: ru ? 'Монеты со скором, спарклайном и пометкой, если скор или ликвидность упали.' : 'Coins with a score, a sparkline, and a flag when the score or liquidity drops.' },
@@ -1674,7 +1675,7 @@
     ctx.fillStyle = '#1C1C1E';
     ctx.fill();
 
-    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png?v=20261118ios6', location.href).href);
+    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png?v=20261118ios7', location.href).href);
     if (logo) {
       canvasRound(ctx, 72, 72, 64, 64, 16);
       ctx.save();
@@ -1723,21 +1724,18 @@
     ctx.fillText(name, 228, 310);
 
     ctx.fillStyle = col;
-    ctx.font = '700 168px ' + font;
+    ctx.font = '700 148px ' + font;
     const scoreTxt = String(S.result.score);
-    ctx.fillText(scoreTxt, 72, 560);
+    ctx.fillText(scoreTxt, 72, 530);
     const sw = ctx.measureText(scoreTxt).width;
-    ctx.font = '600 36px ' + font;
+    ctx.font = '600 34px ' + font;
     ctx.fillStyle = 'rgba(235,235,245,.45)';
-    ctx.fillText('/100', 88 + sw, 560);
-    ctx.fillStyle = col;
-    ctx.font = '700 44px ' + font;
-    ctx.fillText(v.txt || '', 88 + sw, 500);
+    ctx.fillText('/100', 88 + sw, 530);
 
-    canvasRound(ctx, 72, 592, W - 144, 12, 6);
+    canvasRound(ctx, 72, 556, W - 144, 12, 6);
     ctx.fillStyle = 'rgba(118,118,128,.28)';
     ctx.fill();
-    canvasRound(ctx, 72, 592, Math.max(12, (W - 144) * (S.result.score / 100)), 12, 6);
+    canvasRound(ctx, 72, 556, Math.max(12, (W - 144) * (S.result.score / 100)), 12, 6);
     ctx.fillStyle = col;
     ctx.fill();
 
@@ -1756,60 +1754,77 @@
       const x = 72 + i * 246;
       ctx.fillStyle = 'rgba(235,235,245,.55)';
       ctx.font = '600 22px ' + font;
-      ctx.fillText(m[0], x, 668);
+      ctx.fillText(m[0], x, 620);
       ctx.fillStyle = '#fff';
-      ctx.font = '700 40px ' + font;
-      ctx.fillText(String(m[1]), x, 720);
+      ctx.font = '700 36px ' + font;
+      ctx.fillText(String(m[1]), x, 664);
     });
 
-    const chips = buildInsights(tk).filter(function (x) { return x.tone === 'bad' || x.tone === 'warn'; }).slice(0, 3);
-    let y = 768;
-    chips.forEach(function (x) {
-      const tone = x.tone === 'warn' ? '#FF9F0A' : '#FF453A';
-      const parts = insightParts(x.text);
-      const full = parts.sub && parts.title.length < 18 ? (parts.title + ': ' + parts.sub) : (parts.title || parts.sub || '');
-      let label = full;
-      ctx.font = '600 28px ' + font;
-      while (label.length > 8 && ctx.measureText(label).width > 820) label = label.slice(0, -2);
-      if (label !== full) label = label.replace(/\s+\S*$/, '').replace(/…$/, '') + '…';
-      const w = Math.min(W - 144, ctx.measureText(label).width + 84);
-      canvasRound(ctx, 72, y, w, 64, 32);
+    function drawChip(label, tone, y) {
+      ctx.font = '600 26px ' + font;
+      let text = label;
+      while (text.length > 8 && ctx.measureText(text).width > 820) text = text.slice(0, -2);
+      if (text !== label) text = text.replace(/\s+\S*$/, '') + '…';
+      const w = Math.min(W - 144, ctx.measureText(text).width + 78);
+      canvasRound(ctx, 72, y, w, 56, 28);
       ctx.fillStyle = '#2C2C2E';
       ctx.fill();
       ctx.beginPath();
-      ctx.arc(104, y + 32, 8, 0, Math.PI * 2);
+      ctx.arc(100, y + 28, 7, 0, Math.PI * 2);
       ctx.fillStyle = tone;
       ctx.fill();
       ctx.fillStyle = '#fff';
-      ctx.fillText(label, 128, y + 42);
-      y += 76;
-    });
-
-    y = Math.min(Math.max(y + 12, 1004), 1024);
+      ctx.font = '600 26px ' + font;
+      ctx.fillText(text, 120, y + 37);
+    }
     const spark = [0, Number(tk.ch1) || 0, Number(tk.ch6) || 0, ch];
     const sMax = Math.max(1, Math.abs(Math.min.apply(null, spark)), Math.abs(Math.max.apply(null, spark)));
-    canvasRound(ctx, 72, y, W - 144, 120, 20);
+    canvasRound(ctx, 72, 688, W - 144, 56, 16);
     ctx.fillStyle = '#000';
     ctx.fill();
     ctx.beginPath();
     spark.forEach(function (val, i) {
-      const x = 108 + i * ((W - 216) / 3);
-      const py = y + 60 - (val / sMax) * 40;
+      const x = 100 + i * ((W - 200) / 3);
+      const py = 716 - (val / sMax) * 18;
       if (i === 0) ctx.moveTo(x, py); else ctx.lineTo(x, py);
     });
     ctx.strokeStyle = chCol;
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 4;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
-    ctx.font = '600 20px ' + font;
-    ctx.fillStyle = 'rgba(235,235,245,.55)';
-    ['0', '1h', '6h', '24h'].forEach(function (lab, i) {
-      const x = 108 + i * ((W - 216) / 3);
-      ctx.fillText(lab, x - 10, y + 108);
+    let y = 772;
+    ctx.fillStyle = 'rgba(235,235,245,.6)';
+    ctx.font = '700 24px ' + font;
+    ctx.fillText(ru ? 'Что важно' : 'What matters', 72, y);
+    y += 14;
+    buildInsights(tk).filter(function (x) { return x.tone === 'bad' || x.tone === 'warn' || x.free; }).slice(0, 2).forEach(function (x) {
+      const parts = insightParts(x.text);
+      const full = parts.sub && parts.title.length < 18 ? (parts.title + ': ' + parts.sub) : (parts.title || parts.sub || '');
+      drawChip(full, x.tone === 'warn' ? '#FF9F0A' : x.tone === 'good' ? '#30D158' : '#FF453A', y);
+      y += 64;
     });
-
-    const foot = 1148;
+    y += 28;
+    ctx.fillStyle = 'rgba(235,235,245,.6)';
+    ctx.font = '700 24px ' + font;
+    ctx.fillText(ru ? 'Риски' : 'Risks', 72, y);
+    y += 16;
+    const riskNames = (tk.risks || []).slice(0, 2).map(function (r) { return riskRu(r.name); }).filter(Boolean);
+    (riskNames.length ? riskNames : [ru ? 'Нет отдельных рисков Rugcheck' : 'No separate Rugcheck risks']).forEach(function (name) {
+      drawChip(name, '#FF9F0A', y);
+      y += 64;
+    });
+    y += 36;
+    ctx.fillStyle = 'rgba(235,235,245,.55)';
+    ctx.font = '500 22px ' + font;
+    const disc = ru
+      ? 'Скор — грубая общая оценка по данным. В Reactive можно создать свои проверки.'
+      : 'The score is a rough overall read of the data. In Reactive you can build your own checks.';
+    wrapCanvas(ctx, disc, W - 160).slice(0, 2).forEach(function (line) {
+      ctx.fillText(line, 72, y);
+      y += 30;
+    });
+    const foot = Math.max(y + 8, 1124);
     if (logo) {
       canvasRound(ctx, 72, foot, 48, 48, 12);
       ctx.save();
@@ -2249,17 +2264,131 @@
     }
   }
 
+  function openCustomEditor() {
+    if (document.getElementById('customEd')) return;
+    const ru = S.lang === 'ru';
+    const c = customState();
+    const meta = blockMeta();
+    let draft = { name: '', weights: { liq: 20, holders: 15, dev: 20, contract: 15, activity: 10, age: 10, price: 5, links: 5, pressure: 8 }, rules: { devPct: 5, liqUsd: 10000, top10: 50, ageMin: 0 } };
+    const wrap = document.createElement('div');
+    wrap.className = 'modal';
+    wrap.id = 'customEd';
+    const ruleField = function (k, label, val) {
+      return '<label class="cx-rule"><span>' + esc(label) + '</span><input type="number" min="0" step="1" data-r="' + k + '" value="' + (Number(val) || 0) + '"></label>';
+    };
+    const formHtml = function () {
+      return '<label class="cx-name">' + esc(ru ? 'Название' : 'Name') + '<input id="cxName" value="' + esc(draft.name) + '" placeholder="' + esc(ru ? 'Например, Ночной' : 'For example, Night') + '"></label>' +
+        '<p class="cx-k">' + esc(ru ? 'Веса блоков' : 'Block weights') + '</p>' +
+        meta.map(function (m) {
+          const v = Number(draft.weights[m[0]]) || 0;
+          return '<label class="cx-sl"><span>' + esc(m[1]) + '</span><input type="range" min="0" max="40" step="1" data-w="' + m[0] + '" value="' + v + '"><b>' + v + '</b></label>';
+        }).join('') +
+        '<p class="cx-k">' + esc(ru ? 'Красные флаги' : 'Red flags') + '</p><div class="cx-rules">' +
+        ruleField('devPct', ru ? 'Дев больше, %' : 'Dev above, %', draft.rules.devPct) +
+        ruleField('liqUsd', ru ? 'Ликвидность меньше, $' : 'Liquidity under, $', draft.rules.liqUsd) +
+        ruleField('top10', ru ? 'Топ-10 больше, %' : 'Top-10 above, %', draft.rules.top10) +
+        ruleField('ageMin', ru ? 'Возраст меньше, мин' : 'Age under, min', draft.rules.ageMin) +
+        '</div><button type="button" class="btn" id="cxSave">' + esc(ru ? 'Сохранить и использовать' : 'Save and use') + '</button>' +
+        '<p class="tiny">' + esc(ru ? '0 в флаге — правило выключено. Сохранение открывает Premium.' : '0 turns a flag off. Saving opens Premium.') + '</p>';
+    };
+    const needPrem = function () {
+      if (isPrem()) return false;
+      showPaywall();
+      return true;
+    };
+    const readDraft = function () {
+      draft.name = String((wrap.querySelector('#cxName') || {}).value || '').trim();
+      wrap.querySelectorAll('[data-w]').forEach(function (el) { draft.weights[el.dataset.w] = Number(el.value) || 0; });
+      wrap.querySelectorAll('[data-r]').forEach(function (el) { draft.rules[el.dataset.r] = Number(el.value) || 0; });
+    };
+    const bindEd = function () {
+      wrap.querySelector('#cxX').onclick = function () { dismiss(wrap); };
+      const seen = wrap.querySelector('#cxSeen');
+      if (seen) seen.onclick = function () { c.seen = true; S.custom = c; saveCustom(); paint(); };
+      wrap.querySelectorAll('[data-w]').forEach(function (el) {
+        el.oninput = function () { const b = el.parentNode.querySelector('b'); if (b) b.textContent = el.value; };
+      });
+      wrap.querySelectorAll('[data-pre]').forEach(function (b) {
+        b.onclick = function () {
+          if (needPrem()) return;
+          const p = checkPresets()[Number(b.dataset.pre)];
+          const item = { id: 'c' + Date.now(), name: p.name, weights: p.weights, rules: p.rules };
+          c.items.push(item);
+          c.active = item.id;
+          S.custom = c;
+          saveCustom();
+          haptic();
+          dismiss(wrap);
+          render();
+        };
+      });
+      wrap.querySelectorAll('[data-use]').forEach(function (b) {
+        b.onclick = function () {
+          if (needPrem()) return;
+          c.active = b.dataset.use;
+          S.custom = c;
+          saveCustom();
+          dismiss(wrap);
+          render();
+        };
+      });
+      wrap.querySelectorAll('[data-del]').forEach(function (b) {
+        b.onclick = function () {
+          c.items = (c.items || []).filter(function (x) { return x.id !== b.dataset.del; });
+          if (c.active === b.dataset.del) c.active = 'reactive';
+          S.custom = c;
+          saveCustom();
+          paint();
+        };
+      });
+      const save = wrap.querySelector('#cxSave');
+      if (save) save.onclick = function () {
+        readDraft();
+        if (!draft.name) { toast(ru ? 'Дай проверке имя' : 'Name the check'); return; }
+        if (needPrem()) return;
+        const item = { id: 'c' + Date.now(), name: draft.name.slice(0, 32), weights: draft.weights, rules: draft.rules };
+        c.items.push(item);
+        c.active = item.id;
+        S.custom = c;
+        saveCustom();
+        haptic();
+        dismiss(wrap);
+        render();
+      };
+    };
+    const paint = function () {
+      const items = (c.items || []).map(function (x) {
+        return '<div class="cx-item"><b>' + esc(x.name) + '</b><button type="button" data-use="' + esc(x.id) + '">' + esc(ru ? 'Взять' : 'Use') + '</button><button type="button" data-del="' + esc(x.id) + '">' + esc(ru ? 'Удалить' : 'Delete') + '</button></div>';
+      }).join('');
+      const presets = checkPresets().map(function (p, i) {
+        return '<button type="button" class="cx-pre" data-pre="' + i + '"><b>' + esc(p.name) + '</b><span>' + esc(ru ? 'Начать с этого' : 'Start from this') + '</span></button>';
+      }).join('');
+      const expl = c.seen ? '' : '<div class="cx-expl"><div class="cx-ill"><i style="width:78%"></i><i style="width:46%"></i><i style="width:62%"></i></div><p>' + esc(ru ? 'Свои веса и красные флаги. Общий скор Reactive остаётся рядом — это вторая линейка, не замена.' : 'Your own weights and red flags. The general Reactive score stays beside it — a second scale, not a replacement.') + '</p><button type="button" class="cx-ok" id="cxSeen">' + esc(ru ? 'Понятно' : 'Got it') + '</button></div>';
+      wrap.innerHTML = '<div class="modal-card paywall cx"><div class="modal-head"><b>' + esc(ru ? 'Мои проверки' : 'My checks') + '</b><span class="pro-badge">PRO</span><button type="button" class="modal-x" id="cxX" aria-label="Close">' + SVG_X + '</button></div>' +
+        expl +
+        '<p class="cx-k">' + esc(ru ? 'Пресеты' : 'Presets') + '</p><div class="cx-pres">' + presets + '</div>' +
+        (items ? '<p class="cx-k">' + esc(ru ? 'Сохранённые' : 'Saved') + '</p><div class="cx-items">' + items + '</div>' : '') +
+        '<p class="cx-k">' + esc(ru ? 'Новая проверка' : 'New check') + '</p>' + formHtml() + '</div>';
+      bindEd();
+    };
+    document.body.appendChild(wrap);
+    wrap.addEventListener('click', function (e) { if (e.target === wrap) dismiss(wrap); });
+    paint();
+  }
+
   function showPaywall() {
     const ru = S.lang === 'ru';
     const isPrem = S.plan === 'premium' && (!S.planUntil || S.planUntil > Date.now());
     const perks = ru ? [
       'Без лимита — бесплатно 20 проверок в день',
       'Вторая половина «Что важно» и рисков Rugcheck',
-      'Полный список топ-держателей'
+      'Полный список топ-держателей',
+      'Свои проверки: веса блоков и красные флаги'
     ] : [
       'No limit — 20 free checks a day',
       'The other half of “What matters” and Rugcheck risks',
-      'The full top-holder list'
+      'The full top-holder list',
+      'Your own checks: block weights and red flags'
     ];
     const wrap = document.createElement('div');
     wrap.className = 'modal';
@@ -2393,7 +2522,6 @@
       let html;
       if (S.tab === 'saved') html = viewSaved();
       else if (S.tab === 'profile') html = viewProfile();
-      else if (S.tab === 'market') html = viewMarket();
       else if (S.tab === 'alerts') html = viewAlerts();
       else if (S.resultOpen) html = viewResultPage();
       else html = viewHome();
@@ -2497,7 +2625,6 @@
   function syncDock() {
     const labels = {
       scan: t('checkTab'),
-      market: S.lang === 'ru' ? 'Рынок' : 'Market',
       saved: t('savedTab'),
       profile: t('profileTab')
     };
@@ -2540,27 +2667,18 @@
     });
     if (document.getElementById('iosBack')) document.getElementById('iosBack').onclick = goBack;
     if (document.getElementById('recentAll')) document.getElementById('recentAll').onclick = function () { S.tab = 'saved'; haptic(); render(); };
+    if (document.getElementById('myChecks')) document.getElementById('myChecks').onclick = function () { haptic(); openCustomEditor(); };
+    document.querySelectorAll('.pick').forEach(function (b) {
+      b.onclick = function () {
+        const id = b.dataset.check;
+        if (id !== 'reactive' && !isPrem()) { showPaywall(); return; }
+        S.custom.active = id;
+        saveCustom();
+        haptic();
+        render();
+      };
+    });
     if (document.getElementById('openAlerts')) document.getElementById('openAlerts').onclick = function () { S.tab = 'alerts'; render(); };
-    if (document.getElementById('mkBack')) document.getElementById('mkBack').onclick = function () { S.tab = 'scan'; render(); };
-    const mk = document.getElementById('mkList');
-    if (mk) {
-      loadMarket().then(function (items) {
-        const el = document.getElementById('mkList');
-        if (!el) return;
-        if (!items.length) { el.innerHTML = '<p class="tiny">' + (S.lang === 'ru' ? 'Нет данных' : 'No data') + '</p>'; return; }
-        el.innerHTML = items.map(function (x, i) {
-          const up = x.ch >= 0;
-          return '<button type="button" class="row mk-row" data-mint="' + esc(x.mint) + '" style="--i:' + i + '">' +
-            '<span class="mk-sym"><b>' + esc(x.symbol) + '</b><i>' + usd(x.vol) + '</i></span>' +
-            '<span class="mk-price">' + price(x.price) + '</span>' +
-            '<span class="mk-ch" style="color:' + (up ? 'var(--green)' : 'var(--red)') + '">' + (up ? '+' : '') + x.ch.toFixed(1) + '%</span>' +
-            '</button>';
-        }).join('');
-        el.querySelectorAll('.mk-row[data-mint]').forEach(function (b) {
-          b.onclick = function () { S.lastMint = b.dataset.mint; S.result = null; S.resultOpen = false; S.tab = 'scan'; render(); setTimeout(runCheck, 80); };
-        });
-      });
-    }
     const bnrs = $('#bnrs');
     if (bnrs) {
       const dots = document.querySelectorAll('#bnrDots i');

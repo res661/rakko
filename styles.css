@@ -104,6 +104,61 @@ img { max-width: 100%; }
 }
 .sh .muted { color: var(--l2); font-size: 14px; }
 .foot { font-size: 13px; color: var(--l2); margin: 8px 16px 0; letter-spacing: -.005em; }
+.hero-row { display: flex; align-items: center; gap: 12px; margin: 4px 2px 14px; }
+.hero-logo { width: 52px; height: 52px; border-radius: 14px; flex: none; }
+.hero-tx { flex: 1; min-width: 0; }
+.hero-row .lt { margin: 0; font-size: 28px; }
+.hero-row .sub { margin: 2px 0 0; }
+.gear {
+  position: relative; width: 44px; height: 44px; flex: none; border: 0; border-radius: 14px;
+  background: var(--card); color: var(--l1); display: grid; place-items: center; padding: 0;
+}
+.gear .pro-badge { position: absolute; right: -4px; top: -6px; }
+.pro-badge {
+  display: inline-flex; align-items: center; height: 16px; padding: 0 5px; border-radius: 5px;
+  background: #2C2C2E; color: var(--l2); font-size: 10px; font-weight: 700; letter-spacing: .04em;
+}
+.picks { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 12px 0 0; padding-bottom: 2px; }
+.picks::-webkit-scrollbar { display: none; }
+.pick {
+  flex: none; height: 34px; padding: 0 12px; border: 0; border-radius: 17px;
+  background: var(--card); color: var(--l1); font-size: 14px; font-weight: 600;
+}
+.pick.on { background: var(--blue); color: #fff; }
+.hints { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; }
+.hints span { height: 26px; padding: 0 10px; border-radius: 13px; background: var(--fill); color: var(--l2); font-size: 12px; display: inline-flex; align-items: center; }
+.quota-pill { margin: 14px 2px 0; font-size: 20px; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.quota-pill i { margin-left: 8px; font-style: normal; font-size: 13px; font-weight: 500; color: var(--l2); }
+.score-note { margin: 10px 0 0; font-size: 12px; line-height: 1.35; color: var(--l3); }
+.custom-score { margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: var(--card); }
+.cs-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.cs-top span { font-size: 15px; font-weight: 650; }
+.cs-top b { font-size: 28px; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.cs-flags { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.cs-flags span { font-size: 13px; color: var(--orange); }
+.cx .modal-head { gap: 8px; }
+.cx .modal-head .modal-x { margin-left: auto; }
+.cx-expl { margin: 0 0 12px; padding: 12px; border-radius: 14px; background: #000; }
+.cx-ill { display: grid; gap: 6px; margin-bottom: 8px; }
+.cx-ill i { display: block; height: 8px; border-radius: 8px; background: var(--blue); }
+.cx-expl p { margin: 0 0 8px; font-size: 14px; color: var(--l2); line-height: 1.35; }
+.cx-ok { border: 0; background: none; color: var(--blue); font-weight: 650; padding: 0; }
+.cx-k { margin: 14px 2px 6px; font-size: 13px; color: var(--l2); }
+.cx-pres { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.cx-pre { border: 0; border-radius: 12px; background: #000; color: var(--l1); padding: 10px 8px; text-align: left; }
+.cx-pre b { display: block; font-size: 14px; }
+.cx-pre span { display: block; margin-top: 2px; font-size: 11px; color: var(--blue); }
+.cx-item { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.cx-item b { flex: 1; font-size: 16px; }
+.cx-item button { border: 0; background: none; color: var(--blue); font-weight: 600; }
+.cx-name, .cx-rule, .cx-sl { display: flex; align-items: center; gap: 8px; min-height: 40px; font-size: 15px; }
+.cx-name { flex-direction: column; align-items: stretch; gap: 6px; }
+.cx-name input, .cx-rule input { margin-left: auto; width: 120px; height: 34px; border: 0; border-radius: 8px; background: #000; color: var(--l1); padding: 0 8px; font: inherit; }
+.cx-name input { width: 100%; margin-left: 0; }
+.cx-sl span { width: 132px; flex: none; font-size: 14px; }
+.cx-sl input { flex: 1; accent-color: var(--blue); }
+.cx-sl b { width: 22px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; color: var(--l2); }
+.cx .tiny { margin: 8px 0 12px; }
 .tiny { font-size: 12px; color: var(--l3); line-height: 1.4; }
 .small { font-size: 13px; color: var(--l2); }
 .err { margin: 10px 2px 0; color: var(--red); font-size: 13.5px; line-height: 1.35; }
