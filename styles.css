@@ -1861,3 +1861,49 @@ body::before {
 .cmp-table th { text-align: left; font-size: 12px; color: #8e8e93; font-weight: 700; padding: 8px 6px; border-bottom: .5px solid rgba(255,255,255,.08); }
 .cmp-table td { padding: 10px 6px; border-bottom: .5px solid rgba(255,255,255,.06); }
 .cmp-table td:first-child { color: #8e8e93; }
+
+/* ===== dock v6: uniform capsule, no permanent accent ===== */
+.dock-wrap { left: 0; right: 0; display: flex; justify-content: center; }
+.dock {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 4px; padding: 7px 10px;
+  width: min(320px, calc(100% - 48px));
+  border-radius: 999px;
+  background: rgba(44,44,46,.94);
+  border: .5px solid rgba(255,255,255,.08);
+  box-shadow: 0 14px 34px rgba(0,0,0,.45);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+}
+.dbtn {
+  width: 64px; height: 46px; border-radius: 999px;
+  background: transparent !important;
+  border: 0 !important;
+  color: rgba(235,235,245,.55) !important;
+  display: grid; place-items: center;
+  transition: background .16s, color .16s, transform .14s;
+}
+.dbtn svg { width: 22px; height: 22px; stroke-width: 2.1; }
+.dbtn:active { transform: scale(.93); }
+.dbtn.on { background: rgba(255,255,255,.10) !important; color: #fff !important; }
+.dscan { margin: 0; }
+.dscan.on { background: #0a84ff !important; color: #fff !important; }
+.dscan:active { background: rgba(255,255,255,.14) !important; }
+
+/* ===== market screen ===== */
+.mk-head { display: flex; align-items: center; margin-bottom: 2px; }
+.mk-back { border: 0; background: transparent; color: #6169ee; font: inherit; font-size: 15px; font-weight: 600; padding: 4px 0; }
+.mk-list { display: grid; gap: 8px; margin-top: 6px; }
+.mk-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 13px 14px; border: 0; border-radius: 16px;
+  background: #2c2c2e; color: #fff; font: inherit; text-align: left;
+  animation: none;
+}
+.mk-row:active { background: #3a3a3c; transform: scale(.99); }
+.mk-sym { flex: 1; min-width: 0; }
+.mk-sym b { display: block; font-size: 15px; font-weight: 650; }
+.mk-sym i { display: block; font-style: normal; font-size: 11px; color: #8e8e93; margin-top: 2px; }
+.mk-price { font-size: 13px; color: #d1d1d6; font-variant-numeric: tabular-nums; }
+.mk-ch { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 58px; text-align: right; }
+.trend-all { margin-left: auto; border: 0; background: transparent; color: #6169ee; font: inherit; font-size: 12px; font-weight: 650; }
