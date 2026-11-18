@@ -865,7 +865,6 @@
         '<div><span>' + esc(S.lang === 'ru' ? 'Объём' : 'Vol') + '</span><b>' + usd(tk.vol) + '</b></div>' +
         '<div><span>' + esc(S.lang === 'ru' ? 'Возраст' : 'Age') + '</span><b>' + esc(ageTxt) + '</b></div>' +
         '</div>' +
-        (tk.creator ? '<button class="ghost-action" id="devCheck" style="margin-top:10px">' + esc(S.lang === 'ru' ? 'Проверить создателя' : 'Check creator') + '</button>' : '') +
         '<div class="tk-upd">' + esc((S.lang === 'ru' ? 'обновлено ' : 'updated ') + ago(S.updatedAt || Date.now())) + (S.result.partial ? ' · ' + (S.lang === 'ru' ? 'догружаю…' : 'loading…') : '') + '</div>' +
         '<div class="tk-links">' +
         (tk.url ? '<a class="tkl" href="' + esc(tk.url) + '" target="_blank" rel="noopener" aria-label="DEX"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18l6-6 4 3 6-8"/><path d="M16 7h4v4"/></svg></a>' : '') +
@@ -2272,6 +2271,44 @@
       write(K.black, S.black); haptic(); render();
     };
     if (S.result) loadSimilar(S.result.token);
+  }
+
+  async function loadSimilar(tk) {
+    const slot = document.getElementById('similar');
+    if (!slot || !tk || !tk.symbol) return;
+    try {
+      const res = await getJson('https://api.dexscreener.com/latest/dex/search?q=' + encodeURIComponent(tk.symbol), 6000);
+      const pairs = (res && res.pairs) || [];
+      const seen = {};
+      const list = pairs
+        .filter(function (p) { return p.chainId === 'solana' && p.baseToken && String(p.baseToken.symbol || '').toUpperCase() === String(tk.symbol).toUpperCase(); })
+        .filter(function (p) {
+          const ad = p.baseToken.address;
+          if (!ad || ad === tk.mint || seen[ad]) return false;
+          seen[ad] = 1; return true;
+        })
+        .sort(function (x, y) { return (Number(y.liquidity && y.liquidity.usd) || 0) - (Number(x.liquidity && x.liquidity.usd) || 0); })
+        .slice(0, 4);
+      if (!list.length) return;
+      const ru = S.lang === 'ru';
+      slot.innerHTML = '<p class="eyebrow" style="margin-top:20px">' + (ru ? 'ПОХОЖИЕ ТИКЕРЫ' : 'SIMILAR TICKERS') + '</p>' +
+        '<div class="sim-list">' + list.map(function (p) {
+          return '<button class="sim-row" data-mint="' + esc(p.baseToken.address) + '">' +
+            '<span class="sim-sym">' + esc(p.baseToken.symbol) + '</span>' +
+            '<span class="sim-liq">' + usd(p.liquidity && p.liquidity.usd) + '</span>' +
+            '<span class="sim-ch" style="color:' + ((Number(p.priceChange && p.priceChange.h24) || 0) >= 0 ? 'var(--green)' : 'var(--red)') + '">' +
+            (Number(p.priceChange && p.priceChange.h24) ? pct(p.priceChange.h24) : '') + '</span></button>';
+        }).join('') + '</div>' +
+        '<p class="tiny" style="margin:8px 2px 0">' + (ru ? 'Другие контракты с таким же тикером — проверь, не копия ли.' : 'Other contracts with the same ticker.') + '</p>';
+      slot.querySelectorAll('.sim-row').forEach(function (b) {
+        b.onclick = function () {
+          S.lastMint = b.dataset.mint;
+          S.result = null;
+          render();
+          setTimeout(runCheck, 80);
+        };
+      });
+    } catch (e) {}
   }
 
   async function runCheck() {
