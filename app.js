@@ -894,6 +894,38 @@
       '</div>';
   }
 
+  function sparkSvg(s) {
+    const p1 = Number(s.ch1) || 0, p6 = Number(s.ch6) || 0, p24 = Number(s.ch24) || 0;
+    const vals = [0, p1, p6, p24];
+    const max = Math.max(1, Math.abs(Math.min.apply(null, vals)), Math.abs(Math.max.apply(null, vals)));
+    const W = 54, H = 22;
+    const pts = vals.map(function (v, i) {
+      const x = (i / (vals.length - 1)) * W;
+      const y = H / 2 - (v / max) * (H / 2 - 2);
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    const col = p24 >= 0 ? '#30d158' : '#ff453a';
+    return '<svg class="spark" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '">' +
+      '<polyline points="' + pts + '" fill="none" stroke="' + col + '" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+
+  function alertOf(s) {
+    const ru = S.lang === 'ru';
+    const out = [];
+    if (typeof s.prevScore === 'number' && s.prevScore - s.score >= 10) out.push(ru ? 'скор упал на ' + (s.prevScore - s.score) : 'score −' + (s.prevScore - s.score));
+    if (typeof s.prevLiq === 'number' && s.prevLiq > 0 && (s.liq - s.prevLiq) / s.prevLiq <= -0.3) out.push(ru ? 'ликвидность −30%' : 'liquidity −30%');
+    if (Number(s.ch24) <= -40) out.push(ru ? 'цена ' + Math.round(Number(s.ch24)) + '%' : 'price ' + Math.round(Number(s.ch24)) + '%');
+    if ((s.score || 0) < 40) out.push(ru ? 'опасный скор' : 'risky score');
+    return out;
+  }
+
+  function tagLabel(tag) {
+    const ru = S.lang === 'ru';
+    if (tag === 'hold') return ru ? 'в позиции' : 'holding';
+    if (tag === 'trash') return ru ? 'мусор' : 'trash';
+    return ru ? 'слежу' : 'watching';
+  }
+
   function viewSaved() {
     const ru = S.lang === 'ru';
     if (!S.saved.length) {
@@ -901,42 +933,129 @@
         '<div class="radar"><span class="r-dot"></span><i class="r r1"></i><i class="r r2"></i><i class="r r3"></i></div>' +
         '<b>' + esc(t('emptyTitle')) + '</b><span>' + esc(t('emptyText')) + '</span></div></div>';
     }
+
     const avg = Math.round(S.saved.reduce(function (x, s) { return x + (s.score || 0); }, 0) / S.saved.length);
-    const risky = S.saved.filter(function (s) { return (s.score || 0) < 40; }).length;
     const clean = S.saved.filter(function (s) { return (s.score || 0) >= 70; }).length;
+    const risky = S.saved.filter(function (s) { return (s.score || 0) < 40; }).length;
+
     const filter = S.listFilter || 'all';
-    const shown = S.saved.filter(function (s) {
+    const sort = S.listSort || 'score';
+
+    let list = S.saved.filter(function (s) {
       if (filter === 'clean') return (s.score || 0) >= 70;
       if (filter === 'risky') return (s.score || 0) < 40;
+      if (filter === 'hold') return s.tag === 'hold';
+      if (filter === 'watch') return s.tag !== 'hold' && s.tag !== 'trash';
       return true;
     });
-    const items = shown.map((s) => {
+    list = list.slice().sort(function (x, y) {
+      if (sort === 'change') return (Number(y.ch24) || 0) - (Number(x.ch24) || 0);
+      if (sort === 'date') return (y.at || 0) - (x.at || 0);
+      return (y.score || 0) - (x.score || 0);
+    });
+
+    const alerts = S.saved.filter(function (s) { return alertOf(s).length > 0; });
+
+    const row = function (s) {
       const v = verdict(s.score);
       const color = v.cls === 'good' ? 'var(--green)' : v.cls === 'mid' ? 'var(--yellow)' : 'var(--red)';
       const ch = Number(s.ch24) || 0;
       const chCol = ch >= 0 ? 'var(--green)' : 'var(--red)';
       const d = (typeof s.prevScore === 'number') ? (s.score - s.prevScore) : 0;
       const delta = d ? (d > 0 ? '<em class="up">▲' + d + '</em>' : '<em class="down">▼' + Math.abs(d) + '</em>') : '';
-      return '<button class="item" data-mint="' + esc(s.mint) + '">' +
+      const al = alertOf(s);
+      const tag = s.tag || 'watch';
+      const isSel = (S.compare || []).indexOf(s.mint) > -1;
+      const open = (S.expanded || []).indexOf(s.mint) > -1;
+
+      let h = '<div class="row-item' + (isSel ? ' sel' : '') + (open ? ' open' : '') + '">' +
+        '<button class="item" data-mint="' + esc(s.mint) + '">' +
+        (S.compareMode ? '<span class="cbx' + (isSel ? ' on' : '') + '"></span>' : '') +
         '<span class="ava">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : esc(s.symbol.slice(0, 2))) + '</span>' +
         '<span class="meta"><b>' + esc(s.symbol) + delta + '</b><span>' + usd(s.liq) + (s.at ? ' · ' + ago(s.at) : '') + '</span></span>' +
+        sparkSvg(s) +
         '<span class="ch" style="color:' + chCol + '">' + (ch ? pct(ch) : '') + '</span>' +
-        '<span class="num" style="--sc:' + color + '">' + s.score + '</span></button>';
-    }).join('');
-    const head =
-      '<div class="saved-stats">' +
+        '<span class="num" style="--sc:' + color + '">' + s.score + '</span>' +
+        '</button>' +
+        '<div class="row-foot">' +
+        '<button class="tag tg-' + tag + '" data-tag="' + esc(s.mint) + '">' + esc(tagLabel(tag)) + '</button>' +
+        (al.length ? '<span class="al-flag">' + esc(al[0]) + '</span>' : '') +
+        '<button class="row-more" data-exp="' + esc(s.mint) + '">' + (ru ? 'подробнее' : 'details') + ' ▾</button>' +
+        '</div>' +
+        (open ? '<div class="row-exp">' +
+          '<div class="re-grid">' +
+          '<div><span>MC</span><b>' + usd(s.mc) + '</b></div>' +
+          '<div><span>' + (ru ? 'ликвидность' : 'liquidity') + '</span><b>' + usd(s.liq) + '</b></div>' +
+          '<div><span>24h</span><b style="color:' + chCol + '">' + (ch ? pct(ch) : '—') + '</b></div>' +
+          '<div><span>' + (ru ? 'проверено' : 'checked') + '</span><b>' + (s.at ? ago(s.at) : '—') + '</b></div>' +
+          '</div>' +
+          (s.hist && s.hist.length > 1 ? '<div class="hist">' + (ru ? 'История скора: ' : 'Score history: ') + s.hist.map(function (x) { return x.s; }).join(' → ') + '</div>' : '') +
+          '</div>' : '') +
+        '</div>';
+      return h;
+    };
+
+    let head = '<div class="saved-stats">' +
       '<div class="ss"><b>' + S.saved.length + '</b><span>' + (ru ? 'монет' : 'tokens') + '</span></div>' +
-      '<div class="ss"><b>' + avg + '</b><span>' + (ru ? 'средний скор' : 'avg score') + '</span></div>' +
+      '<div class="ss"><b>' + avg + '</b><span>' + (ru ? 'средний' : 'avg') + '</span></div>' +
       '<div class="ss"><b style="color:var(--green)">' + clean + '</b><span>' + (ru ? 'чистых' : 'clean') + '</span></div>' +
       '<div class="ss"><b style="color:var(--red)">' + risky + '</b><span>' + (ru ? 'опасных' : 'risky') + '</span></div>' +
-      '</div>' +
-      '<div class="list-filters">' +
-      '<button class="lf' + (filter === 'all' ? ' on' : '') + '" data-f="all">' + (ru ? 'Все' : 'All') + '</button>' +
-      '<button class="lf' + (filter === 'clean' ? ' on' : '') + '" data-f="clean">' + (ru ? 'Чистые' : 'Clean') + '</button>' +
-      '<button class="lf' + (filter === 'risky' ? ' on' : '') + '" data-f="risky">' + (ru ? 'Опасные' : 'Risky') + '</button>' +
-      '<button class="lf refresh" id="refreshAll">' + (ru ? 'Обновить всё' : 'Refresh') + '</button>' +
       '</div>';
-    return top(t('savedTab')) + '<div class="page">' + head + '<div class="list">' + items + '</div><p class="tiny" style="text-align:center;margin-top:16px">' + esc(t('tapCoin')) + '</p></div>';
+
+    if (alerts.length) {
+      head += '<div class="attn"><div class="attn-h"><span class="attn-dot"></span>' + esc(ru ? 'Требует внимания · ' + alerts.length : 'Needs attention · ' + alerts.length) + '</div>' +
+        alerts.slice(0, 4).map(function (s) {
+          return '<button class="attn-row" data-mint="' + esc(s.mint) + '"><b>' + esc(s.symbol) + '</b><span>' + esc(alertOf(s).join(' · ')) + '</span></button>';
+        }).join('') + '</div>';
+    }
+
+    head += '<div class="list-filters">' +
+      ['all', 'watch', 'hold', 'clean', 'risky'].map(function (f) {
+        const lbl = f === 'all' ? (ru ? 'Все' : 'All') : f === 'watch' ? (ru ? 'Слежу' : 'Watching') : f === 'hold' ? (ru ? 'В позиции' : 'Holding') : f === 'clean' ? (ru ? 'Чистые' : 'Clean') : (ru ? 'Опасные' : 'Risky');
+        return '<button class="lf' + (filter === f ? ' on' : '') + '" data-f="' + f + '">' + lbl + '</button>';
+      }).join('') +
+      '<button class="lf icon" id="sortBtn">' + (sort === 'score' ? '↓ скор' : sort === 'change' ? '↓ 24ч' : '↓ дата') + '</button>' +
+      '<button class="lf icon' + (S.compareMode ? ' on' : '') + '" id="cmpBtn">' + (ru ? 'сравнить' : 'compare') + '</button>' +
+      '</div>';
+
+    head += '<button class="refresh-all" id="refreshAll">' + (ru ? 'Обновить все данные' : 'Refresh all') + '</button>';
+
+    let body = '<div class="list">' + list.map(row).join('') + '</div>';
+    if (!list.length) body = '<p class="tiny" style="text-align:center;padding:24px 0">' + esc(ru ? 'Ничего не найдено по фильтру' : 'Nothing matches the filter') + '</p>';
+
+    const cmpBar = (S.compareMode && (S.compare || []).length >= 2)
+      ? '<div class="cmp-bar"><button id="doCmp">' + esc(ru ? 'Сравнить ' + S.compare.length : 'Compare ' + S.compare.length) + '</button></div>'
+      : '';
+
+    return top(t('savedTab')) + '<div class="page">' + head + body + cmpBar + '</div>';
+  }
+
+  function showCompare() {
+    const ru = S.lang === 'ru';
+    const picks = (S.compare || []).map(function (m) {
+      return S.saved.find(function (s) { return s.mint === m; });
+    }).filter(Boolean);
+    if (picks.length < 2) return;
+    const rows = [
+      [ru ? 'Скор' : 'Score', function (s) { return String(s.score); }],
+      [ru ? 'Ликвидность' : 'Liquidity', function (s) { return usd(s.liq); }],
+      ['MC', function (s) { return usd(s.mc); }],
+      ['24h', function (s) { return Number(s.ch24) ? pct(s.ch24) : '—'; }],
+      [ru ? 'Проверено' : 'Checked', function (s) { return s.at ? ago(s.at) : '—'; }]
+    ];
+    const wrap = document.createElement('div');
+    wrap.className = 'modal';
+    wrap.innerHTML = '<div class="modal-card sheet-help" style="max-height:86vh">' +
+      '<div class="modal-head"><b>' + (ru ? 'Сравнение' : 'Comparison') + '</b><button class="modal-x" id="mx">✕</button></div>' +
+      '<div class="help-list"><table class="cmp-table"><thead><tr><th></th>' +
+      picks.map(function (s) { return '<th>' + esc(s.symbol) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      rows.map(function (r) {
+        return '<tr><td>' + esc(r[0]) + '</td>' + picks.map(function (s) { return '<td>' + esc(r[1](s)) + '</td>'; }).join('') + '</tr>';
+      }).join('') + '</tbody></table></div></div>';
+    document.body.appendChild(wrap);
+    const close = function () { wrap.remove(); };
+    wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
+    wrap.querySelector('#mx').onclick = close;
   }
 
   function viewProfile() {
@@ -1430,7 +1549,12 @@
           const ch = Number(p.priceChange && p.priceChange.h24) || 0;
           const price = Number(p.priceUsd) || 0;
           if (liq !== s.liq || ch !== s.ch24 || price !== s.price) {
-            s.liq = liq; s.ch24 = ch; s.price = price; s.at = Date.now(); changed = true;
+            s.prevLiq = s.liq || liq;
+            s.liq = liq; s.ch24 = ch; s.price = price; s.at = Date.now();
+            s.ch1 = Number(p.priceChange && p.priceChange.h1) || 0;
+            s.ch6 = Number(p.priceChange && p.priceChange.h6) || 0;
+            s.mc = Number(p.marketCap) || 0;
+            changed = true;
           }
         });
         if (changed) { write(K.saved, S.saved); render(); }
@@ -1589,6 +1713,51 @@
     document.querySelectorAll('.block-head').forEach((b) => b.onclick = () => b.parentElement.classList.toggle('open'));
     document.querySelectorAll('.lf[data-f]').forEach(function (b) {
       b.onclick = function () { S.listFilter = b.dataset.f; render(); haptic(); };
+    });
+    document.querySelectorAll('.tag').forEach(function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        const m = b.dataset.tag;
+        const it = S.saved.find(function (x) { return x.mint === m; });
+        if (!it) return;
+        it.tag = it.tag === 'hold' ? 'trash' : it.tag === 'trash' ? 'watch' : 'hold';
+        write(K.saved, S.saved); haptic(); render();
+      };
+    });
+    document.querySelectorAll('.row-more').forEach(function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        const m = b.dataset.exp;
+        S.expanded = S.expanded || [];
+        const i = S.expanded.indexOf(m);
+        if (i > -1) S.expanded.splice(i, 1); else S.expanded.push(m);
+        haptic(); render();
+      };
+    });
+    document.querySelectorAll('.attn-row').forEach(function (b) {
+      b.onclick = function () { S.tab = 'scan'; S.lastMint = b.dataset.mint; render(); setTimeout(runCheck, 80); };
+    });
+    if ($('#sortBtn')) $('#sortBtn').onclick = function () {
+      S.listSort = S.listSort === 'score' ? 'change' : S.listSort === 'change' ? 'date' : 'score';
+      haptic(); render();
+    };
+    if ($('#cmpBtn')) $('#cmpBtn').onclick = function () {
+      S.compareMode = !S.compareMode;
+      if (!S.compareMode) S.compare = [];
+      haptic(); render();
+    };
+    if ($('#doCmp')) $('#doCmp').onclick = function () { showCompare(); };
+    document.querySelectorAll('.item').forEach(function (it) {
+      it.addEventListener('click', function (e) {
+        if (!S.compareMode) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const m = it.dataset.mint;
+        S.compare = S.compare || [];
+        const i = S.compare.indexOf(m);
+        if (i > -1) S.compare.splice(i, 1); else if (S.compare.length < 4) S.compare.push(m);
+        haptic(); render();
+      }, true);
     });
     if ($('#refreshAll')) $('#refreshAll').onclick = function () { haptic(); refreshLive(true); };
     document.querySelectorAll('.item').forEach(function (it) {
