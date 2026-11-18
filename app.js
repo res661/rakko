@@ -246,6 +246,48 @@
     } catch (e2) { return []; }
   }
 
+  const marketCache = { at: 0, items: [] };
+  async function loadMarket() {
+    if (Date.now() - marketCache.at < 5 * 60000 && marketCache.items.length) return marketCache.items;
+    try {
+      const d = await getJson('https://api.dexscreener.com/latest/dex/search?q=SOL', 6000);
+      const pairs = (d && d.pairs) || [];
+      const seen = {};
+      const items = pairs.filter(function (p) {
+        return p.chainId === 'solana' && p.baseToken && p.liquidity && p.liquidity.usd > 150000;
+      }).sort(function (x, y) {
+        return (Number(y.volume && y.volume.h24) || 0) - (Number(x.volume && x.volume.h24) || 0);
+      }).filter(function (p) {
+        const ad = p.baseToken.address;
+        if (seen[ad]) return false;
+        seen[ad] = 1; return true;
+      }).slice(0, 25).map(function (p) {
+        return {
+          mint: p.baseToken.address,
+          symbol: p.baseToken.symbol,
+          name: p.baseToken.name,
+          price: Number(p.priceUsd) || 0,
+          ch: Number(p.priceChange && p.priceChange.h24) || 0,
+          vol: Number(p.volume && p.volume.h24) || 0,
+          liq: Number(p.liquidity && p.liquidity.usd) || 0
+        };
+      });
+      marketCache.items = items; marketCache.at = Date.now();
+      return items;
+    } catch (e) { return marketCache.items || []; }
+  }
+
+  function viewMarket() {
+    const ru = S.lang === 'ru';
+    return top('') + '<div class="page">' +
+      '<div class="mk-head"><button class="mk-back" id="mkBack">' + (ru ? '‹ Назад' : '‹ Back') + '</button></div>' +
+      '<h1 class="big-t">' + esc(ru ? 'Рынок Solana' : 'Solana market') + '</h1>' +
+      '<p class="big-s">' + esc(ru ? 'Топ по объёму за 24 часа' : 'Top by 24h volume') + '</p>' +
+      '<div id="mkList" class="mk-list">' + [0, 1, 2, 3, 4].map(function () {
+        return '<div class="mk-row skel-item"><span class="skel-ava"></span><span class="skel-lines"><span class="skel-line"></span><span class="skel-line short"></span></span></div>';
+      }).join('') + '</div></div>';
+  }
+
   async function loadGecko(mint) {
     const c = cacheGet(mint, 'gt');
     if (c) return c;
@@ -661,7 +703,7 @@
     if (S.ui.trend !== false) {
       out += '<div class="trend" id="trend">' +
         '<div class="trend-head"><span class="trend-k">' + esc(ru ? 'РЫНОК SOLANA' : 'SOLANA MARKET') + '</span>' +
-        '<span class="trend-h">' + esc(ru ? 'тап — проверить' : 'tap to check') + '</span></div>' +
+        '<button class="trend-all" id="trendAll">' + esc(ru ? 'все ›' : 'all ›') + '</button></div>' +
         '<div class="trend-row" id="trendRow"><span class="trend-skel"></span><span class="trend-skel"></span><span class="trend-skel"></span></div></div>';
     }
     out += '<h1 class="big-t' + (S.ui.big === false ? ' compact' : '') + '">' + esc(ru ? 'Проверь монету' : 'Check a token') + '</h1>';
@@ -1486,7 +1528,7 @@
     if (!read(K.ob, false)) return viewOnboard();
     document.getElementById('dock').style.display = '';
     try {
-      app.innerHTML = S.tab === 'saved' ? viewSaved() : S.tab === 'profile' ? viewProfile() : viewAll();
+      app.innerHTML = S.tab === 'saved' ? viewSaved() : S.tab === 'profile' ? viewProfile() : S.tab === 'market' ? viewMarket() : viewAll();
     } catch (err) {
       showFatal(err);
       return;
@@ -1587,6 +1629,27 @@
 
   function bind() { try { bindInner(); } catch (e) { console.warn(e); } }
   function bindInner() {
+    if (document.getElementById('trendAll')) document.getElementById('trendAll').onclick = function () { S.tab = 'market'; render(); };
+    if (document.getElementById('mkBack')) document.getElementById('mkBack').onclick = function () { S.tab = 'scan'; render(); };
+    const mk = document.getElementById('mkList');
+    if (mk) {
+      loadMarket().then(function (items) {
+        const el = document.getElementById('mkList');
+        if (!el) return;
+        if (!items.length) { el.innerHTML = '<p class="tiny">' + (S.lang === 'ru' ? 'Нет данных' : 'No data') + '</p>'; return; }
+        el.innerHTML = items.map(function (x, i) {
+          const up = x.ch >= 0;
+          return '<button class="mk-row" data-mint="' + esc(x.mint) + '" style="--i:' + i + '">' +
+            '<span class="mk-sym"><b>' + esc(x.symbol) + '</b><i>' + usd(x.vol) + '</i></span>' +
+            '<span class="mk-price">' + price(x.price) + '</span>' +
+            '<span class="mk-ch" style="color:' + (up ? 'var(--green)' : 'var(--red)') + '">' + (up ? '+' : '') + x.ch.toFixed(1) + '%</span>' +
+            '</button>';
+        }).join('');
+        el.querySelectorAll('.mk-row[data-mint]').forEach(function (b) {
+          b.onclick = function () { S.lastMint = b.dataset.mint; S.tab = 'scan'; render(); setTimeout(runCheck, 80); };
+        });
+      });
+    }
     const trendRow = $('#trendRow');
     if (trendRow) {
       loadTrending().then(function (items) {
