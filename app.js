@@ -588,7 +588,7 @@
     if (tk.pump && !tk.pump.complete) add('info', ru ? 'Ещё на бондинг-кривой Pump.fun — не вышла на DEX.' : 'Still on the Pump.fun bonding curve — not on a DEX yet.');
     if (tk.pump && tk.pump.complete) add('good', ru ? 'Прошла градацию Pump.fun — есть внешний пул.' : 'Graduated from Pump.fun — has an external pool.');
     if (!tk.socials.length && !tk.sites.length) add('warn', ru ? 'Нет ссылок на сайт и соцсети — красный флаг.' : 'No website or socials — red flag.');
-    if (tk.risks.length) tk.risks.slice(0, 2).forEach((r) => add('warn', (ru ? 'Риск: ' : 'Risk: ') + r.name));
+    if (tk.risks.length) tk.risks.slice(0, 2).forEach((r) => add('warn', (ru ? 'Риск: ' : 'Risk: ') + riskRu(r.name)));
     if (tk.creatorBalance && tk.creatorBalance.pct > 5) add('warn', ru ? 'У создателя ' + tk.creatorBalance.pct.toFixed(1) + '% supply — он может слить в любой момент.' : 'Creator holds ' + tk.creatorBalance.pct.toFixed(1) + '% of supply.');
     if (tk.creatorBalance && tk.creatorBalance.pct > 0 && tk.creatorBalance.pct <= 5) add('good', ru ? 'У создателя всего ' + tk.creatorBalance.pct.toFixed(2) + '% supply.' : 'Creator holds only ' + tk.creatorBalance.pct.toFixed(2) + '% of supply.');
     if (tk.transferFee !== null && tk.transferFee > 3) add('bad', ru ? 'Комиссия за перевод ' + tk.transferFee.toFixed(1) + '% — токен может съедать деньги при переводах.' : 'Transfer fee ' + tk.transferFee.toFixed(1) + '% — the token eats funds on transfers.');
@@ -604,6 +604,53 @@
     if (S.black.devs[tk.creator]) add('bad', ru ? 'Создатель в твоём чёрном списке — ты уже блокировал его.' : 'Creator is in your blacklist — you blocked them before.');
     if (S.black.tokens[tk.mint]) add('bad', ru ? 'Эта монета в твоём чёрном списке.' : 'This token is in your blacklist.');
     return out;
+  }
+
+  const RISK_RU = {
+    'Low Liquidity': 'Мало ликвидности',
+    'Low Amount of LP Providers': 'Мало поставщиков ликвидности',
+    'Single holder ownership': 'Один кошелёк держит почти всё',
+    'Top 10 holders high ownership': 'Топ-10 держат слишком много',
+    'High Ownership': 'Высокая концентрация у владельца',
+    'Mint Authority Enabled': 'Минт не отозван',
+    'Freeze Authority Enabled': 'Заморозка не отозвана',
+    'Copycat Token': 'Копия известного токена',
+    'Mutable metadata': 'Метаданные можно менять',
+    'Honeypot': 'Ловушка (нельзя продать)',
+    'Transfer Fee': 'Комиссия за перевод',
+    'Non-transferable': 'Токен нельзя переводить',
+    'Balance mutable authority': 'Можно менять балансы',
+    'Closable': 'Аккаунт можно закрыть',
+    'Default account state': 'Аккаунты по умолчанию заморожены',
+    'Freeze authority': 'Заморозка активна',
+    'Mint authority': 'Минт активен',
+    'Low Volume': 'Низкий объём торгов',
+    'Low 24h Volume': 'Низкий объём за 24ч',
+    'High Supply Concentration': 'Высокая концентрация supply'
+  };
+
+  function riskRu(name) {
+    if (!name) return '';
+    if (S.lang !== 'ru') return name;
+    if (RISK_RU[name]) return RISK_RU[name];
+    let t2 = String(name);
+    const parts = [
+      [/mint authority/gi, 'минт активен'],
+      [/freeze authority/gi, 'заморозка активна'],
+      [/low liquidity/gi, 'мало ликвидности'],
+      [/top 10 holders/gi, 'топ-10 держат много'],
+      [/high ownership/gi, 'высокая концентрация'],
+      [/single holder/gi, 'один кошелёк держит всё'],
+      [/copycat/gi, 'копия токена'],
+      [/mutable/gi, 'можно менять'],
+      [/honeypot/gi, 'ловушка'],
+      [/transfer fee/gi, 'комиссия за перевод'],
+      [/low volume/gi, 'низкий объём'],
+      [/insider/gi, 'инсайдеры'],
+      [/bundl/gi, 'бандлы']
+    ];
+    parts.forEach(function (p) { t2 = t2.replace(p[0], p[1]); });
+    return t2;
   }
 
   function blockHints(k, tk, b) {
@@ -792,6 +839,36 @@
         }
       }
 
+      // trade check
+      if (tk.liq > 0) {
+        const slip = function (usdAmt) { return (usdAmt / tk.liq) * 100; };
+        const slipColor = function (v) { return v < 1 ? 'var(--green)' : v < 3 ? 'var(--yellow)' : 'var(--red)'; };
+        const top10 = (tk.top || []).slice(0, 10).reduce(function (s, h) { return s + (h.pct || 0); }, 0);
+        const rowsT = [
+          ['$100', slip(100), slipColor(slip(100))],
+          ['$500', slip(500), slipColor(slip(500))],
+          ['$1 000', slip(1000), slipColor(slip(1000))]
+        ];
+        out += '<p class="eyebrow" style="margin-top:20px">' + esc(S.lang === 'ru' ? 'ДЛЯ СДЕЛКИ' : 'TRADE CHECK') + '</p>';
+        out += '<div class="trade">' +
+          '<div class="trade-h">' + esc(S.lang === 'ru' ? 'Проскальзывание при входе' : 'Slippage on entry') + '</div>' +
+          rowsT.map(function (r) {
+            return '<div class="trade-row"><span>' + r[0] + '</span>' +
+              '<span class="trade-bar"><i style="width:' + Math.min(100, Math.max(3, r[1] * 12)) + '%;background:' + r[2] + '"></i></span>' +
+              '<b style="color:' + r[2] + '">≈' + (r[1] < 0.1 ? '<0.1' : r[1].toFixed(1)) + '%</b></div>';
+          }).join('') +
+          '<div class="trade-sep"></div>' +
+          '<div class="trade-row flat"><span>' + esc(S.lang === 'ru' ? 'Налог вход/выход' : 'Buy/sell tax') + '</span><b>' +
+            (tk.gp ? (tk.gp.buyTax || '0') + '% / ' + (tk.gp.sellTax || '0') + '%' : '—') + '</b></div>' +
+          '<div class="trade-row flat"><span>' + esc(S.lang === 'ru' ? 'LP заблокирован' : 'LP locked') + '</span><b>' +
+            (tk.lpLocked === null || tk.lpLocked === undefined ? '—' : Math.round(tk.lpLocked) + '%') + '</b></div>' +
+          '<div class="trade-row flat"><span>' + esc(S.lang === 'ru' ? 'У создателя' : 'Dev holds') + '</span><b>' +
+            (tk.creatorBalance && tk.creatorBalance.pct ? tk.creatorBalance.pct.toFixed(1) + '%' : '—') + '</b></div>' +
+          '<div class="trade-row flat"><span>' + esc(S.lang === 'ru' ? 'Топ-10 держат' : 'Top-10 hold') + '</span><b>' +
+            (top10 ? Math.round(top10) + '%' : '—') + '</b></div>' +
+          '</div>';
+      }
+
       // info grid
       const rows = [
         [t('priceL'), price(tk.price), tk.ch24 ? pct(tk.ch24) : ''],
@@ -830,9 +907,9 @@
 
       // risks from rugcheck
       if (tk.risks && tk.risks.length) {
-        out += '<p class="eyebrow" style="margin-top:18px">RISKS</p><div class="risk-list">' + tk.risks.map((r) => {
+        out += '<p class="eyebrow" style="margin-top:18px">' + esc(S.lang === 'ru' ? 'РИСКИ' : 'RISKS') + '</p><div class="risk-list">' + tk.risks.map((r) => {
           const low = /warn|medium|low/i.test(r.level);
-          return '<div class="risk"><span class="dot" style="background:' + (low ? 'var(--yellow)' : 'var(--red)') + '"></span><span><b>' + esc(r.name) + '</b>' + (r.desc ? '<span class="tiny">' + esc(r.desc) + '</span>' : '') + '</span></div>';
+          return '<div class="risk"><span class="dot" style="background:' + (low ? 'var(--yellow)' : 'var(--red)') + '"></span><span><b>' + esc(riskRu(r.name)) + '</b></span></div>';
         }).join('') + '</div>';
       }
 
