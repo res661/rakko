@@ -484,6 +484,10 @@
         ch1: Number(pair && pair.priceChange && pair.priceChange.h1) || 0,
         buys: Number(pair && pair.txns && pair.txns.h24 && pair.txns.h24.buys) || 0,
         sells: Number(pair && pair.txns && pair.txns.h24 && pair.txns.h24.sells) || 0,
+        buys1: Number(pair && pair.txns && pair.txns.h1 && pair.txns.h1.buys) || 0,
+        sells1: Number(pair && pair.txns && pair.txns.h1 && pair.txns.h1.sells) || 0,
+        buys6: Number(pair && pair.txns && pair.txns.h6 && pair.txns.h6.buys) || 0,
+        sells6: Number(pair && pair.txns && pair.txns.h6 && pair.txns.h6.sells) || 0,
         dex: (pair && pair.dexId) || '',
         pairAddr: (pair && pair.pairAddress) || '',
         created: Number(pair && pair.pairCreatedAt) || 0,
@@ -566,8 +570,8 @@
   function top() { return ''; }
 
   const FREE_SAVED_LIMIT = 7;
-  const FREE_PER_HOUR = 10;
-  const FREE_PER_DAY = 30;
+  const FREE_PER_HOUR = 20;
+  const FREE_PER_DAY = 20;
   const PREMIUM_DAY_CAP = 1000;      // internal only, never shown
   const MIN_INTERVAL_FREE = 3000;    // ms between checks
   const MIN_INTERVAL_PREM = 1500;
@@ -588,7 +592,10 @@
     const q = quotaState();
     if (S.plan === 'premium' && (!S.planUntil || S.planUntil > Date.now())) return { hour: 999, day: 999, resetMin: 0 };
     if (S.plan === 'premium' && q.day.length >= PREMIUM_DAY_CAP) return { hour: 0, day: 0, resetMin: 60 };
-    const resetMin = q.hour.length ? Math.max(1, Math.ceil((3600e3 - (Date.now() - q.hour[0])) / 60000)) : 0;
+    let resetMin = 0;
+    if (q.day.length) resetMin = Math.max(resetMin, Math.ceil((86400e3 - (Date.now() - q.day[0])) / 60000));
+    if (q.hour.length) resetMin = Math.max(1, Math.ceil((3600e3 - (Date.now() - q.hour[0])) / 60000));
+    if (q.day.length >= FREE_PER_DAY) resetMin = Math.max(1, Math.ceil((86400e3 - (Date.now() - q.day[0])) / 60000));
     return { hour: Math.max(0, FREE_PER_HOUR - q.hour.length), day: Math.max(0, FREE_PER_DAY - q.day.length), resetMin: resetMin };
   }
   function quotaConsume() {
@@ -617,8 +624,19 @@
     return (S.lang === 'ru' ? h + ' ч назад' : h + 'h ago');
   }
 
+  function motionOk() {
+    if (S.ui.anim === false) return false;
+    return !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  function dismiss(el, done) {
+    if (!el) { if (done) done(); return; }
+    if (!motionOk()) { el.remove(); if (done) done(); return; }
+    el.classList.add('out');
+    setTimeout(function () { if (el.parentNode) el.remove(); if (done) done(); }, 320);
+  }
   function countUp(el, to, ms) {
     if (!el) return;
+    if (!motionOk()) { el.innerHTML = String(to) + (arguments[3] || ''); return; }
     const dur = ms || 520;
     const start = performance.now();
     const from = 0;
@@ -639,20 +657,20 @@
     const prev = (S.saved || []).find(function (x) { return x.mint === tk.mint; }) || null;
     const ru = S.lang === 'ru';
     const out = [];
-    const add = (tone, text) => out.push({ tone, text });
+    const add = (tone, text, free) => out.push({ tone, text, free: !!free });
     const lowLiq = tk.liq > 0 && tk.liq < 10000;
 
-    if (tk.gp && tk.gp.honeypot) add('bad', ru ? 'Honeypot: продать не получится. Не покупай.' : 'Honeypot: you will not be able to sell.');
-    if (tk.mintAuth) add('bad', ru ? 'Минт открыт: создатель может напечатать токены в любой момент.' : 'Mint authority open: the dev can mint tokens anytime.');
-    if (tk.freezeAuth) add('bad', ru ? 'Заморозка открыта: продажи могут заблокировать.' : 'Freeze authority open: sells can be blocked.');
-    if (tk.gp && Number(tk.gp.buyTax) > 5) add('bad', ru ? 'Налог на покупку ' + tk.gp.buyTax + '% — почти всегда скам.' : 'Buy tax ' + tk.gp.buyTax + '% — almost always a scam.');
-    if (tk.gp && Number(tk.gp.sellTax) > 5) add('bad', ru ? 'Налог на продажу ' + tk.gp.sellTax + '% — почти всегда скам.' : 'Sell tax ' + tk.gp.sellTax + '% — almost always a scam.');
-    if (lowLiq) add('bad', ru ? 'Ликвидность меньше $10K — выйти без потерь почти невозможно.' : 'Liquidity under $10K — almost impossible to exit cleanly.');
+    if (tk.gp && tk.gp.honeypot) add('bad', ru ? 'Honeypot: продать не получится. Не покупай.' : 'Honeypot: you will not be able to sell.', true);
+    if (tk.mintAuth) add('bad', ru ? 'Минт открыт: создатель может напечатать токены в любой момент.' : 'Mint authority open: the dev can mint tokens anytime.', true);
+    if (tk.freezeAuth) add('bad', ru ? 'Заморозка открыта: продажи могут заблокировать.' : 'Freeze authority open: sells can be blocked.', true);
+    if (tk.gp && Number(tk.gp.buyTax) > 5) add('bad', ru ? 'Налог на покупку ' + tk.gp.buyTax + '% — почти всегда скам.' : 'Buy tax ' + tk.gp.buyTax + '% — almost always a scam.', true);
+    if (tk.gp && Number(tk.gp.sellTax) > 5) add('bad', ru ? 'Налог на продажу ' + tk.gp.sellTax + '% — почти всегда скам.' : 'Sell tax ' + tk.gp.sellTax + '% — almost always a scam.', true);
+    if (lowLiq) add('bad', ru ? 'Ликвидность меньше $10K — выйти без потерь почти невозможно.' : 'Liquidity under $10K — almost impossible to exit cleanly.', true);
     if (tk.fdv && tk.liq && tk.liq / tk.fdv < 0.02) add('warn', ru ? 'Ликвидность — ' + Math.round(tk.liq / tk.fdv * 100) + '% от FDV: при обвале выйти сложно.' : 'Liquidity is ' + Math.round(tk.liq / tk.fdv * 100) + '% of FDV: hard to exit in a dump.');
     if (tk.holders && tk.holders < 200) add('warn', ru ? 'Всего ' + num(tk.holders) + ' холдеров — легко манипулировать.' : 'Only ' + num(tk.holders) + ' holders — easy to manipulate.');
     if (tk.top && tk.top.length) {
       const top10 = tk.top.slice(0, 10).reduce((s, h) => s + h.pct, 0);
-      if (top10 > 50) add('warn', ru ? 'Топ-10 держат ' + Math.round(top10) + '% — могут обрушить цену.' : 'Top-10 hold ' + Math.round(top10) + '% — they can crash the price.');
+      if (top10 > 50) add('warn', ru ? 'Топ-10 держат ' + Math.round(top10) + '% — могут обрушить цену.' : 'Top-10 hold ' + Math.round(top10) + '% — they can crash the price.', true);
     }
     if (tk.created) {
       const h = (Date.now() - tk.created) / 36e5;
@@ -663,31 +681,34 @@
     if (tk.ch24 >= 300) add('warn', ru ? 'Рост ' + pct(tk.ch24) + ' за 24ч — высокий риск войти на пике.' : pct(tk.ch24) + ' in 24h — high risk of buying the top.');
     if (tk.buys && tk.sells && tk.sells > tk.buys * 1.6) add('warn', ru ? 'Продаж в ' + (tk.sells / tk.buys).toFixed(1) + ' раза больше покупок.' : (tk.sells / tk.buys).toFixed(1) + '× more sells than buys.');
     if (tk.buys && tk.sells && tk.buys > tk.sells * 1.6 && tk.ch24 > 0) add('good', ru ? 'Покупают активнее, чем продают (' + tk.buys + ' / ' + tk.sells + ').' : 'Buy pressure dominates (' + tk.buys + ' / ' + tk.sells + ').');
-    if (tk.gp && tk.gp.lp && tk.gp.lp <= 2) add('warn', ru ? 'Ликвидность в ' + tk.gp.lp + ' кошельке(ах) — пул могут вывести.' : 'Liquidity in ' + tk.gp.lp + ' wallet(s) — the pool can be pulled.');
+    if (tk.gp && tk.gp.lp && tk.gp.lp <= 2) add('warn', ru ? 'Ликвидность в ' + tk.gp.lp + ' кошельке(ах) — пул могут вывести.' : 'Liquidity in ' + tk.gp.lp + ' wallet(s) — the pool can be pulled.', true);
     if (tk.lpLocked !== null && tk.lpLocked > 90) add('good', ru ? 'LP заблокирован на ' + Math.round(tk.lpLocked) + '% — пул нельзя вывести.' : 'LP locked ' + Math.round(tk.lpLocked) + '% — the pool cannot be pulled.');
-    if (tk.lpLocked !== null && tk.lpLocked < 50) add('warn', ru ? 'LP заблокирован только на ' + Math.round(tk.lpLocked) + '% — разработчик может собрать ликвидность.' : 'LP locked only ' + Math.round(tk.lpLocked) + '% — the dev can pull liquidity.');
+    if (tk.lpLocked !== null && tk.lpLocked < 50) add('warn', ru ? 'LP заблокирован только на ' + Math.round(tk.lpLocked) + '% — разработчик может собрать ликвидность.' : 'LP locked only ' + Math.round(tk.lpLocked) + '% — the dev can pull liquidity.', true);
     if (tk.pump && !tk.pump.complete) add('info', ru ? 'Ещё на бондинг-кривой Pump.fun — не вышла на DEX.' : 'Still on the Pump.fun bonding curve — not on a DEX yet.');
     if (tk.pump && tk.pump.complete) add('good', ru ? 'Прошла градацию Pump.fun — есть внешний пул.' : 'Graduated from Pump.fun — has an external pool.');
     if (!tk.socials.length && !tk.sites.length) add('warn', ru ? 'Нет ссылок на сайт и соцсети — красный флаг.' : 'No website or socials — red flag.');
-    if (tk.risks.length) tk.risks.slice(0, 2).forEach((r) => add('warn', (ru ? 'Риск: ' : 'Risk: ') + riskRu(r.name)));
-    if (tk.creatorBalance && tk.creatorBalance.pct > 5) add('warn', ru ? 'У создателя ' + tk.creatorBalance.pct.toFixed(1) + '% supply — он может слить в любой момент.' : 'Creator holds ' + tk.creatorBalance.pct.toFixed(1) + '% of supply.');
+    if (tk.risks.length) tk.risks.slice(0, 2).forEach((r) => {
+      const crit = /mint|freeze|honeypot|lp|liquid|unlock|owner|holder|dump|creator|insider|authority/i.test(String(r.name || ''));
+      add('warn', riskRu(r.name), crit);
+    });
+    if (tk.creatorBalance && tk.creatorBalance.pct > 5) add('warn', ru ? 'У создателя ' + tk.creatorBalance.pct.toFixed(1) + '% supply — он может слить в любой момент.' : 'Creator holds ' + tk.creatorBalance.pct.toFixed(1) + '% of supply.', true);
     if (tk.creatorBalance && tk.creatorBalance.pct > 0 && tk.creatorBalance.pct <= 5) add('good', ru ? 'У создателя всего ' + tk.creatorBalance.pct.toFixed(2) + '% supply.' : 'Creator holds only ' + tk.creatorBalance.pct.toFixed(2) + '% of supply.');
-    if (tk.transferFee !== null && tk.transferFee > 3) add('bad', ru ? 'Комиссия за перевод ' + tk.transferFee.toFixed(1) + '% — токен может съедать деньги при переводах.' : 'Transfer fee ' + tk.transferFee.toFixed(1) + '% — the token eats funds on transfers.');
+    if (tk.transferFee !== null && tk.transferFee > 3) add('bad', ru ? 'Комиссия за перевод ' + tk.transferFee.toFixed(1) + '% — токен может съедать деньги при переводах.' : 'Transfer fee ' + tk.transferFee.toFixed(1) + '% — the token eats funds on transfers.', true);
     if (tk.transferFee === 0) add('good', ru ? 'Комиссии за перевод нет.' : 'No transfer fee.');
-    if (tk.top1 > 15) add('warn', ru ? 'Один кошелёк держит ' + tk.top1.toFixed(1) + '% — это риск дампа.' : 'One wallet holds ' + tk.top1.toFixed(1) + '% — dump risk.');
+    if (tk.top1 > 15) add('warn', ru ? 'Один кошелёк держит ' + tk.top1.toFixed(1) + '% — это риск дампа.' : 'One wallet holds ' + tk.top1.toFixed(1) + '% — dump risk.', true);
     if (prev && prev.liq && tk.liq) {
       const dLiq = (tk.liq - prev.liq) / prev.liq * 100;
-      if (dLiq <= -25) add('bad', ru ? 'Ликвидность упала на ' + Math.abs(Math.round(dLiq)) + '% с прошлой проверки — похоже на вывод пула.' : 'Liquidity dropped ' + Math.abs(Math.round(dLiq)) + '% since last check.');
+      if (dLiq <= -25) add('bad', ru ? 'Ликвидность упала на ' + Math.abs(Math.round(dLiq)) + '% с прошлой проверки — похоже на вывод пула.' : 'Liquidity dropped ' + Math.abs(Math.round(dLiq)) + '% since last check.', true);
       if (dLiq >= 40) add('good', ru ? 'Ликвидность выросла на ' + Math.round(dLiq) + '% с прошлой проверки.' : 'Liquidity grew ' + Math.round(dLiq) + '% since last check.');
     }
     if (tk.vol && tk.liq && tk.vol / tk.liq > 5) add('warn', ru ? 'Оборот в ' + (tk.vol / tk.liq).toFixed(1) + '× ликвидности — возможна накрутка объёма.' : 'Volume is ' + (tk.vol / tk.liq).toFixed(1) + '× liquidity — possible volume farming.');
-    if (tk.ch24 && tk.ch24 < -60) add('bad', ru ? 'Монета потеряла ' + Math.abs(Math.round(tk.ch24)) + '% за сутки — идёт слив.' : 'Down ' + Math.abs(Math.round(tk.ch24)) + '% in 24h.');
+    if (tk.ch24 && tk.ch24 < -60) add('bad', ru ? 'Монета потеряла ' + Math.abs(Math.round(tk.ch24)) + '% за сутки — идёт слив.' : 'Down ' + Math.abs(Math.round(tk.ch24)) + '% in 24h.', true);
     if (tk.creator && S.creators[tk.creator] && S.creators[tk.creator].n > 1) {
       const cn = S.creators[tk.creator].n;
       add(cn >= 4 ? 'bad' : 'warn', ru ? 'Этого создателя мы уже видели: ' + cn + ' монет.' : 'This creator appeared before: ' + cn + ' tokens.');
     }
-    if (S.black.devs[tk.creator]) add('bad', ru ? 'Создатель в твоём чёрном списке — ты уже блокировал его.' : 'Creator is in your blacklist — you blocked them before.');
-    if (S.black.tokens[tk.mint]) add('bad', ru ? 'Эта монета в твоём чёрном списке.' : 'This token is in your blacklist.');
+    if (S.black.devs[tk.creator]) add('bad', ru ? 'Создатель в твоём чёрном списке — ты уже блокировал его.' : 'Creator is in your blacklist — you blocked them before.', true);
+    if (S.black.tokens[tk.mint]) add('bad', ru ? 'Эта монета в твоём чёрном списке.' : 'This token is in your blacklist.', true);
     return out;
   }
 
@@ -905,7 +926,7 @@
       const L = quotaLeft();
       out += '<p class="foot">' + esc(isPrem()
         ? (ru ? 'Premium · без лимита' : 'Premium · unlimited')
-        : (ru ? 'Осталось ' + L.hour + ' из ' + FREE_PER_HOUR + ' проверок в этот час' : L.hour + ' of ' + FREE_PER_HOUR + ' checks left this hour')) + '</p>';
+        : (ru ? 'Осталось ' + L.day + ' из ' + FREE_PER_DAY + ' проверок сегодня' : L.day + ' of ' + FREE_PER_DAY + ' checks left today')) + '</p>';
     }
     if (S.busy && !S.result) out += '<div class="skel-wrap"><div class="skel"></div><div class="skel"></div></div>';
     if (S.ui.recent !== false && S.saved.length) {
@@ -930,6 +951,57 @@
     }
     out += '</div>';
     return out;
+  }
+
+  function premiumExtras(tk, ru) {
+    let html = '';
+    const pressRows = [['1h', tk.buys1 || 0, tk.sells1 || 0], ['6h', tk.buys6 || 0, tk.sells6 || 0], ['24h', tk.buys || 0, tk.sells || 0]];
+    if (pressRows.some(function (r) { return r[1] || r[2]; })) {
+      const body = '<div class="card prem-card"><div class="prem-h">' + esc(ru ? 'Давление покупок' : 'Buy pressure') + '</div>' +
+        pressRows.map(function (r) {
+          const tot = r[1] + r[2] || 1;
+          const bp = Math.round(r[1] / tot * 100);
+          return '<div class="pr"><span>' + r[0] + '</span><span class="pr-bar"><i style="width:' + bp + '%"></i></span><b>' + r[1] + ' / ' + r[2] + '</b></div>';
+        }).join('') + '</div>';
+      html += isPrem() ? body : premLock('lockPress', body);
+    }
+    const tops = tk.top || [];
+    if (tops.length) {
+      const sum = function (n) { return tops.slice(0, n).reduce(function (s, h) { return s + (Number(h.pct) || 0); }, 0); };
+      const buckets = [[ru ? 'Крупнейший' : 'Largest', sum(1)], [ru ? 'Топ-3' : 'Top 3', sum(3)], [ru ? 'Топ-5' : 'Top 5', sum(5)]];
+      const body = '<div class="card prem-card"><div class="prem-h">' + esc(ru ? 'Распределение' : 'Holder split') + '</div>' +
+        buckets.map(function (b) {
+          return '<div class="pr"><span>' + esc(b[0]) + '</span><span class="pr-bar"><i class="alt" style="width:' + Math.min(100, Math.round(b[1])) + '%"></i></span><b>' + (b[1] ? Math.round(b[1]) + '%' : '—') + '</b></div>';
+        }).join('') + '</div>';
+      html += isPrem() ? body : premLock('lockDist', body);
+    }
+    if (tk.liq > 0 && tk.price > 0) {
+      const cells = [100, 500, 1000].map(function (amt) {
+        const slip = amt / tk.liq * 100;
+        const rt = Math.min(80, slip * 2);
+        return '<div><span>$' + amt + '</span><b>' + fmtSlip(rt) + '</b></div>';
+      }).join('');
+      const body = '<div class="card prem-card"><div class="prem-h">' + esc(ru ? 'Вход и выход' : 'Entry and exit') + '</div>' +
+        '<div class="exit-grid">' + cells + '</div>' +
+        '<div class="kv"><span>' + esc(ru ? 'Стоп · цель' : 'Stop · target') + '</span><b>' + esc(price(tk.price * 0.9)) + ' · ' + esc(price(tk.price * 1.25)) + '</b></div>' +
+        '<p class="tiny">' + esc(ru ? 'Круг — покупка и продажа. Ориентир, не сигнал.' : 'Round trip is a buy and a sell. A guide, not a signal.') + '</p></div>';
+      html += isPrem() ? body : premLock('lockExit', body);
+    }
+    const hits = (S.wallets || []).filter(function (w) {
+      return tops.some(function (h) { return h.addr && h.addr === w; });
+    });
+    const alerts = (S.walletAlerts || []).filter(function (a) {
+      return a && (a.symbol === tk.symbol || (a.mint && a.mint === tk.mint));
+    }).slice(0, 3);
+    const body = '<div class="card prem-card"><div class="prem-h">' + esc(ru ? 'Кошельки' : 'Wallets') + '</div>' +
+      '<div class="kv"><span>' + esc(ru ? 'Из отслеживаемых в топ-5' : 'Tracked wallets in top 5') + '</span><b>' + hits.length + '</b></div>' +
+      (alerts.length
+        ? alerts.map(function (a) { return '<div class="pr"><span>' + esc(a.text || '') + '</span></div>'; }).join('')
+        : '<p class="tiny">' + esc(ru ? 'Добавь кошельки в Список — совпадения появятся здесь.' : 'Add wallets in List — matches show up here.') + '</p>') +
+      '</div>';
+    html += isPrem() ? body : premLock('lockFlow', body);
+    if (!html) return '';
+    return '<div class="sh"><b>' + esc(ru ? 'Для Premium' : 'Premium') + '</b></div>' + html;
   }
 
   function viewResultPage() {
@@ -984,8 +1056,15 @@
     if (S.error) out += '<p class="err">' + esc(S.error) + '</p>';
 
     const insights = buildInsights(tk);
-    const shownIns = isPrem() ? insights : insights.slice(0, 3);
-    const lockedIns = isPrem() ? [] : insights.slice(3);
+    const tiered = (function () {
+      if (isPrem()) return { free: insights, prem: [] };
+      const crit = [], rest = [];
+      insights.forEach(function (x) { (x.free ? crit : rest).push(x); });
+      const keep = Math.ceil(rest.length / 2);
+      return { free: crit.concat(rest.slice(0, keep)), prem: rest.slice(keep) };
+    })();
+    const shownIns = tiered.free;
+    const lockedIns = tiered.prem;
     const insRow = function (x, i) {
       const p = insightParts(x.text);
       const tone = x.tone === 'bad' ? 'b-r' : x.tone === 'warn' ? 'b-o' : x.tone === 'good' ? 'b-g' : 'b-n';
@@ -1000,12 +1079,22 @@
       if (lockedIns.length) out += premLock('lockIns', '<div class="card ins">' + lockedIns.map(insRow).join('') + '</div>');
     }
     if (tk.risks && tk.risks.length) {
-      out += '<div class="sh"><b>' + esc(ru ? 'Риски Rugcheck' : 'Rugcheck risks') + '</b><span class="muted">' + tk.risks.length + '</span></div>';
-      out += '<div class="card risk-list">' + tk.risks.map(function (r) {
+      const critR = [], restR = [];
+      tk.risks.forEach(function (r) {
+        (/mint|freeze|honeypot|lp|liquid|unlock|owner|holder|dump|creator|insider|authority/i.test(String(r.name || '')) ? critR : restR).push(r);
+      });
+      const keepR = Math.ceil(restR.length / 2);
+      const freeR = isPrem() ? tk.risks : critR.concat(restR.slice(0, keepR));
+      const premR = isPrem() ? [] : restR.slice(keepR);
+      const riskRow = function (r) {
         const low = /warn|medium|low/i.test(r.level);
         return '<div class="risk"><span class="dot" style="background:' + (low ? 'var(--orange)' : 'var(--red)') + '"></span><span><b>' + esc(riskRu(r.name)) + '</b></span></div>';
-      }).join('') + '</div>';
+      };
+      out += '<div class="sh"><b>' + esc(ru ? 'Риски Rugcheck' : 'Rugcheck risks') + '</b><span class="muted">' + tk.risks.length + '</span></div>';
+      if (freeR.length) out += '<div class="card risk-list">' + freeR.map(riskRow).join('') + '</div>';
+      if (premR.length) out += premLock('lockRisk', '<div class="card risk-list">' + premR.map(riskRow).join('') + '</div>');
     }
+    out += premiumExtras(tk, ru);
 
     if (tk.liq > 0) {
       const slip = function (usdAmt) { return (usdAmt / tk.liq) * 100; };
@@ -1364,7 +1453,7 @@
         (val != null ? '<span class="val' + (id === 'plan' && prem ? ' prem' : '') + '">' + val + '</span>' : '') + CHEV + '</button>';
     };
     return '<div class="page">' +
-      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png?v=20261118ios4" alt="">' + esc(t('profileTab')) + '</h1>' +
+      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png?v=20261118ios5" alt="">' + esc(t('profileTab')) + '</h1>' +
       '<div class="card phead"><span class="pfp">' + pfp + '</span><span><b>' + esc(name) + '</b><span>' + esc(handle) + '</span></span></div>' +
       '<div class="stats"><div class="stat"><b>' + (S.stats.scans || 0) + '</b><span>' + esc(t('scanned')) + '</span></div>' +
       '<div class="stat"><b>' + S.saved.length + '</b><span>' + esc(t('savedN')) + '</span></div></div>' +
@@ -1373,7 +1462,7 @@
       row('lang', t('langRow'), S.lang === 'ru' ? 'Русский' : 'English') +
       row('plan', ru ? 'Тариф' : 'Plan', prem
         ? (ru ? 'Premium · ' + Math.max(1, Math.ceil((S.planUntil - Date.now()) / 864e5)) + ' дн.' : 'Premium · ' + Math.max(1, Math.ceil((S.planUntil - Date.now()) / 864e5)) + 'd')
-        : (ru ? 'Free · 10/час' : 'Free · 10/h')) +
+        : (ru ? 'Free · 20/день' : 'Free · 20/day')) +
       row('how', ru ? 'Как это работает' : 'How it works', null) +
       row('notify', ru ? 'Уведомления' : 'Notifications', S.notify ? (ru ? 'вкл' : 'on') : (ru ? 'выкл' : 'off')) +
       row('auto', ru ? 'Автообновление' : 'Auto-refresh', S.autoUpd === false ? (ru ? 'выкл' : 'off') : (ru ? 'вкл' : 'on')) +
@@ -1465,7 +1554,7 @@
   function bannerSlides() {
     const ru = S.lang === 'ru';
     const welcome = '<div class="bn-ill" style="background:#1E2622">' +
-      '<img class="bn-logo" src="assets/reactive-icon-512.png?v=20261118ios4" alt="">' +
+      '<img class="bn-logo" src="assets/reactive-icon-512.png?v=20261118ios5" alt="">' +
       '<div class="bn-fl bn-tk" style="left:18px;top:16px;width:188px;transform:rotate(-5deg)">' +
       '<div class="bn-top"><span class="bn-ava">MO</span><span class="bn-id"><b>MOODENG</b><span>Moo Deng</span></span><span class="bn-score" style="color:var(--green)"><b>81</b><i>/100</i></span></div>' +
       '<div class="bn-pl"><b>$0.2134</b><span style="color:var(--green)">+4.8%</span></div><div class="bn-bar"><i style="width:81%;background:var(--green)"></i></div>' +
@@ -1482,7 +1571,7 @@
       '<div class="bn-rw"><span class="bn-ava">GR</span><span class="bn-id"><b>GRASS</b><span>$312.7K</span></span><svg width="40" height="16"><polyline points="1,8 14,7 26,9 39,8" fill="none" stroke="#30D158" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">57</b></div>' +
       '<div class="bn-rw"><span class="bn-ava">WI</span><span class="bn-id"><b>WIFX</b><span>$198.5K</span></span><svg width="40" height="16"><polyline points="1,4 14,7 26,11 39,14" fill="none" stroke="#FF453A" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">52</b></div></div>' +
       '<div class="bn-fl bn-limit" style="right:12px;top:18px;transform:rotate(4deg)"><div style="color:var(--blue);font-size:22px;line-height:1">∞</div><b>' + (ru ? 'Без лимита' : 'Unlimited') + '</b><span>' + (ru ? 'проверок в час' : 'checks per hour') + '</span></div>' +
-      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png?v=20261118ios4" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
+      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png?v=20261118ios5" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
     const wallets = '<div class="bn-ill" style="background:#1D222B">' +
       '<div class="bn-fl" style="left:12px;top:28px;width:176px;padding:4px 0;transform:rotate(-3deg)">' +
       '<div class="bn-rw"><span class="bn-ava" style="color:var(--green)">7x</span><span class="bn-id"><b>7xKX…9fPq</b><span>' + (ru ? 'купил ' : 'bought ') + '<em style="color:var(--green);font-style:normal">$1.2K</em></span></span></div>' +
@@ -1491,7 +1580,7 @@
       '<div class="bn-fl bn-tk" style="right:12px;top:70px;width:150px;transform:rotate(3deg)"><div class="bn-top"><span class="bn-ava">PX</span><span class="bn-id"><b>PEPEX</b><span>PepeX</span></span></div><div class="bn-score" style="color:var(--red);margin-top:8px"><b>34</b><i>/100</i></div><div class="bn-bar"><i style="width:34%;background:var(--red)"></i></div><div style="font-size:11px;color:var(--l2);margin-top:6px">' + (ru ? '2 кошелька в монете' : '2 wallets in this coin') + '</div></div></div>';
     return [
       { ill: welcome, title: ru ? 'Проверь монету\nза 30 секунд' : 'Check any coin\nin 30 seconds', text: ru ? 'Вставь адрес — Reactive покажет скор, риски по-русски и сколько потеряешь на входе.' : 'Paste an address — Reactive shows the score, the risks in plain words and what you lose on entry.', cta: ru ? 'Поехали' : "Let's go", act: 'check' },
-      { ill: premium, title: 'Reactive Premium', text: '', perks: ru ? ['Без лимита проверок', 'Большой список монет', 'Алерты по твоим монетам'] : ['Unlimited checks', 'Big watchlist', 'Alerts on your coins'], cta: ru ? 'Подключить' : 'Subscribe', act: 'prem' },
+      { ill: premium, title: 'Reactive Premium', text: '', perks: ru ? ['Без лимита проверок', 'Давление, холдеры, вход и выход', 'Сигналы твоих кошельков'] : ['Unlimited checks', 'Pressure, holders, entry and exit', 'Signals from your wallets'], cta: ru ? 'Подключить' : 'Subscribe', act: 'prem' },
       { ill: wallets, title: 'Smart Wallets', text: ru ? 'Добавь кошельки — Reactive покажет, что они делают с твоими монетами.' : 'Add wallets — Reactive shows what they do with your coins.', cta: ru ? 'Добавить кошелёк' : 'Add wallet', act: 'wallets' }
     ];
   }
@@ -1500,10 +1589,11 @@
     write(BANNER_KEY, true);
     write(K.ob, true);
     const el = document.getElementById('banners');
-    if (el) el.remove();
-    if (act === 'prem') { showPaywall(); return; }
-    if (act === 'wallets') { S.tab = 'alerts'; render(); return; }
-    if (act === 'check') { S.tab = 'scan'; S.resultOpen = false; render(); }
+    dismiss(el, function () {
+      if (act === 'prem') { showPaywall(); return; }
+      if (act === 'wallets') { S.tab = 'alerts'; render(); return; }
+      if (act === 'check') { S.tab = 'scan'; S.resultOpen = false; render(); }
+    });
   }
 
   function openBanners() {
@@ -1516,20 +1606,27 @@
       '<div class="bn-sheet"><div class="bn-grab"></div><div class="bn-track" id="bnTrack">' +
       slides.map(function (s, i) {
         const perks = (s.perks || []).map(function (p) { return '<div class="bn-perk">' + esc(p) + '</div>'; }).join('');
-        return '<section class="bn-slide"><div class="bn-illwrap">' + s.ill + '</div><h2>' + esc(s.title).replace(/\n/g, '<br>') + '</h2>' +
+        return '<section class="bn-slide"><div class="bn-body"><div class="bn-illwrap">' + s.ill + '</div><div class="bn-copy"><h2>' + esc(s.title).replace(/\n/g, '<br>') + '</h2>' +
           (s.text ? '<p>' + esc(s.text) + '</p>' : '') +
           (perks ? '<div class="bn-perks">' + perks + '</div>' : '') +
-          '<button type="button" class="bn-go" data-act="' + s.act + '">' + esc(s.cta) + '</button></section>';
+          '</div></div><div class="bn-foot"><button type="button" class="bn-go" data-act="' + s.act + '">' + esc(s.cta) + '</button></div></section>';
       }).join('') +
       '</div><div class="bn-dots" id="bnDots">' + slides.map(function (_, i) { return '<i' + (i === 0 ? ' class="on"' : '') + '></i>'; }).join('') + '</div></div>';
     document.body.appendChild(wrap);
     const track = wrap.querySelector('#bnTrack');
     const dots = wrap.querySelectorAll('#bnDots i');
-    track.addEventListener('scroll', function () {
+    const parallax = function () {
       const w = track.clientWidth || 1;
       const i = Math.max(0, Math.min(slides.length - 1, Math.round(track.scrollLeft / w)));
       dots.forEach(function (d, k) { d.classList.toggle('on', k === i); });
-    }, { passive: true });
+      if (!motionOk()) return;
+      track.querySelectorAll('.bn-illwrap').forEach(function (ill, k) {
+        const dx = k - track.scrollLeft / w;
+        ill.style.transform = 'translate3d(' + (dx * 36).toFixed(1) + 'px,0,0)';
+      });
+    };
+    track.addEventListener('scroll', parallax, { passive: true });
+    parallax();
     wrap.querySelector('#bnX').onclick = function () { finishBanners(''); };
     wrap.querySelectorAll('.bn-go').forEach(function (b) {
       b.onclick = function () { haptic(); finishBanners(b.dataset.act); };
@@ -1558,7 +1655,7 @@
         '<div class="sa-line"><span class="ava" style="color:var(--red)">Hq</span><span><b>Hq9w…3TzB</b><i>' + (ru ? 'продал $860' : 'sold $860') + '</i></span></div>' +
         '<div class="sa-line"><span class="ava a-bad">PX</span><span><b>PEPEX</b><i>' + (ru ? '2 кошелька в монете' : '2 wallets in this coin') + '</i></span><em style="color:var(--red)">34</em></div></div>',
       prem: '<div class="sa-stack"><div class="sa-line sa-blur"><span class="ava">H1</span><span><b>9AhK…sbkw</b><i>12.4%</i></span></div><div class="sa-line sa-blur"><span class="ava">H2</span><span><b>3kLm…91Qa</b><i>8.1%</i></span></div><div class="sa-lock">' + LOCK_SVG + ' Premium</div></div>',
-      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png?v=20261118ios4" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
+      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png?v=20261118ios5" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
     };
     return [
       { art: art.check, t: ru ? 'Проверка за 30 секунд' : 'A check in 30 seconds', p: ru ? 'Вставь адрес — Reactive покажет скор, риски простыми словами и сколько потеряешь на входе.' : 'Paste an address — Reactive shows the score, the risks in plain words, and what you lose on entry.' },
@@ -1593,12 +1690,17 @@
     let idx = 0;
     const finish = function () {
       if (onboard) { write(STORY_KEY, true); write(K.ob, true); }
-      wrap.remove();
+      dismiss(wrap);
     };
     const sync = function () {
       const w = track.clientWidth || 1;
       idx = Math.max(0, Math.min(slides.length - 1, Math.round(track.scrollLeft / w)));
       dots.forEach(function (d, i) { d.classList.toggle('on', i === idx); });
+      if (motionOk()) {
+        track.querySelectorAll('.story-art').forEach(function (art, k) {
+          art.style.transform = 'translate3d(' + ((k - track.scrollLeft / w) * 28).toFixed(1) + 'px,0,0)';
+        });
+      }
       next.textContent = idx === slides.length - 1 ? (ru ? 'Готово' : 'Done') : (ru ? 'Далее' : 'Next');
     };
     track.addEventListener('scroll', sync, { passive: true });
@@ -1666,27 +1768,30 @@
     const col = v.cls === 'good' ? '#30D158' : v.cls === 'mid' ? '#FFD60A' : '#FF453A';
     const ch = Number(tk.ch24) || 0;
     const chCol = ch >= 0 ? '#30D158' : '#FF453A';
+    const font = '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif';
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, W, H);
-    canvasRound(ctx, 48, 48, W - 96, H - 96, 36);
+    canvasRound(ctx, 36, 36, W - 72, H - 72, 44);
     ctx.fillStyle = '#1C1C1E';
     ctx.fill();
-    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png?v=20261118ios4', location.href).href);
-    if (logo) ctx.drawImage(logo, 96, 88, 56, 56);
+
+    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png?v=20261118ios5', location.href).href);
+    if (logo) {
+      canvasRound(ctx, 72, 72, 64, 64, 16);
+      ctx.save();
+      ctx.clip();
+      ctx.drawImage(logo, 72, 72, 64, 64);
+      ctx.restore();
+    }
     ctx.fillStyle = '#fff';
-    ctx.font = '700 32px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText('Reactive', logo ? 168 : 96, 112);
+    ctx.font = '700 34px ' + font;
+    ctx.fillText('Reactive', 156, 102);
     ctx.fillStyle = 'rgba(235,235,245,.6)';
-    ctx.font = '500 22px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText('@reactive_app', logo ? 168 : 96, 142);
-    ctx.textAlign = 'right';
-    ctx.font = '500 24px -apple-system, BlinkMacSystemFont, sans-serif';
-    const stamp = new Date().toLocaleString(ru ? 'ru-RU' : 'en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-    ctx.fillText(stamp, W - 96, 130);
-    ctx.textAlign = 'left';
+    ctx.font = '500 24px ' + font;
+    ctx.fillText('@reactive_app', 156, 136);
 
     const img = await loadShareImage(tk.image);
-    const ax = 96, ay = 168, as = 96;
+    const ax = 72, ay = 196, as = 132;
     ctx.save();
     ctx.beginPath();
     ctx.arc(ax + as / 2, ay + as / 2, as / 2, 0, Math.PI * 2);
@@ -1697,166 +1802,131 @@
       ctx.fillStyle = '#2C2C2E';
       ctx.fillRect(ax, ay, as, as);
       ctx.fillStyle = '#fff';
-      ctx.font = '700 36px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.font = '700 48px ' + font;
       ctx.textAlign = 'center';
-      ctx.fillText(String(tk.symbol || '?').slice(0, 2).toUpperCase(), ax + as / 2, ay + 60);
+      ctx.fillText(String(tk.symbol || '?').slice(0, 2).toUpperCase(), ax + as / 2, ay + 80);
       ctx.textAlign = 'left';
     }
     ctx.restore();
 
+    const sym = String(tk.symbol || 'TOKEN');
+    let symSize = 84;
+    ctx.font = '700 ' + symSize + 'px ' + font;
+    while (symSize > 40 && ctx.measureText(sym).width > 740) {
+      symSize -= 4;
+      ctx.font = '700 ' + symSize + 'px ' + font;
+    }
     ctx.fillStyle = '#fff';
-    ctx.font = '700 52px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText(String(tk.symbol || ''), 216, 214);
+    ctx.fillText(sym, 228, 258);
     ctx.fillStyle = 'rgba(235,235,245,.6)';
-    ctx.font = '500 28px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText(String(tk.name || '').slice(0, 28), 216, 256);
-
-    ctx.fillStyle = '#fff';
-    ctx.font = '700 56px -apple-system, BlinkMacSystemFont, sans-serif';
-    const priceTxt = price(tk.price);
-    ctx.fillText(priceTxt, 96, 360);
-    const pw = ctx.measureText(priceTxt).width;
-    ctx.fillStyle = chCol;
-    ctx.font = '600 32px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText(tk.ch24 ? pct(tk.ch24) : '', 112 + pw, 360);
-    const spark = [0, Number(tk.ch1) || 0, Number(tk.ch6) || 0, ch];
-    const sMax = Math.max(1, Math.abs(Math.min.apply(null, spark)), Math.abs(Math.max.apply(null, spark)));
-    ctx.beginPath();
-    spark.forEach(function (v, i) {
-      const x = W - 250 + i * 46;
-      const y = 348 - (v / sMax) * 28;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    });
-    ctx.strokeStyle = chCol;
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.stroke();
+    ctx.font = '500 30px ' + font;
+    const name = String(tk.name || '').slice(0, 26);
+    ctx.fillText(name, 228, 310);
 
     ctx.fillStyle = col;
-    ctx.font = '700 92px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.font = '700 168px ' + font;
     const scoreTxt = String(S.result.score);
-    ctx.fillText(scoreTxt, 96, 480);
+    ctx.fillText(scoreTxt, 72, 560);
     const sw = ctx.measureText(scoreTxt).width;
-    ctx.font = '600 28px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillStyle = 'rgba(235,235,245,.55)';
-    ctx.fillText('/100', 108 + sw, 480);
+    ctx.font = '600 36px ' + font;
+    ctx.fillStyle = 'rgba(235,235,245,.45)';
+    ctx.fillText('/100', 88 + sw, 560);
     ctx.fillStyle = col;
-    ctx.font = '600 32px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText(v.txt || '', 96, 530);
+    ctx.font = '700 44px ' + font;
+    ctx.fillText(v.txt || '', 88 + sw, 500);
 
-    canvasRound(ctx, 96, 556, W - 192, 8, 4);
-    ctx.fillStyle = 'rgba(118,118,128,.24)';
+    canvasRound(ctx, 72, 592, W - 144, 12, 6);
+    ctx.fillStyle = 'rgba(118,118,128,.28)';
     ctx.fill();
-    canvasRound(ctx, 96, 556, Math.max(8, (W - 192) * (S.result.score / 100)), 8, 4);
+    canvasRound(ctx, 72, 592, Math.max(12, (W - 144) * (S.result.score / 100)), 12, 6);
     ctx.fillStyle = col;
     ctx.fill();
-    const blocks = (S.result.blocks || []).slice(0, 8);
-    blocks.forEach(function (b, i) {
-      const x = 96 + i * 112;
-      const h = Math.max(8, Math.round((b.s || 0) * 56));
-      const bc = b.s >= 0.7 ? '#30D158' : b.s >= 0.4 ? '#FFD60A' : '#FF453A';
-      canvasRound(ctx, x, 590, 28, 64, 6);
-      ctx.fillStyle = 'rgba(118,118,128,.24)';
-      ctx.fill();
-      canvasRound(ctx, x, 590 + 64 - h, 28, h, 6);
-      ctx.fillStyle = bc;
-      ctx.fill();
-    });
 
     const ageTxt = (function () {
       if (!tk.created) return '—';
-      const h = (Date.now() - tk.created) / 36e5;
-      return h < 1 ? Math.round(h * 60) + 'm' : h < 48 ? Math.round(h) + 'h' : Math.round(h / 24) + 'd';
+      const hrs = (Date.now() - tk.created) / 36e5;
+      return hrs < 1 ? Math.round(hrs * 60) + 'm' : hrs < 48 ? Math.round(hrs) + 'h' : Math.round(hrs / 24) + 'd';
     })();
-    const top10 = (tk.top || []).slice(0, 10).reduce(function (s, h) { return s + (h.pct || 0); }, 0);
-    let tax = '—';
-    if (tk.gp) {
-      const b = String(tk.gp.buyTax || '0');
-      const s = String(tk.gp.sellTax || '0');
-      tax = (b === s ? b : b + '/' + s) + '%';
-    }
-    const dev = (tk.creatorBalance && tk.creatorBalance.pct) ? tk.creatorBalance.pct.toFixed(1) + '%' : '—';
-    const lp = (tk.lpLocked === null || tk.lpLocked === undefined) ? '—' : Math.round(tk.lpLocked) + '%';
-    const metrics = [
+    const stats = [
       ['MC', usd(tk.mc)],
-      [ru ? 'Ликв.' : 'Liq', usd(tk.liq)],
-      [ru ? 'Объём' : 'Vol', usd(tk.vol)],
-      [ru ? 'Возраст' : 'Age', ageTxt],
-      [ru ? 'Топ-10' : 'Top-10', top10 ? Math.round(top10) + '%' : '—'],
-      [ru ? 'Дев' : 'Dev', dev],
-      ['LP', lp],
-      [ru ? 'Налог' : 'Tax', tax]
+      [ru ? 'Ликвидность' : 'Liquidity', usd(tk.liq)],
+      [ru ? 'Холдеры' : 'Holders', tk.holders ? num(tk.holders) : '—'],
+      [ru ? 'Возраст' : 'Age', ageTxt]
     ];
-    metrics.forEach(function (m, i) {
-      const colN = i % 4;
-      const row = Math.floor(i / 4);
-      const x = 96 + colN * 228;
-      const y = 700 + row * 88;
+    stats.forEach(function (m, i) {
+      const x = 72 + i * 246;
       ctx.fillStyle = 'rgba(235,235,245,.55)';
-      ctx.font = '600 22px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText(m[0], x, y);
+      ctx.font = '600 22px ' + font;
+      ctx.fillText(m[0], x, 668);
       ctx.fillStyle = '#fff';
-      ctx.font = '600 32px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText(String(m[1]), x, y + 40);
+      ctx.font = '700 40px ' + font;
+      ctx.fillText(String(m[1]), x, 720);
     });
 
-    ctx.fillStyle = '#fff';
-    ctx.font = '700 32px -apple-system, BlinkMacSystemFont, sans-serif';
-    canvasRound(ctx, 96, 860, W - 192, 10, 5);
-    ctx.fillStyle = 'rgba(118,118,128,.24)';
-    ctx.fill();
-    canvasRound(ctx, 96, 860, Math.max(8, (W - 192) * Math.min(1, top10 / 100)), 10, 5);
-    ctx.fillStyle = top10 > 50 ? '#FF453A' : '#FFD60A';
-    ctx.fill();
-    ctx.fillStyle = 'rgba(235,235,245,.6)';
-    ctx.font = '500 20px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText((ru ? 'Топ-10 ' : 'Top-10 ') + (top10 ? Math.round(top10) + '%' : '—'), 96, 848);
-    const slip = tk.liq > 0 ? function (a) { return (a / tk.liq) * 100; } : function () { return 0; };
-    [100, 500, 1000].forEach(function (amt, i) {
-      const x = 96 + i * 296;
-      canvasRound(ctx, x, 888, 270, 78, 16);
-      ctx.fillStyle = '#000';
-      ctx.fill();
-      const p = slip(amt);
-      const loss = amt * p / 100;
-      const lc = p < 1 ? '#30D158' : p < 3 ? '#FF9F0A' : '#FF453A';
-      ctx.fillStyle = 'rgba(235,235,245,.55)';
-      ctx.font = '500 18px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText('$' + amt, x + 16, 918);
-      ctx.fillStyle = lc;
-      ctx.font = '700 26px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText('−$' + (loss >= 10 ? loss.toFixed(0) : loss.toFixed(2)), x + 16, 948);
-    });
-    ctx.fillStyle = '#fff';
-    ctx.font = '700 28px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText(ru ? 'Что важно' : 'What matters', 96, 1016);
-    const lines = buildInsights(tk).slice(0, 3);
-    ctx.font = '500 24px -apple-system, BlinkMacSystemFont, sans-serif';
-    lines.forEach(function (x, i) {
-      const tone = x.tone === 'good' ? '#30D158' : x.tone === 'warn' ? '#FF9F0A' : '#FF453A';
-      ctx.fillStyle = tone;
-      ctx.beginPath();
-      ctx.arc(112, 1052 + i * 40, 7, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#fff';
+    const chips = buildInsights(tk).filter(function (x) { return x.tone === 'bad' || x.tone === 'warn'; }).slice(0, 3);
+    let y = 768;
+    chips.forEach(function (x) {
+      const tone = x.tone === 'warn' ? '#FF9F0A' : '#FF453A';
       const parts = insightParts(x.text);
-      const wrapped = wrapCanvas(ctx, parts.title, W - 260);
-      ctx.fillText(wrapped[0] || '', 136, 1060 + i * 40);
+      const full = parts.sub && parts.title.length < 18 ? (parts.title + ': ' + parts.sub) : (parts.title || parts.sub || '');
+      let label = full;
+      ctx.font = '600 28px ' + font;
+      while (label.length > 8 && ctx.measureText(label).width > 820) label = label.slice(0, -2);
+      if (label !== full) label = label.replace(/\s+\S*$/, '').replace(/…$/, '') + '…';
+      const w = Math.min(W - 144, ctx.measureText(label).width + 84);
+      canvasRound(ctx, 72, y, w, 64, 32);
+      ctx.fillStyle = '#2C2C2E';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(104, y + 32, 8, 0, Math.PI * 2);
+      ctx.fillStyle = tone;
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.fillText(label, 128, y + 42);
+      y += 76;
     });
 
-    const mint = String(tk.mint || '');
-    const short = mint ? mint.slice(0, 4) + '…' + mint.slice(-4) : '';
-    ctx.fillStyle = 'rgba(235,235,245,.6)';
-    ctx.font = '500 26px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText(short, 96, 1160);
+    y = Math.min(Math.max(y + 12, 1004), 1024);
+    const spark = [0, Number(tk.ch1) || 0, Number(tk.ch6) || 0, ch];
+    const sMax = Math.max(1, Math.abs(Math.min.apply(null, spark)), Math.abs(Math.max.apply(null, spark)));
+    canvasRound(ctx, 72, y, W - 144, 120, 20);
+    ctx.fillStyle = '#000';
+    ctx.fill();
+    ctx.beginPath();
+    spark.forEach(function (val, i) {
+      const x = 108 + i * ((W - 216) / 3);
+      const py = y + 60 - (val / sMax) * 40;
+      if (i === 0) ctx.moveTo(x, py); else ctx.lineTo(x, py);
+    });
+    ctx.strokeStyle = chCol;
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    ctx.font = '600 20px ' + font;
+    ctx.fillStyle = 'rgba(235,235,245,.55)';
+    ['0', '1h', '6h', '24h'].forEach(function (lab, i) {
+      const x = 108 + i * ((W - 216) / 3);
+      ctx.fillText(lab, x - 10, y + 108);
+    });
+
+    const foot = 1148;
+    if (logo) {
+      canvasRound(ctx, 72, foot, 48, 48, 12);
+      ctx.save();
+      ctx.clip();
+      ctx.drawImage(logo, 72, foot, 48, 48);
+      ctx.restore();
+    }
     ctx.fillStyle = '#fff';
-    ctx.font = '600 28px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText('Reactive · @reactive_app', 96, 1220);
-    ctx.fillStyle = 'rgba(235,235,245,.45)';
-    ctx.font = '400 22px -apple-system, BlinkMacSystemFont, sans-serif';
-    const disc = ru ? 'Не финансовый совет. Оценка — эвристика, не гарантия.' : 'Not financial advice. The score is a heuristic, not a guarantee.';
-    ctx.fillText(disc, 96, 1264);
+    ctx.font = '700 26px ' + font;
+    ctx.fillText('Reactive', 136, foot + 20);
+    ctx.fillStyle = 'rgba(235,235,245,.6)';
+    ctx.font = '500 22px ' + font;
+    ctx.fillText('@reactive_app', 136, foot + 46);
+    ctx.fillStyle = '#fff';
+    ctx.font = '600 30px ' + font;
+    ctx.fillText(ru ? 'Проверь любую монету за 30 сек' : 'Check any coin in 30 seconds', 72, foot + 108);
 
     return await new Promise(function (resolve) { c.toBlob(function (b) { resolve(b); }, 'image/png'); });
   }
@@ -2285,26 +2355,28 @@
     const ru = S.lang === 'ru';
     const isPrem = S.plan === 'premium' && (!S.planUntil || S.planUntil > Date.now());
     const perks = ru ? [
-      'Все сети: Solana, Ethereum, BSC, Base, Arbitrum, TON',
-      'Без лимита проверок',
-      'Топ держателей и похожие тикеры',
-      'Полная таблица метрик и все инсайты',
-      'Сторож: алерты, когда монета ломается',
-      'История создателя: сколько монет запускал'
+      'Без лимита — бесплатно 20 проверок в день',
+      'Вторая половина строк «Что важно»',
+      'Давление покупок и продаж: 1ч, 6ч, 24ч',
+      'Как распределены холдеры',
+      'Потеря на круге и ориентиры стоп / цель',
+      'Совпадения с твоими кошельками',
+      'Полный список топ-держателей'
     ] : [
-      'All chains: Solana, Ethereum, BSC, Base, Arbitrum, TON',
-      'Unlimited checks',
-      'Top holders and similar tickers',
-      'Full metrics table and every insight',
-      'Watcher: alerts when a token breaks',
-      'Creator history: how many tokens launched'
+      'No limit — 20 free checks a day',
+      'The other half of “What matters”',
+      'Buy and sell pressure: 1h, 6h, 24h',
+      'How holders are split',
+      'Round-trip loss and stop / target guides',
+      'Matches with wallets you track',
+      'The full top-holder list'
     ];
     const wrap = document.createElement('div');
     wrap.className = 'modal';
     wrap.innerHTML = '<div class="modal-card paywall">' +
       '<div class="pw-head"><button type="button" class="pw-x" id="px" aria-label="Close">' + SVG_X + '</button></div>' +
       '<h2 class="pw-title">' + (ru ? 'Проверяй быстрее и глубже' : 'Check faster and deeper') + '</h2>' +
-      '<p class="pw-sub">' + (ru ? 'Больше источников, все сети, без лимитов и с алертами.' : 'More sources, all chains, no limits, with alerts.') + '</p>' +
+      '<p class="pw-sub">' + (ru ? 'Без лимита и разбор сделки по данным, которые уже есть в проверке.' : 'No limit, plus a trade read from data the check already has.') + '</p>' +
       '<div class="pw-perks">' + perks.map(function (p) { return '<div class="pw-perk"><i>✓</i><span>' + esc(p) + '</span></div>'; }).join('') + '</div>' +
       '<div class="pw-plans">' + PLANS.map(function (p, i) {
         const disc = planDiscount(p);
@@ -2319,7 +2391,7 @@
       '<p class="pw-note">' + (ru ? 'Оплата через Telegram Stars. Подписка продлевается вручную — без автосписаний.' : 'Telegram Stars. Manual renewal, no auto-charge.') + '</p>' +
       '</div>';
     document.body.appendChild(wrap);
-    const close = function () { wrap.remove(); };
+    const close = function () { dismiss(wrap); };
     wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
     wrap.querySelector('#px').onclick = close;
     let chosen = 30;
@@ -2441,7 +2513,7 @@
       return;
     }
     const animKey = S.tab + (S.resultOpen ? ':r:' + (S.result && S.result.token ? S.result.token.mint : '') : '');
-    const animateIn = S.ui.anim !== false && S._animKey !== animKey;
+    const animateIn = motionOk() && S._animKey !== animKey;
     S._animKey = animKey;
     app.classList.toggle('enter', animateIn);
     if (animateIn) app.scrollTop = 0; else app.scrollTop = kept;
@@ -2816,7 +2888,7 @@
       S.tab = 'scan'; S.lastMint = it.dataset.mint; S.result = null; S.resultOpen = false; render(); setTimeout(runCheck, 80);
     });
     if ($('#plan')) $('#plan').onclick = showPaywall;
-    document.querySelectorAll('#lockIns, #lockHold').forEach(function (b) { b.onclick = showPaywall; });
+    document.querySelectorAll('.prem-lock').forEach(function (b) { b.onclick = showPaywall; });
     if ($('#share')) $('#share').onclick = function () { haptic(); shareResult(); };
     if ($('#notify')) $('#notify').onclick = function () { S.notify = !S.notify; write('tc.notify', S.notify); render(); };
     if ($('#auto')) $('#auto').onclick = function () { S.autoUpd = S.autoUpd === false; write('tc.auto', S.autoUpd); render(); };
@@ -2941,8 +3013,8 @@
     };
     if (/^0x[0-9a-fA-F]{40}$/.test(mint)) {
       fail(S.lang === 'ru'
-        ? 'Это адрес EVM-сети (ETH/BSC/Base). Сейчас Reactive проверяет только Solana — другие сети будут в Premium.'
-        : 'This is an EVM address. Reactive checks Solana for now; other chains come with Premium.');
+        ? 'Это адрес EVM-сети. Reactive проверяет только Solana.'
+        : 'This is an EVM address. Reactive checks Solana only.');
       return;
     }
     if (!isAddr(mint)) { fail(t('errAddr')); return; }
@@ -2981,6 +3053,7 @@
       fail(S.lang === 'ru'
         ? 'Лимит бесплатных проверок исчерпан. Сброс через ' + L.resetMin + ' мин. Premium снимает лимит.'
         : 'Free checks limit reached. Resets in ' + L.resetMin + ' min. Premium removes the limit.');
+      showPaywall();
       return;
     }
     S.suppressResult = false;
