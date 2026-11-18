@@ -1364,7 +1364,7 @@
         (val != null ? '<span class="val' + (id === 'plan' && prem ? ' prem' : '') + '">' + val + '</span>' : '') + CHEV + '</button>';
     };
     return '<div class="page">' +
-      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png" alt="">' + esc(t('profileTab')) + '</h1>' +
+      '<h1 class="lt' + (S.ui.big === false ? ' compact' : '') + '"><img class="brand" src="assets/reactive-icon-512.png?v=20261118ios4" alt="">' + esc(t('profileTab')) + '</h1>' +
       '<div class="card phead"><span class="pfp">' + pfp + '</span><span><b>' + esc(name) + '</b><span>' + esc(handle) + '</span></span></div>' +
       '<div class="stats"><div class="stat"><b>' + (S.stats.scans || 0) + '</b><span>' + esc(t('scanned')) + '</span></div>' +
       '<div class="stat"><b>' + S.saved.length + '</b><span>' + esc(t('savedN')) + '</span></div></div>' +
@@ -1465,7 +1465,7 @@
   function bannerSlides() {
     const ru = S.lang === 'ru';
     const welcome = '<div class="bn-ill" style="background:#1E2622">' +
-      '<img class="bn-logo" src="assets/reactive-icon-512.png" alt="">' +
+      '<img class="bn-logo" src="assets/reactive-icon-512.png?v=20261118ios4" alt="">' +
       '<div class="bn-fl bn-tk" style="left:18px;top:16px;width:188px;transform:rotate(-5deg)">' +
       '<div class="bn-top"><span class="bn-ava">MO</span><span class="bn-id"><b>MOODENG</b><span>Moo Deng</span></span><span class="bn-score" style="color:var(--green)"><b>81</b><i>/100</i></span></div>' +
       '<div class="bn-pl"><b>$0.2134</b><span style="color:var(--green)">+4.8%</span></div><div class="bn-bar"><i style="width:81%;background:var(--green)"></i></div>' +
@@ -1482,7 +1482,7 @@
       '<div class="bn-rw"><span class="bn-ava">GR</span><span class="bn-id"><b>GRASS</b><span>$312.7K</span></span><svg width="40" height="16"><polyline points="1,8 14,7 26,9 39,8" fill="none" stroke="#30D158" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">57</b></div>' +
       '<div class="bn-rw"><span class="bn-ava">WI</span><span class="bn-id"><b>WIFX</b><span>$198.5K</span></span><svg width="40" height="16"><polyline points="1,4 14,7 26,11 39,14" fill="none" stroke="#FF453A" stroke-width="1.6" stroke-linecap="round"/></svg><b style="color:var(--yellow)">52</b></div></div>' +
       '<div class="bn-fl bn-limit" style="right:12px;top:18px;transform:rotate(4deg)"><div style="color:var(--blue);font-size:22px;line-height:1">∞</div><b>' + (ru ? 'Без лимита' : 'Unlimited') + '</b><span>' + (ru ? 'проверок в час' : 'checks per hour') + '</span></div>' +
-      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
+      '<div class="bn-fl bn-note" style="left:48px;bottom:18px"><img src="assets/reactive-icon-512.png?v=20261118ios4" alt=""><div><b>Reactive</b><span>' + (ru ? 'WIFX: дев продал 4.2%, скор теперь ' : 'WIFX: dev sold 4.2%, score now ') + '<em style="color:var(--yellow);font-style:normal">52</em></span></div></div></div>';
     const wallets = '<div class="bn-ill" style="background:#1D222B">' +
       '<div class="bn-fl" style="left:12px;top:28px;width:176px;padding:4px 0;transform:rotate(-3deg)">' +
       '<div class="bn-rw"><span class="bn-ava" style="color:var(--green)">7x</span><span class="bn-id"><b>7xKX…9fPq</b><span>' + (ru ? 'купил ' : 'bought ') + '<em style="color:var(--green);font-style:normal">$1.2K</em></span></span></div>' +
@@ -1558,7 +1558,7 @@
         '<div class="sa-line"><span class="ava" style="color:var(--red)">Hq</span><span><b>Hq9w…3TzB</b><i>' + (ru ? 'продал $860' : 'sold $860') + '</i></span></div>' +
         '<div class="sa-line"><span class="ava a-bad">PX</span><span><b>PEPEX</b><i>' + (ru ? '2 кошелька в монете' : '2 wallets in this coin') + '</i></span><em style="color:var(--red)">34</em></div></div>',
       prem: '<div class="sa-stack"><div class="sa-line sa-blur"><span class="ava">H1</span><span><b>9AhK…sbkw</b><i>12.4%</i></span></div><div class="sa-line sa-blur"><span class="ava">H2</span><span><b>3kLm…91Qa</b><i>8.1%</i></span></div><div class="sa-lock">' + LOCK_SVG + ' Premium</div></div>',
-      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
+      honest: '<div class="sa-honest"><img src="assets/reactive-icon-512.png?v=20261118ios4" alt=""><b>0–100</b><span>' + (ru ? 'эвристика, не гарантия' : 'a heuristic, not a guarantee') + '</span></div>'
     };
     return [
       { art: art.check, t: ru ? 'Проверка за 30 секунд' : 'A check in 30 seconds', p: ru ? 'Вставь адрес — Reactive покажет скор, риски простыми словами и сколько потеряешь на входе.' : 'Paste an address — Reactive shows the score, the risks in plain words, and what you lose on entry.' },
@@ -1671,7 +1671,7 @@
     canvasRound(ctx, 48, 48, W - 96, H - 96, 36);
     ctx.fillStyle = '#1C1C1E';
     ctx.fill();
-    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png', location.href).href);
+    const logo = await loadShareImage(new URL('assets/reactive-icon-512.png?v=20261118ios4', location.href).href);
     if (logo) ctx.drawImage(logo, 96, 88, 56, 56);
     ctx.fillStyle = '#fff';
     ctx.font = '700 32px -apple-system, BlinkMacSystemFont, sans-serif';
