@@ -25,6 +25,9 @@
     hideMoney: read('tc.hide', false),
     quota: read('tc.quota', { hour: [], day: [] }),
     plan: read('tc.plan', 'free'),
+    wallets: read('tc.wallets', []),
+    creators: read('tc.creators', {}),
+    walletAlerts: read('tc.walletAlerts', []),
     ui: read('tc.ui', { trend: true, recent: true, quota: true, anim: true, big: true }),
     planUntil: read('tc.planUntil', 0),
     result: null,
@@ -277,6 +280,52 @@
     } catch (e) { return marketCache.items || []; }
   }
 
+  function computeAlerts() {
+    const out = [];
+    (S.saved || []).forEach(function (s) {
+      if (typeof s.prevScore === 'number' && s.prevScore - s.score >= 10) out.push({ mint: s.mint, symbol: s.symbol, kind: 'score', text: (S.lang === 'ru' ? 'скор упал на ' + (s.prevScore - s.score) : 'score −' + (s.prevScore - s.score)), at: s.at || Date.now() });
+      if (typeof s.prevLiq === 'number' && s.prevLiq > 0 && (s.liq - s.prevLiq) / s.prevLiq <= -0.3) out.push({ mint: s.mint, symbol: s.symbol, kind: 'liq', text: (S.lang === 'ru' ? 'ликвидность −' + Math.abs(Math.round((s.liq - s.prevLiq) / s.prevLiq * 100)) + '%' : 'liquidity −' + Math.abs(Math.round((s.liq - s.prevLiq) / s.prevLiq * 100)) + '%'), at: s.at || Date.now() });
+      if (Number(s.ch24) <= -40) out.push({ mint: s.mint, symbol: s.symbol, kind: 'price', text: (S.lang === 'ru' ? 'цена ' + Math.round(Number(s.ch24)) + '% за 24ч' : 'price ' + Math.round(Number(s.ch24)) + '% 24h'), at: s.at || Date.now() });
+      if ((s.score || 0) < 40) out.push({ mint: s.mint, symbol: s.symbol, kind: 'risky', text: (S.lang === 'ru' ? 'скор ниже 40' : 'score below 40'), at: s.at || Date.now() });
+    });
+    (S.walletAlerts || []).forEach(function (w) { out.push(w); });
+    return out.sort(function (x, y) { return (y.at || 0) - (x.at || 0); });
+  }
+
+  function viewAlerts() {
+    const ru = S.lang === 'ru';
+    const list = computeAlerts();
+    const walletN = (S.wallets || []).length;
+    let out = top('') + '<div class="page">' +
+      '<div class="mk-head"><button class="mk-back" id="alBack">' + (ru ? '‹ Назад' : '‹ Back') + '</button></div>' +
+      '<h1 class="big-t">' + esc(ru ? 'Сторож' : 'Watcher') + '</h1>' +
+      '<p class="big-s">' + esc(ru ? 'События по сохранённым монетам и кошелькам' : 'Events for saved tokens and wallets') + '</p>';
+    out += '<div class="trade" style="margin-bottom:14px">' +
+      '<div class="trade-row flat"><span>' + esc(ru ? 'Кошельков в наблюдении' : 'Wallets watched') + '</span><b>' + walletN + '</b></div>' +
+      '<div class="trade-row flat"><span>' + esc(ru ? 'Событий' : 'Events') + '</span><b>' + list.length + '</b></div>' +
+      '</div>';
+    out += '<button class="refresh-all" id="walletAdd">' + esc(ru ? '+ Добавить кошелёк' : '+ Add wallet') + '</button>';
+    if (walletN) {
+      out += '<div class="list" style="margin-bottom:14px">' + S.wallets.map(function (w) {
+        return '<div class="item"><span class="ava">' + esc(w.slice(0, 2)) + '</span><span class="meta"><b>' + esc(w.slice(0, 6) + '…' + w.slice(-4)) + '</b><span>' + (ru ? 'наблюдаем' : 'watching') + '</span></span>' +
+          '<button class="tag tg-trash" data-delw="' + esc(w) + '">×</button></div>';
+      }).join('') + '</div>';
+    }
+    out += '<h2 class="sec-t">' + esc(ru ? 'События' : 'Events') + '</h2>';
+    if (!list.length) {
+      out += '<div class="trade"><p class="small" style="color:#8e8e93;margin:0">' + esc(ru ? 'Пока тихо. Rakko проверит сохранённые монеты при следующем открытии.' : 'All quiet. Rakko will re-check saved tokens on next open.') + '</p></div>';
+    } else {
+      out += '<div class="alerts">' + list.map(function (x) {
+        const c = x.kind === 'wallet' ? '#6169ee' : x.kind === 'risky' ? 'var(--red)' : 'var(--yellow)';
+        return '<button class="alert-row" data-mint="' + esc(x.mint || '') + '"><span class="al-dot" style="background:' + c + '"></span>' +
+          '<span class="al-txt"><b>' + esc(x.symbol || '') + '</b><i>' + esc(x.text) + '</i></span>' +
+          '<span class="al-time">' + (x.at ? ago(x.at) : '') + '</span></button>';
+      }).join('') + '</div>';
+    }
+    out += '</div>';
+    return out;
+  }
+
   function viewMarket() {
     const ru = S.lang === 'ru';
     return top('') + '<div class="page">' +
@@ -485,6 +534,7 @@
 
   function top() { return ''; }
 
+  const FREE_SAVED_LIMIT = 7;
   const FREE_PER_HOUR = 10;
   const FREE_PER_DAY = 30;
   const PREMIUM_DAY_CAP = 1000;      // internal only, never shown
@@ -601,6 +651,10 @@
     }
     if (tk.vol && tk.liq && tk.vol / tk.liq > 5) add('warn', ru ? 'Оборот в ' + (tk.vol / tk.liq).toFixed(1) + '× ликвидности — возможна накрутка объёма.' : 'Volume is ' + (tk.vol / tk.liq).toFixed(1) + '× liquidity — possible volume farming.');
     if (tk.ch24 && tk.ch24 < -60) add('bad', ru ? 'Монета потеряла ' + Math.abs(Math.round(tk.ch24)) + '% за сутки — идёт слив.' : 'Down ' + Math.abs(Math.round(tk.ch24)) + '% in 24h.');
+    if (tk.creator && S.creators[tk.creator] && S.creators[tk.creator].n > 1) {
+      const cn = S.creators[tk.creator].n;
+      add(cn >= 4 ? 'bad' : 'warn', ru ? 'Этого создателя мы уже видели: ' + cn + ' монет в базе Rakko.' : 'This creator appeared before: ' + cn + ' tokens in our base.');
+    }
     if (S.black.devs[tk.creator]) add('bad', ru ? 'Создатель в твоём чёрном списке — ты уже блокировал его.' : 'Creator is in your blacklist — you blocked them before.');
     if (S.black.tokens[tk.mint]) add('bad', ru ? 'Эта монета в твоём чёрном списке.' : 'This token is in your blacklist.');
     return out;
@@ -1114,7 +1168,9 @@
       return h;
     };
 
-    let head = '<div class="saved-stats">' +
+    const alertCount = computeAlerts().length;
+    let head = '<div class="alerts-link"><button id="openAlerts">' + (ru ? 'Сторож' : 'Watcher') + (alertCount ? ' · ' + alertCount : '') + '</button></div>' +
+      '<div class="saved-stats">' +
       '<div class="ss"><b>' + S.saved.length + '</b><span>' + (ru ? 'монет' : 'tokens') + '</span></div>' +
       '<div class="ss"><b>' + avg + '</b><span>' + (ru ? 'средний' : 'avg') + '</span></div>' +
       '<div class="ss"><b style="color:var(--green)">' + clean + '</b><span>' + (ru ? 'чистых' : 'clean') + '</span></div>' +
@@ -1460,6 +1516,87 @@
     haptic();
   }
 
+  function addWallet() {
+    const ru = S.lang === 'ru';
+    const wrap = document.createElement('div');
+    wrap.className = 'modal';
+    wrap.innerHTML = '<div class="modal-card sheet-help" style="max-height:60vh">' +
+      '<div class="modal-head"><b>' + (ru ? 'Добавить кошелёк' : 'Add wallet') + '</b><button class="modal-x" id="mx">✕</button></div>' +
+      '<div class="help-list"><p class="small" style="color:#8e8e93">' + (ru ? 'Вставь адрес кошелька Solana. Rakko будет проверять его сделки при открытии.' : 'Paste a Solana wallet address.') + '</p>' +
+      '<div class="panel-in" style="margin-top:10px"><input id="waddr" placeholder="' + (ru ? 'Адрес кошелька' : 'Wallet address') + '"></div>' +
+      '<button class="panel-go" id="wsave" style="margin-top:12px">' + (ru ? 'Добавить' : 'Add') + '</button>' +
+      '<p class="tiny" id="werr" style="color:#ff453a"></p></div></div>';
+    document.body.appendChild(wrap);
+    const close = function () { wrap.remove(); };
+    wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
+    wrap.querySelector('#mx').onclick = close;
+    wrap.querySelector('#wsave').onclick = function () {
+      const v = (wrap.querySelector('#waddr').value || '').trim();
+      if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(v)) { wrap.querySelector('#werr').textContent = ru ? 'Не похоже на адрес Solana' : 'Not a Solana address'; return; }
+      if (S.wallets.indexOf(v) === -1) S.wallets.push(v);
+      S.wallets = S.wallets.slice(0, 5);
+      write('tc.wallets', S.wallets);
+      close(); render();
+      refreshWallets();
+    };
+    haptic();
+  }
+
+  async function rpcCall(method, params) {
+    const r = await fetch('https://api.mainnet-beta.solana.com', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: method, params: params })
+    });
+    const j = await r.json();
+    return j && j.result;
+  }
+
+  async function refreshWallets() {
+    if (!S.wallets || !S.wallets.length) return;
+    const savedMints = {};
+    (S.saved || []).forEach(function (s) { savedMints[s.mint] = s.symbol; });
+    const out = [];
+    for (const w of S.wallets.slice(0, 3)) {
+      try {
+        const sigs = await rpcCall('getSignaturesForAddress', [w, { limit: 6 }]);
+        if (!Array.isArray(sigs)) continue;
+        for (const sg of sigs.slice(0, 4)) {
+          if (!sg || !sg.signature) continue;
+          const tx = await rpcCall('getTransaction', [sg.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
+          if (!tx || !tx.meta) continue;
+          const pre = tx.meta.preTokenBalances || [];
+          const post = tx.meta.postTokenBalances || [];
+          const byMint = {};
+          post.forEach(function (p) {
+            if (p.owner !== w) return;
+            const before = pre.find(function (x) { return x.mint === p.mint && x.owner === w; });
+            const delta = (Number(p.uiTokenAmount && p.uiTokenAmount.uiAmount) || 0) - (before ? Number(before.uiTokenAmount && before.uiTokenAmount.uiAmount) || 0 : 0);
+            if (Math.abs(delta) > 0.0001) byMint[p.mint] = delta;
+          });
+          Object.keys(byMint).forEach(function (mint) {
+            if (!savedMints[mint]) return;
+            const d = byMint[mint];
+            out.push({
+              kind: 'wallet',
+              mint: mint,
+              symbol: savedMints[mint],
+              text: (S.lang === 'ru' ? (d > 0 ? 'кошелёк купил' : 'кошелёк продал') : (d > 0 ? 'wallet bought' : 'wallet sold')) + ' ' + (Math.abs(d) > 1 ? Math.round(Math.abs(d)) : Math.abs(d).toFixed(2)),
+              at: (sg.blockTime || Date.now() / 1000) * 1000,
+              wallet: w
+            });
+          });
+          if (out.length > 8) break;
+        }
+      } catch (e) {}
+    }
+    if (out.length) {
+      S.walletAlerts = out.slice(0, 12);
+      write('tc.walletAlerts', S.walletAlerts);
+      render();
+    }
+  }
+
   function showPaywall() {
     const ru = S.lang === 'ru';
     const isPrem = S.plan === 'premium' && (!S.planUntil || S.planUntil > Date.now());
@@ -1605,7 +1742,7 @@
     if (!read(K.ob, false)) return viewOnboard();
     document.getElementById('dock').style.display = '';
     try {
-      app.innerHTML = S.tab === 'saved' ? viewSaved() : S.tab === 'profile' ? viewProfile() : S.tab === 'market' ? viewMarket() : viewAll();
+      app.innerHTML = S.tab === 'saved' ? viewSaved() : S.tab === 'profile' ? viewProfile() : S.tab === 'market' ? viewMarket() : S.tab === 'alerts' ? viewAlerts() : viewAll();
     } catch (err) {
       showFatal(err);
       return;
@@ -1706,7 +1843,16 @@
 
   function bind() { try { bindInner(); } catch (e) { console.warn(e); } }
   function bindInner() {
+    if (document.getElementById('alBack')) document.getElementById('alBack').onclick = function () { S.tab = 'saved'; render(); };
+    if (document.getElementById('walletAdd')) document.getElementById('walletAdd').onclick = addWallet;
+    document.querySelectorAll('[data-delw]').forEach(function (b) {
+      b.onclick = function () { S.wallets = S.wallets.filter(function (w) { return w !== b.dataset.delw; }); write('tc.wallets', S.wallets); render(); };
+    });
+    document.querySelectorAll('.alert-row[data-mint]').forEach(function (b) {
+      b.onclick = function () { if (!b.dataset.mint) return; S.lastMint = b.dataset.mint; S.tab = 'scan'; render(); setTimeout(runCheck, 80); };
+    });
     if (document.getElementById('trendAll')) document.getElementById('trendAll').onclick = function () { S.tab = 'market'; render(); };
+    if (document.getElementById('openAlerts')) document.getElementById('openAlerts').onclick = function () { S.tab = 'alerts'; render(); };
     if (document.getElementById('mkBack')) document.getElementById('mkBack').onclick = function () { S.tab = 'scan'; render(); };
     const mk = document.getElementById('mkList');
     if (mk) {
@@ -1821,6 +1967,10 @@
       if (exists) {
         S.saved = S.saved.filter(function (x) { return x.mint !== mint; });
         write(K.saved, S.saved); haptic(); render();
+        return;
+      }
+      if (S.plan !== 'premium' && S.saved.length >= FREE_SAVED_LIMIT) {
+        if (typeof showPaywall === 'function') showPaywall(); else toast(S.lang === 'ru' ? 'Лимит списка в Free — ' + FREE_SAVED_LIMIT + ' монет' : 'Free list limit is ' + FREE_SAVED_LIMIT);
         return;
       }
       const item = { mint: r.token.mint, symbol: r.token.symbol, image: r.token.image, liq: r.token.liq, price: r.token.price, ch24: r.token.ch24, score: r.score, at: Date.now() };
@@ -2039,6 +2189,18 @@
       S.updatedAt = Date.now();
       if (S.result.blocks.length < 3) S.error = t('fewData');
       S.stats.scans = (S.stats.scans || 0) + 1; write(K.stats, S.stats);
+      try {
+        const cr = S.result.token.creator;
+        if (cr) {
+          S.creators[cr] = S.creators[cr] || { n: 0, mints: [], last: 0 };
+          if (S.creators[cr].mints.indexOf(S.result.token.mint) === -1) {
+            S.creators[cr].mints.push(S.result.token.mint);
+            S.creators[cr].n = S.creators[cr].mints.length;
+          }
+          S.creators[cr].last = Date.now();
+          write('tc.creators', S.creators);
+        }
+      } catch (e) {}
       quotaConsume();
       S.stats.lastCheckAt = Date.now();
       abuse.cache[mint] = { at: Date.now(), result: S.result };
@@ -2129,6 +2291,7 @@
       render();
       setTimeout(function () {
         refreshLive().finally(function () {
+          if (S.wallets && S.wallets.length) refreshWallets();
           S.recentLoading = false;
           try { render(); } catch (e) {}
         });
