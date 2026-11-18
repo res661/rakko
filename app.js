@@ -26,6 +26,7 @@
     quota: read('tc.quota', { hour: [], day: [] }),
     plan: read('tc.plan', 'free'),
     wallets: read('tc.wallets', []),
+    alertPrefs: read('tc.alertPrefs', { score: true, liq: true, price: true, risky: true, wallet: true }),
     creators: read('tc.creators', {}),
     walletAlerts: read('tc.walletAlerts', []),
     ui: read('tc.ui', { trend: true, recent: true, quota: true, anim: true, big: true }),
@@ -282,13 +283,14 @@
 
   function computeAlerts() {
     const out = [];
+    const P = S.alertPrefs || {};
     (S.saved || []).forEach(function (s) {
-      if (typeof s.prevScore === 'number' && s.prevScore - s.score >= 10) out.push({ mint: s.mint, symbol: s.symbol, kind: 'score', text: (S.lang === 'ru' ? 'скор упал на ' + (s.prevScore - s.score) : 'score −' + (s.prevScore - s.score)), at: s.at || Date.now() });
-      if (typeof s.prevLiq === 'number' && s.prevLiq > 0 && (s.liq - s.prevLiq) / s.prevLiq <= -0.3) out.push({ mint: s.mint, symbol: s.symbol, kind: 'liq', text: (S.lang === 'ru' ? 'ликвидность −' + Math.abs(Math.round((s.liq - s.prevLiq) / s.prevLiq * 100)) + '%' : 'liquidity −' + Math.abs(Math.round((s.liq - s.prevLiq) / s.prevLiq * 100)) + '%'), at: s.at || Date.now() });
-      if (Number(s.ch24) <= -40) out.push({ mint: s.mint, symbol: s.symbol, kind: 'price', text: (S.lang === 'ru' ? 'цена ' + Math.round(Number(s.ch24)) + '% за 24ч' : 'price ' + Math.round(Number(s.ch24)) + '% 24h'), at: s.at || Date.now() });
-      if ((s.score || 0) < 40) out.push({ mint: s.mint, symbol: s.symbol, kind: 'risky', text: (S.lang === 'ru' ? 'скор ниже 40' : 'score below 40'), at: s.at || Date.now() });
+      if (P.score !== false && typeof s.prevScore === 'number' && s.prevScore - s.score >= 10) out.push({ mint: s.mint, symbol: s.symbol, kind: 'score', text: (S.lang === 'ru' ? 'скор упал на ' + (s.prevScore - s.score) : 'score −' + (s.prevScore - s.score)), at: s.at || Date.now() });
+      if (P.liq !== false && typeof s.prevLiq === 'number' && s.prevLiq > 0 && (s.liq - s.prevLiq) / s.prevLiq <= -0.3) out.push({ mint: s.mint, symbol: s.symbol, kind: 'liq', text: (S.lang === 'ru' ? 'ликвидность −' + Math.abs(Math.round((s.liq - s.prevLiq) / s.prevLiq * 100)) + '%' : 'liquidity −' + Math.abs(Math.round((s.liq - s.prevLiq) / s.prevLiq * 100)) + '%'), at: s.at || Date.now() });
+      if (P.price !== false && Number(s.ch24) <= -40) out.push({ mint: s.mint, symbol: s.symbol, kind: 'price', text: (S.lang === 'ru' ? 'цена ' + Math.round(Number(s.ch24)) + '% за 24ч' : 'price ' + Math.round(Number(s.ch24)) + '% 24h'), at: s.at || Date.now() });
+      if (P.risky !== false && (s.score || 0) < 40) out.push({ mint: s.mint, symbol: s.symbol, kind: 'risky', text: (S.lang === 'ru' ? 'скор ниже 40' : 'score below 40'), at: s.at || Date.now() });
     });
-    (S.walletAlerts || []).forEach(function (w) { out.push(w); });
+    if (P.wallet !== false) (S.walletAlerts || []).forEach(function (w) { out.push(w); });
     return out.sort(function (x, y) { return (y.at || 0) - (x.at || 0); });
   }
 
@@ -297,7 +299,8 @@
     const list = computeAlerts();
     const walletN = (S.wallets || []).length;
     let out = top('') + '<div class="page">' +
-      '<div class="mk-head"><button class="mk-back" id="alBack">' + (ru ? '‹ Назад' : '‹ Back') + '</button></div>' +
+      '<div class="mk-head"><button class="mk-back" id="alBack">' + (ru ? '‹ Назад' : '‹ Back') + '</button>' +
+      '<button class="trend-all" id="alSet">' + (ru ? 'настроить' : 'settings') + '</button></div>' +
       '<h1 class="big-t">' + esc(ru ? 'Сторож' : 'Watcher') + '</h1>' +
       '<p class="big-s">' + esc(ru ? 'События по сохранённым монетам и кошелькам' : 'Events for saved tokens and wallets') + '</p>';
     out += '<div class="trade" style="margin-bottom:14px">' +
@@ -903,7 +906,20 @@
           ['$500', slip(500), slipColor(slip(500))],
           ['$1 000', slip(1000), slipColor(slip(1000))]
         ];
-        out += '<p class="eyebrow" style="margin-top:20px">' + esc(S.lang === 'ru' ? 'ДЛЯ СДЕЛКИ' : 'TRADE CHECK') + '</p>';
+        (function () {
+        const p = S.result.score;
+        const band = S.saved.filter(function (s) { return typeof s.entryScore === 'number' && Math.abs(s.entryScore - p) <= 10; });
+        if (band.length < 3) return;
+        const dead = band.filter(function (s) { return (s.liq || 0) < (s.entryLiq || 1) * 0.4; }).length;
+        const pctDead = Math.round(dead / band.length * 100);
+        out += '<div class="personal">' +
+          '<b>' + esc(S.lang === 'ru' ? 'Твоя история' : 'Your history') + '</b>' +
+          '<span>' + esc(S.lang === 'ru'
+            ? 'Похожие по скору (' + Math.max(0, p - 10) + '–' + Math.min(100, p + 10) + '): ' + dead + ' из ' + band.length + ' потеряли ликвидность (' + pctDead + '%)'
+            : 'Similar score: ' + dead + ' of ' + band.length + ' lost liquidity (' + pctDead + '%)') + '</span>' +
+          '</div>';
+      })() +
+      '<p class="eyebrow" style="margin-top:20px">' + esc(S.lang === 'ru' ? 'ДЛЯ СДЕЛКИ' : 'TRADE CHECK') + '</p>';
         out += '<div class="trade">' +
           '<div class="trade-h">' + esc(S.lang === 'ru' ? 'Проскальзывание при входе' : 'Slippage on entry') + '</div>' +
           rowsT.map(function (r) {
@@ -1516,6 +1532,39 @@
     haptic();
   }
 
+  function showAlertSettings() {
+    const ru = S.lang === 'ru';
+    const rows = [
+      ['score', ru ? 'Скор упал' : 'Score dropped', ru ? 'падение на 10+ пунктов' : 'down 10+ points'],
+      ['liq', ru ? 'Ликвидность упала' : 'Liquidity dropped', ru ? 'минус 30% и больше' : '−30% or more'],
+      ['price', ru ? 'Цена упала' : 'Price dropped', ru ? 'минус 40% за 24ч' : '−40% in 24h'],
+      ['risky', ru ? 'Опасный скор' : 'Risky score', ru ? 'ниже 40' : 'below 40'],
+      ['wallet', ru ? 'Сделки кошельков' : 'Wallet trades', ru ? 'покупка/продажа по твоему списку' : 'buys/sells in your list']
+    ];
+    const wrap = document.createElement('div');
+    wrap.className = 'modal';
+    wrap.innerHTML = '<div class="modal-card sheet-help" style="max-height:80vh">' +
+      '<div class="modal-head"><b>' + (ru ? 'Какие уведомления нужны' : 'Which alerts you need') + '</b><button class="modal-x" id="mx">✕</button></div>' +
+      '<div class="help-list">' + rows.map(function (r) {
+        const on = (S.alertPrefs || {})[r[0]] !== false;
+        return '<button class="ui-row" data-k="' + r[0] + '"><span class="ui-txt"><b>' + esc(r[1]) + '</b><i>' + esc(r[2]) + '</i></span>' +
+          '<span class="ui-sw' + (on ? ' on' : '') + '"><i></i></span></button>';
+      }).join('') + '</div></div>';
+    document.body.appendChild(wrap);
+    const close = function () { wrap.remove(); };
+    wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
+    wrap.querySelector('#mx').onclick = close;
+    wrap.querySelectorAll('.ui-row').forEach(function (b) {
+      b.onclick = function () {
+        const k = b.dataset.k;
+        S.alertPrefs[k] = S.alertPrefs[k] === false;
+        write('tc.alertPrefs', S.alertPrefs);
+        b.querySelector('.ui-sw').classList.toggle('on', S.alertPrefs[k] !== false);
+        haptic();
+      };
+    });
+  }
+
   function addWallet() {
     const ru = S.lang === 'ru';
     const wrap = document.createElement('div');
@@ -1844,6 +1893,7 @@
   function bind() { try { bindInner(); } catch (e) { console.warn(e); } }
   function bindInner() {
     if (document.getElementById('alBack')) document.getElementById('alBack').onclick = function () { S.tab = 'saved'; render(); };
+    if (document.getElementById('alSet')) document.getElementById('alSet').onclick = showAlertSettings;
     if (document.getElementById('walletAdd')) document.getElementById('walletAdd').onclick = addWallet;
     document.querySelectorAll('[data-delw]').forEach(function (b) {
       b.onclick = function () { S.wallets = S.wallets.filter(function (w) { return w !== b.dataset.delw; }); write('tc.wallets', S.wallets); render(); };
@@ -1973,7 +2023,7 @@
         if (typeof showPaywall === 'function') showPaywall(); else toast(S.lang === 'ru' ? 'Лимит списка в Free — ' + FREE_SAVED_LIMIT + ' монет' : 'Free list limit is ' + FREE_SAVED_LIMIT);
         return;
       }
-      const item = { mint: r.token.mint, symbol: r.token.symbol, image: r.token.image, liq: r.token.liq, price: r.token.price, ch24: r.token.ch24, score: r.score, at: Date.now() };
+      const item = { mint: r.token.mint, symbol: r.token.symbol, image: r.token.image, liq: r.token.liq, price: r.token.price, ch24: r.token.ch24, score: r.score, at: Date.now(), entryLiq: r.token.liq, entryPrice: r.token.price, entryScore: r.score, hist: [{ t: Date.now(), s: r.score }] };
       S.saved = [item].concat(S.saved.filter((x) => x.mint !== item.mint)).slice(0, 60);
       write(K.saved, S.saved); haptic('ok');
       const btn2 = document.getElementById('save');
